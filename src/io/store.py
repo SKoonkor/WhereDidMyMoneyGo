@@ -336,6 +336,34 @@ def delete_transaction(txn_id: str) -> None:
         conn.close()
 
 
+def bulk_insert(rows: list[tuple]) -> Path | None:
+    """Insert pre-built _INSERT tuples in one transaction (used by the import
+    wizard). Returns the pre-import backup path so the import can be undone;
+    None when the ledger didn't exist yet (nothing to restore to)."""
+    backup = _backup()
+    conn = _connect()
+    try:
+        with conn:
+            conn.executemany(_INSERT, rows)
+    finally:
+        conn.close()
+    return backup
+
+
+def restore_backup(backup_path: Path | str) -> None:
+    """Replace the live ledger with a backup copy (import undo). The current
+    state is backed up first, so an undo is itself undoable."""
+    backup_path = Path(backup_path)
+    if not backup_path.exists():
+        raise FileNotFoundError(f"backup not found: {backup_path}")
+    _backup()
+    live = db_path()
+    with sqlite3.connect(backup_path) as src, sqlite3.connect(live) as dst:
+        src.backup(dst)
+    src.close()
+    dst.close()
+
+
 def apply_reconciliation(adjustments: dict[str, float], period=None) -> int:
     """Append one balance-adjustment row per account whose actual balance
     differs from the tracked balance. `adjustments` maps account -> signed
