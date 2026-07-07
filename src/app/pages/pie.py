@@ -1,0 +1,144 @@
+"""Feature 2 — Income / Expense Pie page (slide 5)."""
+
+import dash
+import pandas as pd
+from dash import dcc, html, callback, Input, Output
+
+from src.app import theme
+from src.app.components import page_header, money_span
+from src.app.data import get_df, default_range, reference_date, CURRENCY
+from src.app.figures.pie import build_pie_figure
+from src.analytics import budget as B
+
+dash.register_page(__name__, path="/pie", name="Income / Expense", order=2)
+
+PRESETS = {"30": 30, "120": 120, "365": 365}
+_START, _END = default_range(120)
+
+
+def _subcat_children(title: str, groups: list) -> list:
+    """Nested parent→sub rows for one side (Income/Expense)."""
+    out = [html.H4(title, style={"marginTop": 0, "marginBottom": "8px",
+                                 "color": theme.INK})]
+    if not groups:
+        out.append(html.Div("No data", style={"color": theme.MUTED}))
+        return out
+    for cat, tot, subs in groups:
+        out.append(html.Div(
+            [html.Span(cat, className="subcat-name"),
+             money_span(f"{tot:,.0f} {CURRENCY}", className="subcat-amt")],
+            className="subcat-group",
+        ))
+        if len(subs) == 1 and subs[0][0] == "—":  # no real sub-categories
+            continue
+        for sub, amt in subs:
+            pct = (amt / tot * 100) if tot else 0
+            out.append(html.Div(
+                [html.Span(sub, className="subcat-name"),
+                 html.Span([money_span(f"{amt:,.0f}"), f" ({pct:.0f}%)"],
+                           className="subcat-amt")],
+                className="subcat-row",
+            ))
+    return out
+
+
+def layout(**_):
+    return html.Div(
+        [
+            page_header("Income & Expense Composition",
+                        "Where your money comes from and where it goes."),
+            dcc.RadioItems(
+                id="pie-preset",
+                options=[
+                    {"label": "  Past 30 days", "value": "30"},
+                    {"label": "  Past 120 days", "value": "120"},
+                    {"label": "  Past year", "value": "365"},
+                    {"label": "  Selected period", "value": "custom"},
+                ],
+                value="30",
+                inline=True,
+                inputStyle={"marginRight": "4px"},
+                labelStyle={"marginRight": "18px", "cursor": "pointer"},
+                style={"marginBottom": "12px"},
+            ),
+            dcc.DatePickerRange(
+                id="pie-dates",
+                start_date=_START,
+                end_date=_END,
+                display_format="DD/MM/YYYY",
+                style={"marginBottom": "16px"},
+            ),
+            html.Div(
+                [
+                    html.Span("Expense order:", style={"color": theme.MUTED,
+                                                       "marginRight": "8px"}),
+                    dcc.RadioItems(
+                        id="pie-expense-order",
+                        options=[{"label": "  By amount", "value": "amount"},
+                                 {"label": "  By Needs/Wants", "value": "bucket"}],
+                        value="amount",
+                        inline=True,
+                        inputStyle={"marginRight": "4px"},
+                        labelStyle={"marginRight": "18px", "cursor": "pointer"},
+                    ),
+                ],
+                style={"display": "flex", "alignItems": "center",
+                       "marginBottom": "12px"},
+            ),
+            dcc.Graph(id="pie-graph", style={"height": "520px"}),
+            html.Details(
+                [
+                    html.Summary("Sub-categories", className="subcat-summary"),
+                    html.Div(
+                        [
+                            html.Div(id="pie-subcats-income",
+                                     style={"flex": "1", "minWidth": "260px"}),
+                            html.Div(id="pie-subcats-expense",
+                                     style={"flex": "1", "minWidth": "260px"}),
+                        ],
+                        style={"display": "flex", "gap": "24px",
+                               "flexWrap": "wrap", "marginTop": "12px"},
+                    ),
+                ],
+                style={"marginTop": "16px"},
+            ),
+        ],
+        style=theme.PAGE_STYLE,
+    )
+
+
+@callback(
+    Output("pie-graph", "figure"),
+    Output("pie-dates", "disabled"),
+    Output("pie-subcats-income", "children"),
+    Output("pie-subcats-expense", "children"),
+    Input("pie-preset", "value"),
+    Input("pie-dates", "start_date"),
+    Input("pie-dates", "end_date"),
+    Input("pie-expense-order", "value"),
+    Input("theme-store", "data"),
+    Input("censor-store", "data"),
+)
+def _update(preset, start, end, expense_order, theme_value, censor):
+    dark = theme.is_dark(theme_value)
+    df = get_df()
+    if preset in PRESETS:
+        ref = reference_date()
+        s = (ref - pd.Timedelta(days=PRESETS[preset])).date().isoformat()
+        e = ref.date().isoformat()
+        disabled = True
+    else:  # custom period
+        s = start or _START
+        e = end or _END
+        disabled = False
+
+    fig = build_pie_figure(df, s, e, CURRENCY, dark=dark, expense_order=expense_order,
+                           censor=theme.is_censored(censor))
+
+    # Sub-category breakdown over the same window (end day inclusive, as the pie).
+    e_excl = pd.Timestamp(e).normalize() + pd.Timedelta(days=1)
+    income_children = _subcat_children(
+        "Income", B.subcategory_breakdown(df, pd.Timestamp(s), e_excl, "Income"))
+    expense_children = _subcat_children(
+        "Expense", B.subcategory_breakdown(df, pd.Timestamp(s), e_excl, "Expense"))
+    return fig, disabled, income_children, expense_children

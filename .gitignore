@@ -1,0 +1,36 @@
+# ── Personal / user data — never publish ───────────────────────────
+config/
+data/raw/
+data/backups/
+data/stocks_cache/
+
+# ── Local-only working files (not part of the project) ─────────────
+_local/
+
+# ── Virtual environments ───────────────────────────────────────────
+.money_venv/
+.venv/
+venv/
+env/
+
+# ── Python ─────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# ── Secrets / env ──────────────────────────────────────────────────
+.env
+.env.*
+*.key
+*.pem
+
+# ── OS / editor cruft ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Note: template/sample files intended for publishing must live OUTSIDE the
+# ignored paths above (e.g. the top-level `config.example/`), or be force-added
+# with `git add -f <file>`.

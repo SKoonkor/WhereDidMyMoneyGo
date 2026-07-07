@@ -1,0 +1,83 @@
+{
+  "income": {
+    "Salary": [],
+    "Bonus": [],
+    "Interest": [],
+    "Gift": [],
+    "Petty cash": [],
+    "Other": []
+  },
+  "expense": {
+    "Bills": [
+      "Rent",
+      "Phone",
+      "Internet",
+      "Electricity",
+      "Water",
+      "Tax"
+    ],
+    "Food": [
+      "Breakfast",
+      "Lunch",
+      "Dinner",
+      "Eating out",
+      "Beverage",
+      "Ingredients"
+    ],
+    "Household": [
+      "Kitchen",
+      "Electronics",
+      "Furniture",
+      "Toiletries",
+      "Tools"
+    ],
+    "Social Life": [
+      "Friends",
+      "Nightout",
+      "Trip"
+    ],
+    "Car": [
+      "Fuel",
+      "Maintenance",
+      "Parking"
+    ],
+    "Travel": [
+      "Flights",
+      "Transportation"
+    ],
+    "Transport": [
+      "Bus",
+      "Subway",
+      "Taxi"
+    ],
+    "Health": [
+      "Supplements",
+      "Gym",
+      "Hospital",
+      "Medicine"
+    ],
+    "Family": [],
+    "Beauty": [
+      "Haircut",
+      "Makeup",
+      "Cosmetics",
+      "Accessories"
+    ],
+    "Apparel": [
+      "Clothing",
+      "Fashion",
+      "Shoes",
+      "Laundry"
+    ],
+    "Education": [
+      "School supplies",
+      "Textbooks",
+      "Books",
+      "Courses",
+      "Conferences"
+    ],
+    "Gift": [],
+    "Subscription": [],
+    "Other": []
+  }
+}

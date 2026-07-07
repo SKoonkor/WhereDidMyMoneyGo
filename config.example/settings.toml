@@ -1,0 +1,16 @@
+[general]
+app_name = "Money Tracker"
+base_currency = "USD"
+data_dir = "data"
+
+[emergency_fund]
+# Your emergency-fund target is modelled as
+#   target_months x monthly_required_expenses.
+# Replace these with your own figures.
+monthly_required_expenses = 1000.0
+target_months = 3
+savings_account = "Savings"
+
+[date_format]
+input = "%Y-%m-%d %H:%M:%S"
+display = "%b %Y"
