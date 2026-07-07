@@ -147,6 +147,19 @@ The **Transactions** page edits the SQLite ledger:
 - **Edit / Delete** — click any row; deleting a transfer removes both linked rows.
 - **Safety** — a timestamped backup of the ledger is written to `data/backups/` before every change.
 
+### Exporting your data
+The **⬇ Export** button on the Transactions page downloads your ledger as **CSV** or
+**Excel** — either the month you're viewing or everything. Columns:
+
+```
+Id, Date, Type, Account, Category, Subcategory, Amount, Currency, Note, Description, TransferId
+```
+
+`Date` is `YYYY-MM-DD HH:MM:SS`; `Type` is `Income`, `Expense`, `Transfer-In/Out`, or a
+reconciliation `Adjustment-In/Out`. For transfers, `Category` holds the counter-account and the
+two halves share a `TransferId`. CSV is UTF-8 (with BOM, so Excel renders non-Latin text
+correctly). The export mirrors the ledger one-to-one, so it doubles as a plain-text backup.
+
 ## Project structure
 
 ```

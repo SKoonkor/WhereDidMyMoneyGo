@@ -11,9 +11,12 @@ import dash
 import pandas as pd
 from dash import dcc, html, callback, ctx, Input, Output, State, no_update
 
+from dash.exceptions import PreventUpdate
+
 from src.app import theme
 from src.app.components import page_header, money_span
 from src.app.data import get_df
+from src.io.exporter import export_frame, export_filename
 
 dash.register_page(__name__, path="/transactions", name="Transactions", order=6)
 
@@ -67,6 +70,24 @@ def layout(month=None, **_):
                         id="txn-month-picker",
                         style={"display": "none"},
                     ),
+                    html.Button("⬇ Export", id="txn-export", n_clicks=0,
+                                className="nav-btn today",
+                                title="Download your transactions"),
+                    html.Div(
+                        [
+                            html.Button("This month · CSV", id="txn-exp-csv-month",
+                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                            html.Button("This month · Excel", id="txn-exp-xlsx-month",
+                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                            html.Button("Everything · CSV", id="txn-exp-csv-all",
+                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                            html.Button("Everything · Excel", id="txn-exp-xlsx-all",
+                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                        ],
+                        id="txn-export-menu",
+                        style={"display": "none"},
+                    ),
+                    dcc.Download(id="txn-export-dl"),
                 ],
                 className="txn-month-nav",
             ),
@@ -119,6 +140,55 @@ def _toggle_picker(_label, _go, style):
     hidden = (style or {}).get("display") == "none"
     return {"display": "flex", "gap": "8px", "alignItems": "center"} if hidden \
         else {"display": "none"}
+
+
+@callback(
+    Output("txn-export-menu", "style"),
+    Input("txn-export", "n_clicks"),
+    Input("txn-exp-csv-month", "n_clicks"),
+    Input("txn-exp-xlsx-month", "n_clicks"),
+    Input("txn-exp-csv-all", "n_clicks"),
+    Input("txn-exp-xlsx-all", "n_clicks"),
+    State("txn-export-menu", "style"),
+    prevent_initial_call=True,
+)
+def _toggle_export_menu(_e, _a, _b, _c, _d, style):
+    # Any download choice closes the menu; the Export button toggles it.
+    if ctx.triggered_id != "txn-export":
+        return {"display": "none"}
+    hidden = (style or {}).get("display") == "none"
+    return {"display": "flex", "gap": "8px", "flexWrap": "wrap",
+            "alignItems": "center"} if hidden else {"display": "none"}
+
+
+@callback(
+    Output("txn-export-dl", "data"),
+    Input("txn-exp-csv-month", "n_clicks"),
+    Input("txn-exp-xlsx-month", "n_clicks"),
+    Input("txn-exp-csv-all", "n_clicks"),
+    Input("txn-exp-xlsx-all", "n_clicks"),
+    State("txn-month", "data"),
+    prevent_initial_call=True,
+)
+def _export(_a, _b, _c, _d, month):
+    trigger = ctx.triggered_id
+    if not ctx.triggered[0]["value"]:
+        raise PreventUpdate
+    df = get_df()
+    if trigger.endswith("-month"):
+        period = pd.Period(month, freq="M")
+        df = df[df["Period"].dt.to_period("M") == period]
+        scope = str(period)
+    else:
+        scope = "all"
+    frame = export_frame(df)
+    if "-csv-" in trigger:
+        # Explicit BOM so Excel opens non-ASCII (e.g. Thai) text correctly;
+        # send_data_frame would route to_csv through a text buffer and drop it.
+        payload = b"\xef\xbb\xbf" + frame.to_csv(index=False).encode("utf-8")
+        return dcc.send_bytes(payload, export_filename(scope, "csv"))
+    return dcc.send_data_frame(frame.to_excel, export_filename(scope, "xlsx"),
+                               sheet_name="Transactions", index=False)
 
 
 def _transfer_display_mask(month_df: pd.DataFrame) -> pd.Series:
