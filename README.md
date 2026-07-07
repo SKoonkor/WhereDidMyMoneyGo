@@ -4,11 +4,12 @@ A single-user, local, file-backed **personal-finance + investing suite** with a 
 It combines day-to-day money tracking (transactions, budgets, goals, reconciliation) with
 market tooling (a historical investment simulator, an intrinsic-value calculator, and a live
 paper-trading desk) — all running on your own machine with **no accounts, no API keys, and no
-cloud**. Your data lives in plain `.xlsx`, `.json`, and `.toml` files under `data/` and `config/`.
+cloud**. Your data lives in local files under `data/` and `config/`: a single-file **SQLite**
+ledger (`data/raw/ledger.db`) plus plain `.json` / `.toml` configuration.
 
 - **Stack:** Python · [Dash](https://dash.plotly.com/) (multi-page) · Plotly · pandas · numpy · statsmodels
 - **Market data:** [yfinance](https://github.com/ranaroussi/yfinance) (≈15-min-delayed quotes, keyless)
-- **Storage:** local files only — no database
+- **Storage:** local files only — a zero-setup SQLite file (Python stdlib), no database server
 - **Runs at:** <http://127.0.0.1:8050>
 
 > **Disclaimer.** This is a personal-finance tool for tracking and learning. Nothing here is
@@ -71,8 +72,13 @@ Then open <http://127.0.0.1:8050>.
 
 On **first run** the app bootstraps itself: it creates the `data/` directories and, if you don't
 have a `config/` yet, seeds one from the shipped [`config.example/`](config.example/) templates.
-It starts with **no transactions** — add your first one from the **Transactions** page, or point
-it at your own `data/raw/transactions.xlsx`.
+It starts with **no transactions** — add your first one from the **Transactions** page.
+
+**Coming from Realbyte Money Manager** (or an older version of this app)? Place your exported
+`transactions.xlsx` at `data/raw/transactions.xlsx` before launching. If no `ledger.db` exists
+yet, the app converts it automatically on start-up and archives the original to
+`data/backups/transactions_legacy_<timestamp>.xlsx`. (To re-import later, remove `ledger.db`
+first — an existing ledger is never overwritten.)
 
 ### Configuration via environment variables
 
@@ -114,7 +120,7 @@ finances never get committed.
 
 | File | Purpose |
 |---|---|
-| `settings.toml` | App name, base currency, data dir, emergency-fund target, date formats |
+| `settings.toml` | App name, **base currency** (stamped on new transactions and used as the display currency), data dir, emergency-fund target, date formats |
 | `accounts.json` | Account names (also managed from the account picker) |
 | `transaction_categories.json` | Income/expense category → subcategory tree |
 | `goals.json` · `budget.json` · `forecast.json` · `reconciliation.json` | Created on demand by the relevant page |
@@ -124,17 +130,22 @@ finances never get committed.
 
 ```
 data/
-├── raw/           ← transactions.xlsx (the single source of truth)
-├── backups/       ← automatic timestamped backups (20 most recent kept)
+├── raw/           ← ledger.db (the single source of truth — SQLite)
+├── backups/       ← automatic timestamped backups (ledger_*.db, 20 most recent kept)
+│                     + any archived legacy transactions_*.xlsx (kept forever)
 ├── stocks_cache/  ← cached market data (regenerable)
 └── processed/     ← reserved
 ```
 
+Every transaction row carries a permanent unique id, its date, type (`Income`, `Expense`,
+`Transfer-In/Out`, or reconciliation `Adjustment-In/Out`), account, category › subcategory,
+amount, and currency. Transfer pairs are linked by a shared id.
+
 ### Recording transactions
-The **Transactions** page edits `data/raw/transactions.xlsx` directly:
+The **Transactions** page edits the SQLite ledger:
 - **Add** — Income, Expense (category › subcategory), or Transfer between two accounts. **Save** returns to the list; **Continue** keeps the form open for batch entry.
 - **Edit / Delete** — click any row; deleting a transfer removes both linked rows.
-- **Safety** — a timestamped backup is written to `data/backups/` before every change.
+- **Safety** — a timestamped backup of the ledger is written to `data/backups/` before every change.
 
 ## Project structure
 
@@ -147,7 +158,7 @@ money_tracker/
 ├── config/             ← your settings (git-ignored)
 ├── requirements.txt
 └── src/
-    ├── io/             ← loader.py (read/clean) & writer.py (record/edit), quotes/fundamentals/stocks
+    ├── io/             ← store.py (SQLite ledger) & migrate.py (legacy xlsx import), quotes/fundamentals/stocks
     ├── processing/     ← balances & date filtering
     ├── analytics/      ← accounts, goals, budget, forecast, reconciliation, valuation, paper engine
     ├── utils/          ← config loading & first-run bootstrap
