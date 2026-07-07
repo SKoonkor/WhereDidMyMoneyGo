@@ -147,6 +147,27 @@ The **Transactions** page edits the SQLite ledger:
 - **Edit / Delete** — click any row; deleting a transfer removes both linked rows.
 - **Safety** — a timestamped backup of the ledger is written to `data/backups/` before every change.
 
+### Importing data
+The **⬆ Import** button (or `/import`) opens a wizard that brings transactions in from
+another app or a bank export (`.csv` / `.xlsx`):
+
+1. **Upload** — encoding and delimiter are sniffed automatically; known layouts
+   (**Money Tracker export**, **Realbyte Money Manager**, **YNAB register**, and any
+   profile you've saved) are detected from the headers.
+2. **Map columns** — tell it which column is the Date, Amount (a signed amount, a
+   Type column, or bank-style Inflow/Outflow pairs), Account, Category, and so on.
+   Day-first dates and European decimals (`1.234,56`) are supported.
+3. **Review** — a preview shows what will be imported, rows skipped (with reasons),
+   unknown accounts (create them or map them onto existing ones — categories are
+   created automatically), and **possible duplicates** (same day, amount, account,
+   and type as an existing entry) which are skipped unless you tick them. Rows from a
+   re-imported Money Tracker export are recognised by their ids and never duplicated.
+4. **Import** — a backup is taken first, and **Undo** restores the ledger to the
+   moment before the import.
+
+Save your column mapping as a **profile** and the wizard will recognise that file
+layout automatically next time. Profiles live in `config/import_profiles/`.
+
 ### Exporting your data
 The **⬇ Export** button on the Transactions page downloads your ledger as **CSV** or
 **Excel** — either the month you're viewing or everything. Columns:
