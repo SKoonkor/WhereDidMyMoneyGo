@@ -9,7 +9,7 @@ directory to `config/` if `config/` does not yet exist (see the first-run bootst
 
 | File | Purpose |
 |---|---|
-| `settings.toml` | App name, base currency, data dir, emergency-fund target, date formats |
+| `settings.toml` | App name, base currency (stamped on new transactions + display currency), data dir, emergency-fund target, date formats |
 | `accounts.json` | Starting list of account names |
 | `transaction_categories.json` | Income/expense category → subcategory tree |
 

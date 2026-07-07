@@ -144,11 +144,11 @@ def spending_by_category(df: pd.DataFrame, start: date, end: date) -> dict:
 
 
 def hidden_cost_in(df: pd.DataFrame, start: date, end: date) -> float:
-    """Net reconciliation 'hidden cost' in [start, end): Σ Expense Balance −
-    Σ Income Balance, clamped to ≥0 (only untracked *spending* counts)."""
+    """Net reconciliation 'hidden cost' in [start, end): Σ Adjustment-Out −
+    Σ Adjustment-In, clamped to ≥0 (only untracked *spending* counts)."""
     sub = df[(df["Period"] >= pd.Timestamp(start)) & (df["Period"] < pd.Timestamp(end))]
-    eb = sub.loc[sub["Income/Expense"] == "Expense Balance", "Amount"].sum()
-    ib = sub.loc[sub["Income/Expense"] == "Income Balance", "Amount"].sum()
+    eb = sub.loc[sub["Income/Expense"] == "Adjustment-Out", "Amount"].sum()
+    ib = sub.loc[sub["Income/Expense"] == "Adjustment-In", "Amount"].sum()
     return max(0.0, float(eb - ib))
 
 

@@ -1,5 +1,7 @@
 [general]
 app_name = "Money Tracker"
+# base_currency is stamped on every new (and migrated) transaction and used
+# as the display currency across all figures.
 base_currency = "USD"
 data_dir = "data"
 

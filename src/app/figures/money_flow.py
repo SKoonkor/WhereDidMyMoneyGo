@@ -20,11 +20,11 @@ from src.app import theme
 from src.processing.balances import compute_account_balances
 
 # Signed contribution of each transaction to the running balance.
-# "Income/Expense Balance" are reconciliation adjustments (the recorded
+# "Adjustment-In/Out" are reconciliation adjustments (the recorded
 # hidden cost) — they move the balance and net worth toward the actual.
-_SIGN = {"Income": 1, "Transfer-In": 1, "Income Balance": 1,
-         "Expense": -1, "Transfer-Out": -1, "Expense Balance": -1}
-_INCOME_LIKE = {"Income", "Transfer-In", "Income Balance"}
+_SIGN = {"Income": 1, "Transfer-In": 1, "Adjustment-In": 1,
+         "Expense": -1, "Transfer-Out": -1, "Adjustment-Out": -1}
+_INCOME_LIKE = {"Income", "Transfer-In", "Adjustment-In"}
 
 _DAY_MS = 86_400_000          # milliseconds in a day (bar width unit on a date axis)
 _DAY_USABLE = 0.9             # fraction of a day occupied by bars (gap between days)
@@ -187,7 +187,7 @@ def build_money_flow_figure(
             for acct in sorted(final_balances.index)
         )
         hidden = float(data.loc[
-            data["Income/Expense"].isin(["Income Balance", "Expense Balance"]),
+            data["Income/Expense"].isin(["Adjustment-In", "Adjustment-Out"]),
             "signed"].sum())
         hidden_txt = "*****" if censor else f"{hidden:+,.0f}"
         hidden_line = (f"<br>Hidden cost (untracked): {hidden_txt} {currency}"

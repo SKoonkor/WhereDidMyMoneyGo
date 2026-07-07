@@ -17,7 +17,7 @@ from src.app.data import account_names, refresh
 from src.analytics.accounts import add_account
 from src.analytics.transaction_categories import (load_categories, add_category,
                                                   add_subcategory)
-from src.io import writer
+from src.io import store
 
 _TYPES = ["Income", "Expense", "Transfer"]
 _PLACEHOLDER = "Select category…"
@@ -53,7 +53,7 @@ def build_form(mode: str, initial: dict | None = None,
     is_edit = mode == "edit"
     mode_data = {"mode": mode}
     if is_edit:
-        mode_data["row_id"] = init["row_id"]
+        mode_data["txn_id"] = init["id"]
 
     form_card = html.Div(
         [
@@ -439,7 +439,7 @@ def _submit(_s, _c, _d, mode, txn_type, txn_date, amount, cat,
         back_to = f"/transactions?month={str(txn_date)[:7]}"
 
     if trigger == "txn-del-confirm":
-        writer.delete_transaction(mode["row_id"])
+        store.delete_transaction(mode["txn_id"])
         refresh()
         return back_to, no_update, no_update, *keep
 
@@ -455,9 +455,9 @@ def _submit(_s, _c, _d, mode, txn_type, txn_date, amount, cat,
         to_account=to_account if txn_type == "Transfer" else None,
     )
     if mode["mode"] == "edit":
-        writer.update_transaction(mode["row_id"], **fields)
+        store.update_transaction(mode["txn_id"], **fields)
     else:
-        writer.add_transaction(**fields)
+        store.add_transaction(**fields)
     refresh()
 
     if trigger == "txn-continue":
