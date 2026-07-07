@@ -26,10 +26,10 @@ def compute_account_balances(df: pd.DataFrame) -> pd.DataFrame:
             return 0.0
         elif t == "Saving":
             return -row["Amount"]
-        elif t == "Income Balance":
+        elif t == "Adjustment-In":
             # Reconciliation adjustment bringing tracked balance up to actual.
             return row["Amount"]
-        elif t == "Expense Balance":
+        elif t == "Adjustment-Out":
             # Reconciliation adjustment bringing tracked balance down to actual.
             return -row["Amount"]
         return 0.0

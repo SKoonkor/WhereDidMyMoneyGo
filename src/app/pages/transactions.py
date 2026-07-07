@@ -122,27 +122,24 @@ def _toggle_picker(_label, _go, style):
 
 
 def _transfer_display_mask(month_df: pd.DataFrame) -> pd.Series:
-    """True for rows to display: hides Transfer-In halves whose pair exists."""
-    show = pd.Series(True, index=month_df.index)
-    outs = month_df[month_df["Income/Expense"] == "Transfer-Out"]
-    ins = month_df[month_df["Income/Expense"] == "Transfer-In"]
-    for idx, row in ins.iterrows():
-        pair = outs[(outs["Period"] == row["Period"])
-                    & (outs["Amount"] == row["Amount"])
-                    & (outs["Account"] == row["Category"])
-                    & (outs["Category"] == row["Account"])]
-        if not pair.empty:
-            show.loc[idx] = False
-    return show
+    """True for rows to display: hides Transfer-In halves whose linked pair
+    (shared TransferId) is present. Unlinked halves stay visible."""
+    is_in = month_df["Income/Expense"] == "Transfer-In"
+    out_links = set(month_df.loc[
+        (month_df["Income/Expense"] == "Transfer-Out")
+        & month_df["TransferId"].notna(), "TransferId"])
+    hidden = is_in & month_df["TransferId"].notna() \
+        & month_df["TransferId"].isin(out_links)
+    return ~hidden
 
 
-_ADJUSTMENT_TYPES = ("Income Balance", "Expense Balance")
+_ADJUSTMENT_TYPES = ("Adjustment-In", "Adjustment-Out")
 
 
 def _amount_class(txn_type: str) -> str:
-    if txn_type in ("Expense", "Expense Balance"):
+    if txn_type in ("Expense", "Adjustment-Out"):
         return "amt-expense"
-    if txn_type in ("Income", "Income Balance"):
+    if txn_type in ("Income", "Adjustment-In"):
         return "amt-income"
     return "amt-transfer"
 
@@ -152,7 +149,7 @@ def _row(row):
     # Balance adjustments are reconciliation artifacts — show them as a neutral,
     # non-clickable info row (managed from the Reconcile page, not the editor).
     if t in _ADJUSTMENT_TYPES:
-        sign = "+" if t == "Income Balance" else "−"
+        sign = "+" if t == "Adjustment-In" else "−"
         return html.Div(
             [
                 html.Div([html.Div("Hidden cost"), html.Div("untracked")],
@@ -185,7 +182,7 @@ def _row(row):
             money_span(f"{row['Amount']:,.2f}",
                        className=f"txn-amount {_amount_class(t)}"),
         ],
-        href=f"/transactions/edit/{int(row['RowId'])}",
+        href=f"/transactions/edit/{row['Id']}",
         className="txn-row",
     )
 

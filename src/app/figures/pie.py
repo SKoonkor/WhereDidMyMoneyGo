@@ -86,8 +86,8 @@ def build_pie_figure(df: pd.DataFrame, start: str, end: str,
 
     # Recorded hidden cost (untracked) within the window, added as a single
     # distinct slice to the matching donut.
-    income_hidden = data.loc[data["Income/Expense"] == "Income Balance", "Amount"].sum()
-    expense_hidden = data.loc[data["Income/Expense"] == "Expense Balance", "Amount"].sum()
+    income_hidden = data.loc[data["Income/Expense"] == "Adjustment-In", "Amount"].sum()
+    expense_hidden = data.loc[data["Income/Expense"] == "Adjustment-Out", "Amount"].sum()
 
     # Two donuts placed side by side with explicit domains so we can drop
     # totals into each hole at a known center.

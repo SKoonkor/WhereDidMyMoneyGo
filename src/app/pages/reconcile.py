@@ -16,7 +16,7 @@ from src.app.components import page_header, card, money_span
 from src.app.data import get_df, account_names, refresh, CURRENCY
 from src.analytics.reconciliation import (tracked_balances, hidden_cost_total,
                                           mark_reconciled, last_reconciled)
-from src.io import writer
+from src.io import store
 
 dash.register_page(__name__, path="/reconcile", name="Reconcile Balances", order=7)
 
@@ -176,7 +176,7 @@ def _apply(n_clicks, actuals):
         for acct, actual in zip(accounts, actuals)
         if actual is not None
     }
-    written = writer.apply_reconciliation(adjustments)
+    written = store.apply_reconciliation(adjustments)
     refresh()
     mark_reconciled(date.today())
 

@@ -1,8 +1,8 @@
 """Account balance reconciliation: state, tracked balances, and hidden cost.
 
 Registering real account balances writes dated balance-adjustment rows (see
-src/io/writer.py:apply_reconciliation) using the "Income Balance" /
-"Expense Balance" convention. The signed sum of those rows is the recorded
+src/io/store.py:apply_reconciliation) using the "Adjustment-In" /
+"Adjustment-Out" convention. The signed sum of those rows is the recorded
 "hidden cost" — the money that moved without being tracked.
 """
 
@@ -16,8 +16,8 @@ import pandas as pd
 from src.processing.balances import compute_account_balances
 
 RECON_PATH = Path("config/reconciliation.json")
-INCOME_BALANCE = "Income Balance"
-EXPENSE_BALANCE = "Expense Balance"
+INCOME_BALANCE = "Adjustment-In"
+EXPENSE_BALANCE = "Adjustment-Out"
 _STALE_DAYS = 31
 
 
@@ -81,7 +81,7 @@ def tracked_balances(df: pd.DataFrame, accounts: list[str] | None = None) -> dic
 
 
 def hidden_cost_by_account(df: pd.DataFrame) -> dict:
-    """Signed hidden cost per account (Income Balance +, Expense Balance −)."""
+    """Signed hidden cost per account (Adjustment-In +, Adjustment-Out −)."""
     adj = df[df["Income/Expense"].isin([INCOME_BALANCE, EXPENSE_BALANCE])].copy()
     if adj.empty:
         return {}

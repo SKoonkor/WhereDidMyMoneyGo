@@ -21,8 +21,8 @@ import pandas as pd
 MODEL_PATH = Path("config/forecast.json")
 
 # Signed contribution of each transaction type to net worth (mirrors money_flow).
-_SIGN = {"Income": 1, "Transfer-In": 1, "Income Balance": 1,
-         "Expense": -1, "Transfer-Out": -1, "Expense Balance": -1}
+_SIGN = {"Income": 1, "Transfer-In": 1, "Adjustment-In": 1,
+         "Expense": -1, "Transfer-Out": -1, "Adjustment-Out": -1}
 
 _WEEKLY, _MONTHLY, _ANNUAL = 7.0, 30.44, 365.25
 

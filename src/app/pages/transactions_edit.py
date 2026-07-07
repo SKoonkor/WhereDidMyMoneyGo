@@ -5,17 +5,14 @@ from dash import dcc, html
 
 from src.app import theme
 from src.app.txn_form import build_form
-from src.io import writer
+from src.io import store
 
-dash.register_page(__name__, path_template="/transactions/edit/<row_id>",
+dash.register_page(__name__, path_template="/transactions/edit/<txn_id>",
                    name="Edit Transaction")
 
 
-def layout(row_id=None, **_):
-    try:
-        txn = writer.get_transaction(int(row_id))
-    except (TypeError, ValueError):
-        txn = None
+def layout(txn_id=None, **_):
+    txn = store.get_transaction(txn_id) if txn_id else None
     if txn is None:
         return html.Div(
             [

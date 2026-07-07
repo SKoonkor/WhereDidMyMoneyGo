@@ -1,17 +1,15 @@
 """Data-access layer for the Dash app.
 
-Loads transactions once (cached at module level), relabels the currency to THB,
-and provides relative-window helpers anchored to the latest transaction date.
+Loads transactions once (cached at module level) from the SQLite ledger and
+provides relative-window helpers anchored to the latest transaction date.
 """
 
 from functools import lru_cache
 import pandas as pd
 
-from src.io.loader import load_transactions
+from src.io.store import load_transactions
 from src.processing.summaries import filter_by_date
 from src.utils.config import load_config
-
-CURRENCY = "THB"
 
 
 @lru_cache(maxsize=1)
@@ -19,15 +17,15 @@ def get_config() -> dict:
     return load_config("config")
 
 
+# Display currency, from settings.toml (rows carry their own Currency column).
+CURRENCY = (load_config("config").get("settings", {})
+            .get("general", {}).get("base_currency", "THB"))
+
+
 @lru_cache(maxsize=1)
 def get_df() -> pd.DataFrame:
-    """Load and cache the cleaned transactions DataFrame (currency = THB)."""
-    cfg = get_config()
-    data_dir = cfg.get("settings", {}).get("general", {}).get("data_dir", "data")
-    df = load_transactions(f"{data_dir}/raw/transactions.xlsx")
-    df = df.copy()
-    df["Currency"] = CURRENCY
-    return df
+    """Load and cache the cleaned transactions DataFrame."""
+    return load_transactions()
 
 
 def refresh() -> None:
