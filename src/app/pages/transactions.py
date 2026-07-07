@@ -73,6 +73,9 @@ def layout(month=None, **_):
                     html.Button("⬇ Export", id="txn-export", n_clicks=0,
                                 className="nav-btn today",
                                 title="Download your transactions"),
+                    dcc.Link("⬆ Import", href="/import", className="nav-btn today",
+                             title="Import transactions from another app",
+                             style={"textDecoration": "none"}),
                     html.Div(
                         [
                             html.Button("This month · CSV", id="txn-exp-csv-month",
