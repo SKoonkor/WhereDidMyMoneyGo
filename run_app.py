@@ -2,7 +2,7 @@
 
 Run from the project root:
 
-    python run_app.py
+    python3 run_app.py
 
 Then open http://127.0.0.1:8050 in your browser.
 
