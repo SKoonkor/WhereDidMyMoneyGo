@@ -13,12 +13,12 @@ from src.app import theme
 from src.app.components import (card, theme_toggle, censor_toggle, reminder_banner,
                                 menu_widget, home_link, money_span)
 from src.app.data import (get_df, default_range, emergency_fund_config, get_config,
-                          CURRENCY)
+                          privacy_config, CURRENCY)
 from src.app.figures.money_flow import build_money_flow_figure
 from src.app.figures.pie import build_pie_figure
 from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
-from src.analytics.goals import EMERGENCY_FUND
+from src.analytics.goals import load_goals, load_selected, EMERGENCY_FUND
 from src.analytics import budget as B
 
 dash.register_page(__name__, path="/", name="Home", order=0)
@@ -200,8 +200,13 @@ def layout(**_):
         style={"flex": "1", "marginRight": "20px"},
     )
 
+    pc = privacy_config()
     return html.Div(
         [
+            # Config for auto_privacy.js: hide amounts after the home page idles.
+            html.Div(id="home-privacy-cfg", style={"display": "none"},
+                     **{"data-enabled": "1" if pc["auto_enabled"] else "0",
+                        "data-seconds": str(pc["idle_seconds"])}),
             reminder_banner(),
             html.Div(
                 [
@@ -257,13 +262,16 @@ def _render_snapshots(theme_value, censor_value):
     ef = emergency_fund_config()
     status = emergency_fund_status(df, ef["savings_account"],
                                    ef["monthly_required"], ef["target_months"])
-    # The emergency-fund target is driven by Settings (months × monthly required),
-    # not a separately stored goal, so it stays in sync with the Settings page.
+    # Pool = Emergency Fund (target from Settings) + whatever goals the user has
+    # ticked on the Financial Goals page, so the home gauge mirrors that page.
+    goals_map = load_goals()
+    selected = [g for g in load_selected() if g in goals_map]
+    pooled = status["target"] + sum(goals_map.get(g, 0) for g in selected)
     gauge_fig = build_goal_gauge(
         balance=status["current_balance"],
-        pooled_target=status["target"],
+        pooled_target=pooled,
         monthly_required=ef["monthly_required"],
-        selected_labels=[EMERGENCY_FUND],
+        selected_labels=[EMERGENCY_FUND] + selected,
         currency=CURRENCY,
         dark=dark,
         show_target=False,

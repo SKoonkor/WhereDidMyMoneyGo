@@ -89,3 +89,12 @@ def emergency_fund_config() -> dict:
         "monthly_required": ef.get("monthly_required_expenses", 20000.0),
         "target_months": ef.get("target_months", 3),
     }
+
+
+def privacy_config() -> dict:
+    """Auto-privacy settings: hide amounts after the home page sits idle."""
+    p = settings().get("privacy", {})
+    return {
+        "auto_enabled": bool(p.get("auto_enabled", True)),
+        "idle_seconds": int(p.get("idle_seconds", 10)),
+    }

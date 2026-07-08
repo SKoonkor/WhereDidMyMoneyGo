@@ -63,6 +63,11 @@ def layout(**_):
                 className="flow-controls",
             ),
             dcc.Store(id="flow-forecast-refresh", data=0),
+            dcc.ConfirmDialog(
+                id="flow-retrain-confirm",
+                message="Retrain the forecast model on all your current "
+                        "transactions? This replaces the saved model.",
+            ),
             dcc.Graph(id="flow-graph", style={"height": "640px"},
                       config=_GRAPH_CONFIG),
         ],
@@ -71,13 +76,23 @@ def layout(**_):
 
 
 @callback(
-    Output("flow-forecast-refresh", "data"),
+    Output("flow-retrain-confirm", "displayed"),
     Input("flow-retrain", "n_clicks"),
     prevent_initial_call=True,
 )
-def _retrain(n_clicks):
+def _confirm_retrain(n_clicks):
+    # A click just opens the confirmation dialog; nothing is retrained yet.
+    return bool(n_clicks)
+
+
+@callback(
+    Output("flow-forecast-refresh", "data"),
+    Input("flow-retrain-confirm", "submit_n_clicks"),
+    prevent_initial_call=True,
+)
+def _retrain(submit_n_clicks):
     F.train_model(get_df())
-    return n_clicks
+    return submit_n_clicks
 
 
 @callback(

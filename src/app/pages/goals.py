@@ -9,7 +9,8 @@ from src.app.data import get_df, emergency_fund_config, CURRENCY
 from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
 from src.analytics.goals import (
-    load_goals, add_goal, remove_goal, reorder_goals, EMERGENCY_FUND)
+    load_goals, add_goal, remove_goal, reorder_goals,
+    load_selected, save_selected, EMERGENCY_FUND)
 
 dash.register_page(__name__, path="/goals", name="Financial Goals", order=3)
 
@@ -54,13 +55,15 @@ def _other_goals(goals: dict, censor: bool = False) -> list[dict]:
 
 def layout(**_):
     goals = load_goals()
+    selected = load_selected()
     return html.Div(
         [
             page_header("Financial Goals",
                         "The Emergency Fund is always included in the pool. "
                         "Select other goals to add their targets on top."),
             dcc.Store(id="goals-store", data=goals),
-            dcc.Store(id="goals-select-store", data=[]),
+            dcc.Store(id="goals-select-store", data=selected),
+            dcc.Store(id="goals-select-sink"),
             dcc.Store(id="goals-order-store"),
             dcc.ConfirmDialog(id="goal-del-confirm"),
             html.Div(
@@ -71,7 +74,7 @@ def layout(**_):
                             html.P("Drag to reorder · click to add to the pool.",
                                    style={"color": theme.MUTED, "fontSize": "13px",
                                           "marginTop": 0}),
-                            html.Div(_goal_rows(goals, []), id="goals-list",
+                            html.Div(_goal_rows(goals, selected), id="goals-list",
                                      className="goals-list"),
 
                             html.Hr(),
@@ -172,6 +175,18 @@ def _refresh_options(goals, censor):
 )
 def _render_goals_list(goals, selected):
     return _goal_rows(goals or load_goals(), selected or [])
+
+
+@callback(
+    Output("goals-select-sink", "data"),
+    Input("goals-select-store", "data"),
+    prevent_initial_call=True,
+)
+def _persist_selection(selected):
+    # The client-side tap handler (goals_dnd.js) updates goals-select-store; mirror
+    # it to disk so the ticks survive a reload and drive the home savings gauge.
+    save_selected(selected or [])
+    return no_update
 
 
 @callback(

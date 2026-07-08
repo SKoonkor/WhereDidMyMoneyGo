@@ -11,8 +11,8 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
-from src.app.data import (get_config, emergency_fund_config, account_names,
-                          refresh_config)
+from src.app.data import (get_config, emergency_fund_config, privacy_config,
+                          account_names, refresh_config)
 from src.utils.config import save_settings
 
 dash.register_page(__name__, path="/settings", name="Settings", order=8)
@@ -75,6 +75,33 @@ def layout(**_):
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
 
+    pc = privacy_config()
+    privacy_card = html.Div(
+        [
+            html.H2("Privacy", style={"color": theme.INK, "marginTop": 0}),
+            _field(
+                "Auto-privacy",
+                dcc.Checklist(
+                    id="set-privacy-auto",
+                    options=[{"label": " Hide amounts automatically when the home "
+                                       "page is left idle", "value": "on"}],
+                    value=(["on"] if pc["auto_enabled"] else []),
+                    style={"marginTop": "4px", "color": theme.INK, "fontSize": "14px"},
+                    inputStyle={"marginRight": "6px"},
+                ),
+            ),
+            _field(
+                "Idle delay (seconds)",
+                dcc.Input(id="set-privacy-seconds", type="number", min=1, max=3600, step=1,
+                          value=pc["idle_seconds"], className="no-spin",
+                          style={**theme.INPUT_STYLE, "marginTop": "4px", "width": "120px",
+                                 "marginLeft": "10px"}),
+                hint="Amounts stay hidden until you click the eye toggle to reveal them.",
+            ),
+        ],
+        style={**theme.CARD_STYLE, "marginTop": "16px"},
+    )
+
     save_row = html.Div(
         [
             html.Button("Save settings", id="set-save", n_clicks=0, style=theme.BUTTON_STYLE),
@@ -108,7 +135,7 @@ def layout(**_):
             page_header("Settings", "Edit your app configuration.", back=("Home", "/")),
             html.Div(
                 [
-                    html.Div([general_card, ef_card, save_row],
+                    html.Div([general_card, ef_card, privacy_card, save_row],
                              style={"flex": "1", "maxWidth": "560px", "marginRight": "20px"}),
                     html.Div(tools_card, style={"flex": "0 0 260px"}),
                 ],
@@ -128,9 +155,11 @@ def layout(**_):
     State("set-ef-monthly", "value"),
     State("set-ef-months", "value"),
     State("set-ef-account", "value"),
+    State("set-privacy-auto", "value"),
+    State("set-privacy-seconds", "value"),
     prevent_initial_call=True,
 )
-def _save(n, app_name, currency, monthly, months, account):
+def _save(n, app_name, currency, monthly, months, account, privacy_auto, privacy_seconds):
     if not n:
         raise PreventUpdate
     ok = {"alignSelf": "center", "fontSize": "14px", "color": theme.ACCENT}
@@ -145,6 +174,10 @@ def _save(n, app_name, currency, monthly, months, account):
                 "monthly_required_expenses": float(monthly or 0),
                 "target_months": int(months or 1),
                 "savings_account": (account or "").strip(),
+            },
+            "privacy": {
+                "auto_enabled": bool(privacy_auto),
+                "idle_seconds": max(1, int(privacy_seconds or 10)),
             },
         })
         refresh_config()

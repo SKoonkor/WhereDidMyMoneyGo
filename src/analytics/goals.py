@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 GOALS_PATH = Path("config/goals.json")
+SELECTED_PATH = Path("config/goals_selected.json")
 EMERGENCY_FUND = "Emergency Fund"
 DEFAULT_GOALS = {EMERGENCY_FUND: 60000}
 
@@ -33,6 +34,33 @@ def save_goals(goals: dict, path: str | Path = GOALS_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(goals, f, indent=2, ensure_ascii=False)
+
+
+def load_selected(path: str | Path = SELECTED_PATH) -> list[str]:
+    """Load the persisted set of goals the user has ticked into the savings pool.
+
+    The Emergency Fund is always the pool base and is never stored here (it is
+    implied). Returns the goal names that are still present in ``goals.json``.
+    """
+    path = Path(path)
+    if not path.exists():
+        return []
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            names = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+    goals = load_goals()
+    return [n for n in names if n in goals and n != EMERGENCY_FUND]
+
+
+def save_selected(selected: list[str], path: str | Path = SELECTED_PATH) -> None:
+    """Persist the ticked goals (Emergency Fund is implied and excluded)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    clean = [n for n in (selected or []) if n != EMERGENCY_FUND]
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(clean, f, indent=2, ensure_ascii=False)
 
 
 def add_goal(name: str, amount: float, path: str | Path = GOALS_PATH) -> dict:

@@ -99,6 +99,7 @@ def train_model(df: pd.DataFrame, cfg: dict | None = None,
     model = {
         "trained_at": datetime.now().isoformat(timespec="seconds"),
         "fit_start": start.date().isoformat(),
+        "fit_end": end.date().isoformat(),
         "cfg": cfg,
         "income": inc,
         "expense": exp,
@@ -125,23 +126,38 @@ def load_model(path: str | Path = MODEL_PATH) -> dict | None:
 # ── Forecast ──────────────────────────────────────────────────────────────────
 
 def forecast(df: pd.DataFrame, model: dict, horizon_days: int) -> dict:
-    """Future cumulative-balance fan, anchored at the current net worth.
+    """Cumulative-balance fan, anchored at the model's **last trained day**.
+
+    The fan carries the net worth as of the last trained day and is plotted from
+    the day after it (so it begins next to the final trained bar, not on top of
+    it) rather than from today — letting the projection be compared against what
+    actually happened since training. It spans through today plus ``horizon_days``
+    of future. Models without a stored ``fit_end`` fall back to the current date.
 
     Returns ``{dates, median, lo50, hi50, lo90, hi90, anchor_date, anchor_value}``
-    with the anchor included as day 0 so the fan starts at today's balance.
+    with the anchor included as day 0.
     """
     cfg = model.get("cfg", DEFAULT_CFG)
     fit_start = pd.Timestamp(model["fit_start"])
-    anchor_date = df["Period"].dt.normalize().max()
-    anchor_value = _net_worth(df)
+    current_date = df["Period"].dt.normalize().max()
+    fit_end = model.get("fit_end")
+    trained_date = pd.Timestamp(fit_end) if fit_end else current_date
+    # Net worth using only what the model was trained on (transactions up to the
+    # trained day), so the fan begins on the historical net-worth line.
+    anchor_value = _net_worth(df[df["Period"].dt.normalize() <= trained_date])
+    # Plot the fan starting the day AFTER the last trained bar, so the line begins
+    # cleanly next to the final trained data point instead of on top of its bar.
+    anchor_date = trained_date + pd.Timedelta(days=1)
 
     inc, exp = model["income"], model["expense"]
     b_inc, b_exp = np.array(inc["coef"]), np.array(exp["coef"])
     cov_inc, cov_exp = np.array(inc["cov"]), np.array(exp["cov"])
     s2_inc, s2_exp = float(inc["sigma2"]), float(exp["sigma2"])
 
-    anchor_idx = (anchor_date - fit_start).days
-    future_t = np.arange(anchor_idx + 1, anchor_idx + int(horizon_days) + 1, dtype=float)
+    anchor_idx = (trained_date - fit_start).days
+    # Cover the gap from the trained day up to now, then the requested horizon.
+    total_days = max(0, int((current_date - trained_date).days)) + int(horizon_days)
+    future_t = np.arange(anchor_idx + 1, anchor_idx + 1 + total_days, dtype=float)
     Xf = _design_matrix(future_t, cfg)
 
     # Daily means (income & expense are non-negative → clamp), net = inc − exp.

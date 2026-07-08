@@ -31,7 +31,13 @@ def build_goal_gauge(
     months = balance / monthly_required if monthly_required > 0 else 0
     months_txt = f"{MONTHS_CAP}+" if months >= MONTHS_CAP else f"{months:.1f}"
 
-    goal_txt = " + ".join(selected_labels)
+    # Privacy mode collapses the individual goal names to a generic "+ Goals" so
+    # onlookers can't tell what you're saving for; non-censored lists them.
+    if censor:
+        base = selected_labels[0] if selected_labels else ""
+        goal_txt = f"{base} + Goals" if len(selected_labels) > 1 else base
+    else:
+        goal_txt = " + ".join(selected_labels)
     # Privacy mode: keep the arc + "% funded", hide all money figures and the
     # months-covered detail (per the design). Non-censored shows number+delta+target.
     target_txt = ("" if censor

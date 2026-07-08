@@ -13,6 +13,12 @@ monthly_required_expenses = 1000.0
 target_months = 3
 savings_account = "Savings"
 
+[privacy]
+# When enabled, the Home page automatically hides all amounts after it has been
+# left idle for `idle_seconds`. Click the eye toggle to reveal them again.
+auto_enabled = true
+idle_seconds = 10
+
 [date_format]
 input = "%Y-%m-%d %H:%M:%S"
 display = "%b %Y"
