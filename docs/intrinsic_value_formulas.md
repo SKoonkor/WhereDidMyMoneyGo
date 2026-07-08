@@ -1,7 +1,7 @@
 # Intrinsic Value Formula Sheet
 ### A reference for building an investing simulator
 
-All formulas are written in code-style ASCII so they translate directly into game logic.
+All formulas are written in code-style ASCII so they translate directly into investing game logic.
 
 > **Fact-checked 2026-07-04** against standard references (CAPM/WACC, Gordon &
 > H-model DDM, residual income, justified P/E, Graham 1974, EPV) and against
