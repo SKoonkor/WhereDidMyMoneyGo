@@ -198,7 +198,9 @@ def _update_gauge(selected, goals, theme_value, censor):
     ef = emergency_fund_config()
     balance = _savings_balance()
 
-    ef_target = goals.get(EMERGENCY_FUND, 60000)
+    # Emergency-fund target comes from Settings (months × monthly required), so
+    # editing it there flows through here and to the home snapshot.
+    ef_target = ef["monthly_required"] * ef["target_months"]
     pooled = ef_target + sum(goals.get(g, 0) for g in selected)
     labels = [EMERGENCY_FUND] + selected
 

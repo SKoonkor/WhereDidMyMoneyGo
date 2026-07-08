@@ -33,6 +33,17 @@ def refresh() -> None:
     get_df.cache_clear()
 
 
+def refresh_config() -> None:
+    """Drop the cached config after settings.toml is modified.
+
+    Values read through ``get_config()`` (e.g. the emergency-fund settings) then
+    reflect the new file on the next render. Note: the module-level ``CURRENCY``
+    is bound once at import, so a changed ``base_currency`` only fully applies to
+    figures after an app restart.
+    """
+    get_config.cache_clear()
+
+
 def account_names() -> list[str]:
     """Accounts available in the transaction recorder (config/accounts.json)."""
     from src.analytics.accounts import load_accounts

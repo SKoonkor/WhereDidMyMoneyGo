@@ -38,16 +38,23 @@ def home_link():
 
 
 def theme_toggle():
-    """Light/dark mode toggle (wired to a clientside callback in app.py)."""
-    return html.Button("◐", id="theme-toggle", n_clicks=0,
-                       className="theme-toggle", title="Toggle light/dark mode")
+    """Light/dark mode toggle — a sliding pill switch (clientside in app.py).
+
+    The knob slides and the icon/colours swap purely in CSS off ``data-theme``;
+    the button just relays the click to the theme callback."""
+    return html.Button(html.Span(className="tt-knob"),
+                       id="theme-toggle", n_clicks=0,
+                       className="theme-switch", title="Toggle light/dark mode")
 
 
 def censor_toggle():
-    """Privacy toggle — hide/show exact money amounts (clientside in app.py)."""
-    return html.Button("👁", id="censor-toggle", n_clicks=0,
-                       className="theme-toggle censor-toggle",
-                       title="Hide/show amounts")
+    """Privacy toggle — a minimalist eye / eye-off icon (clientside in app.py).
+
+    The glyph is a CSS mask so it takes the theme ink colour and flips to the
+    slashed eye under ``data-censor="on"``."""
+    return html.Button(html.Span(className="ct-eye"),
+                       id="censor-toggle", n_clicks=0,
+                       className="censor-toggle", title="Hide/show amounts")
 
 
 def money_span(text, className: str = ""):
@@ -79,7 +86,7 @@ _MENU_GROUPS = [
         ("Stock Intrinsic Valuation", "/valuation"),
     ],
     [
-        ("Reconcile Balances", "/reconcile"),
+        ("Account Settings", "/settings"),
     ],
 ]
 

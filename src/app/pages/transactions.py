@@ -70,25 +70,37 @@ def layout(month=None, **_):
                         id="txn-month-picker",
                         style={"display": "none"},
                     ),
-                    html.Button("⬇ Export", id="txn-export", n_clicks=0,
-                                className="nav-btn today",
-                                title="Download your transactions"),
-                    dcc.Link("⬆ Import", href="/import", className="nav-btn today",
-                             title="Import transactions from another app",
-                             style={"textDecoration": "none"}),
                     html.Div(
                         [
-                            html.Button("This month · CSV", id="txn-exp-csv-month",
-                                        n_clicks=0, style=theme.BUTTON_STYLE),
-                            html.Button("This month · Excel", id="txn-exp-xlsx-month",
-                                        n_clicks=0, style=theme.BUTTON_STYLE),
-                            html.Button("Everything · CSV", id="txn-exp-csv-all",
-                                        n_clicks=0, style=theme.BUTTON_STYLE),
-                            html.Button("Everything · Excel", id="txn-exp-xlsx-all",
-                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                            html.Div(
+                                [
+                                    html.Button("⬆ Export", id="txn-export", n_clicks=0,
+                                                className="nav-btn today",
+                                                title="Download your transactions"),
+                                    html.Div(
+                                        [
+                                            html.Button("This month · CSV", id="txn-exp-csv-month",
+                                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                                            html.Button("This month · Excel", id="txn-exp-xlsx-month",
+                                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                                            html.Button("Everything · CSV", id="txn-exp-csv-all",
+                                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                                            html.Button("Everything · Excel", id="txn-exp-xlsx-all",
+                                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                                        ],
+                                        id="txn-export-menu",
+                                        style={"display": "none"},
+                                    ),
+                                ],
+                                style={"position": "relative"},
+                            ),
+                            dcc.Link("⚙ Account Settings", href="/settings",
+                                     className="nav-btn today",
+                                     title="Import, reconcile, backup & app settings",
+                                     style={"textDecoration": "none"}),
                         ],
-                        id="txn-export-menu",
-                        style={"display": "none"},
+                        style={"marginLeft": "auto", "display": "flex", "gap": "12px",
+                               "alignItems": "center"},
                     ),
                     dcc.Download(id="txn-export-dl"),
                 ],
@@ -160,8 +172,13 @@ def _toggle_export_menu(_e, _a, _b, _c, _d, style):
     if ctx.triggered_id != "txn-export":
         return {"display": "none"}
     hidden = (style or {}).get("display") == "none"
-    return {"display": "flex", "gap": "8px", "flexWrap": "wrap",
-            "alignItems": "center"} if hidden else {"display": "none"}
+    # Drop the choices straight below the Export button as one horizontal row.
+    # Right-anchored so the wider menu grows leftward and stays on-screen (the
+    # button sits at the far right of the nav).
+    return {"display": "flex", "gap": "8px", "flexWrap": "nowrap",
+            "alignItems": "center", "whiteSpace": "nowrap",
+            "position": "absolute", "top": "100%", "right": 0,
+            "marginTop": "6px", "zIndex": 30} if hidden else {"display": "none"}
 
 
 @callback(
