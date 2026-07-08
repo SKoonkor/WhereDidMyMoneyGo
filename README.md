@@ -147,6 +147,17 @@ The **Transactions** page edits the SQLite ledger:
 - **Edit / Delete** — click any row; deleting a transfer removes both linked rows.
 - **Safety** — a timestamped backup of the ledger is written to `data/backups/` before every change.
 
+### Backup &amp; Restore
+The **Backup &amp; Restore** page (`/backup`, also in the Menu) covers all of it:
+- **⬇ Download backup** — one zip of `config/` (settings, accounts, categories, goals,
+  budget, paper-trading accounts, import profiles) and `data/raw/` (the ledger). That's
+  your complete personal state; market caches are excluded (they rebuild).
+- **Restore from a backup file** — upload a backup zip; it's validated and summarised
+  first, and restoring saves a snapshot of the *current* state to `data/backups/` before
+  anything is replaced.
+- **Automatic backups** — a browser for the per-write ledger snapshots (20 kept), with
+  one-click restore for any of them.
+
 ### Importing data
 The **⬆ Import** button (or `/import`) opens a wizard that brings transactions in from
 another app or a bank export (`.csv` / `.xlsx`):
