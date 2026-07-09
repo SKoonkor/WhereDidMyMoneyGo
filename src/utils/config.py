@@ -1,8 +1,12 @@
 """Configuration loader (tomllib) and a minimal in-place settings writer."""
 
 import re
-import tomllib
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11 — tomllib is 3.11+ stdlib
+    import tomli as tomllib
 
 
 def load_config(config_dir: str | Path = "config") -> dict:

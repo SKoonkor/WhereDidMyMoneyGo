@@ -5,3 +5,6 @@ plotly>=5.18
 dash>=2.14
 statsmodels>=0.14
 yfinance>=0.2
+# TOML reader: tomllib is stdlib on Python 3.11+, so this backport is only
+# installed on 3.10 (the oldest supported version).
+tomli>=2.0; python_version < "3.11"

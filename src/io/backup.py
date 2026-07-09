@@ -35,6 +35,9 @@ def _data_dir(root: Path) -> Path:
     # data_dir from settings, defaulting to "data" (same rule as the store).
     try:
         import tomllib
+    except ModuleNotFoundError:  # Python < 3.11 — tomllib is 3.11+ stdlib
+        import tomli as tomllib
+    try:
         with open(root / "config" / "settings.toml", "rb") as f:
             return root / tomllib.load(f).get("general", {}).get("data_dir", "data")
     except (OSError, ValueError):

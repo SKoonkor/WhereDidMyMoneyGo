@@ -56,8 +56,13 @@ ledger (`data/raw/ledger.db`) plus plain `.json` / `.toml` configuration.
 
 ## Requirements
 
-- **Python 3.11 or newer** (developed and tested on 3.14).
+- **Python 3.10 or newer** (developed and tested on 3.14). On 3.10 the TOML reader
+  `tomli` is installed automatically (it is stdlib `tomllib` from 3.11 on).
 - The packages in [`requirements.txt`](requirements.txt): pandas, openpyxl, numpy, plotly, dash, statsmodels, yfinance.
+
+> **Don't have a recent Python?** You don't need to change your system Python — grab one just for this app:
+> - [`uv`](https://docs.astral.sh/uv/): `uv run --python 3.12 run_app.py` (downloads the interpreter on demand).
+> - [`pyenv`](https://github.com/pyenv/pyenv): `pyenv install 3.12 && pyenv local 3.12`, then follow the steps below.
 
 ## Install & run
 
