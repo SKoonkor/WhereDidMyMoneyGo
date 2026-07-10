@@ -352,6 +352,33 @@ def bulk_insert(rows: list[tuple]) -> Path | None:
     return backup
 
 
+def backups_dir() -> Path:
+    """The directory holding ledger backups (and archived import files)."""
+    return db_path().parent.parent / "backups"
+
+
+def replace_import(delete_ids: list[str], insert_tuples: list[tuple]) -> Path | None:
+    """Delete an earlier import's rows and insert a new batch in one transaction.
+
+    Backs the ledger up once first (so the whole replace is a single Undo step),
+    then deletes ``delete_ids`` (ids not present are simply ignored) and inserts
+    ``insert_tuples``. With an empty ``delete_ids`` this behaves like
+    ``bulk_insert``. Returns the pre-change backup path, or None if there was no
+    ledger to back up yet."""
+    backup = _backup()
+    conn = _connect()
+    try:
+        with conn:
+            if delete_ids:
+                conn.executemany("DELETE FROM transactions WHERE id = ?",
+                                 [(i,) for i in delete_ids])
+            if insert_tuples:
+                conn.executemany(_INSERT, insert_tuples)
+    finally:
+        conn.close()
+    return backup
+
+
 def restore_backup(backup_path: Path | str) -> None:
     """Replace the live ledger with a backup copy (import undo). The current
     state is backed up first, so an undo is itself undoable."""

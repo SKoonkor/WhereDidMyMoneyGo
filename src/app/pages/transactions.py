@@ -44,7 +44,13 @@ def _valid_month(value) -> str | None:
 
 def layout(month=None, **_):
     df = get_df()
-    years = list(range(int(df["Period"].dt.year.min()), date.today().year + 2))
+    # On a fresh install the ledger is empty; `.min()` would be NaN and int(NaN)
+    # raises, so fall back to the current year for the picker range.
+    if df.empty:
+        min_year = date.today().year
+    else:
+        min_year = int(df["Period"].dt.year.min())
+    years = list(range(min_year, date.today().year + 2))
     # `month` (?month=YYYY-MM) lets add/edit navigation return to the month the
     # user came from; default to the current month.
     initial_month = _valid_month(month) or _month_str(date.today())

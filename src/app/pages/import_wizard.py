@@ -10,6 +10,7 @@ All parsing logic lives in src/io/importer.py; this page only wires it to UI.
 """
 
 import base64
+from datetime import datetime
 
 import dash
 import pandas as pd
@@ -32,6 +33,15 @@ _GUESS = "__guess__"
 _CREATE = "__create__"
 _MUTED = {"color": theme.MUTED, "fontSize": "13px"}
 _SECTION_TITLE = {"fontSize": "16px", "fontWeight": "600", "margin": "0 0 8px"}
+
+
+def _last_import_hint():
+    """Muted line describing the most recent import (for the replace toggle)."""
+    m = importer.load_last_import()
+    if not m:
+        return "No previous import on record yet."
+    return (f"Last import: {m.get('filename', '—')} · {m.get('count', 0)} row(s)"
+            f" — ticking the box below will remove these before importing.")
 
 
 def layout(**_):
@@ -107,6 +117,15 @@ def layout(**_):
 
             # ── step 3: review + import ──────────────────────────────────
             html.Div(id="imp-review"),
+            html.Div(_last_import_hint(), id="imp-last-info",
+                     style={**_MUTED, "marginTop": "12px"}),
+            dcc.Checklist(
+                id="imp-replace",
+                options=[{"label": " Replace previous import (remove the last "
+                                   "imported file's transactions first)",
+                          "value": "on"}],
+                value=[], style={"margin": "6px 0", **_MUTED},
+            ),
             html.Div([
                 html.Button("Import", id="imp-import-btn", n_clicks=0,
                             disabled=True, style=theme.BUTTON_STYLE),
@@ -154,13 +173,26 @@ def _build_profile(mapping_states, options) -> dict:
                         "decimal_comma": "decimal_comma" in (options or [])}}
 
 
-def _parse_upload(file_data, mapping_states, options) -> dict:
+def _parse_upload(file_data, mapping_states, options, ledger=None) -> dict:
     raw = importer.read_table(file_data["filename"],
                               _decode(file_data["contents"]))
     profile = _build_profile(mapping_states, options)
     result = importer.parse_rows(raw, profile)
-    importer.mark_duplicates(result["rows"], get_df())
+    importer.mark_duplicates(result["rows"],
+                             get_df() if ledger is None else ledger)
     return result
+
+
+def _dedupe_ledger(replace_val):
+    """Ledger to dedupe against. When 'Replace previous import' is on, exclude
+    the last import's rows so the new file isn't flagged against a batch we're
+    about to delete. Returns (ledger_frame, manifest, replace_on)."""
+    manifest = importer.load_last_import()
+    replace_on = "on" in (replace_val or [])
+    ledger = get_df()
+    if replace_on and manifest and manifest.get("row_ids"):
+        ledger = ledger[~ledger["Id"].isin(manifest["row_ids"])]
+    return ledger, manifest, replace_on
 
 
 def _known_categories() -> set[str]:
@@ -229,14 +261,16 @@ def _apply_profile(file_data, profile_name):
     State("imp-file-store", "data"),
     State({"role": "imp-map", "field": ALL}, "value"),
     State("imp-options", "value"),
+    State("imp-replace", "value"),
     prevent_initial_call=True,
 )
-def _preview(n_clicks, file_data, _mapping_values, options):
+def _preview(n_clicks, file_data, _mapping_values, options, replace_val):
     if not n_clicks or not file_data:
         raise PreventUpdate
     mapping_states = ctx.states_list[1]
+    ledger, _manifest, _replace_on = _dedupe_ledger(replace_val)
     try:
-        result = _parse_upload(file_data, mapping_states, options)
+        result = _parse_upload(file_data, mapping_states, options, ledger)
     except ValueError as e:
         return card([html.Div(str(e), style={"color": theme.EXPENSE_COLOR})]), True
 
@@ -329,6 +363,7 @@ def _preview(n_clicks, file_data, _mapping_values, options):
     Output("imp-backup-store", "data"),
     Output("imp-undo-btn", "style"),
     Output("imp-import-btn", "disabled", allow_duplicate=True),
+    Output("imp-last-info", "children"),
     Input("imp-import-btn", "n_clicks"),
     Input("imp-undo-btn", "n_clicks"),
     State("imp-file-store", "data"),
@@ -337,10 +372,11 @@ def _preview(n_clicks, file_data, _mapping_values, options):
     State({"role": "imp-acct-map", "name": ALL}, "value"),
     State("imp-suspects", "value"),
     State("imp-backup-store", "data"),
+    State("imp-replace", "value"),
     prevent_initial_call=True,
 )
 def _import_or_undo(_imp, _undo, file_data, _mapping_values, options,
-                    _acct_values, suspect_sel, backup_path):
+                    _acct_values, suspect_sel, backup_path, replace_val):
     hidden = {**theme.BUTTON_STYLE, "display": "none"}
     shown = theme.BUTTON_STYLE
 
@@ -348,23 +384,25 @@ def _import_or_undo(_imp, _undo, file_data, _mapping_values, options,
         if not ctx.triggered[0]["value"] or not backup_path:
             raise PreventUpdate
         store.restore_backup(backup_path)
+        importer.clear_last_import()  # restored ledger predates this import
         refresh()
         return (html.Div("Import undone — the ledger was restored.",
                          style={"color": theme.ACCENT}),
-                None, hidden, False)
+                None, hidden, False, _last_import_hint())
 
     if not ctx.triggered[0]["value"] or not file_data:
         raise PreventUpdate
 
     mapping_states = ctx.states_list[1]
-    result = _parse_upload(file_data, mapping_states, options)
+    ledger, manifest, replace_on = _dedupe_ledger(replace_val)
+    result = _parse_upload(file_data, mapping_states, options, ledger)
     keep_suspects = set(suspect_sel or [])
     accepted = [r for r in result["rows"]
                 if r["_dup"] != "exact"
                 and (r["_dup"] != "suspect" or r["_source_row"] in keep_suspects)]
     if not accepted:
         return (html.Div("Nothing to import.", style=_MUTED),
-                no_update, no_update, True)
+                no_update, no_update, True, no_update)
 
     # account choices: create new ones, or rename onto existing accounts
     account_map = {}
@@ -375,7 +413,14 @@ def _import_or_undo(_imp, _undo, file_data, _mapping_values, options,
         else:
             account_map[name] = choice
 
-    n, backup = importer.commit_rows(accepted, account_map)
+    replace_ids = (manifest["row_ids"]
+                   if replace_on and manifest and manifest.get("row_ids")
+                   else None)
+    # Archive the raw uploaded file next to the ledger backups before touching
+    # anything, so the source of every import is retained.
+    archived = importer.archive_upload(file_data["filename"],
+                                       _decode(file_data["contents"]))
+    n, backup, new_ids = importer.commit_rows(accepted, account_map, replace_ids)
 
     # make sure imported categories exist in the picker tree
     seen = set()
@@ -389,19 +434,31 @@ def _import_or_undo(_imp, _undo, file_data, _mapping_values, options,
         if r["subcategory"]:
             add_subcategory(kind, cat, r["subcategory"])
 
+    # Record this import as the new "last import" batch.
+    importer.save_last_import({
+        "imported_at": datetime.now().isoformat(timespec="seconds"),
+        "filename": file_data["filename"],
+        "archived_file": str(archived),
+        "row_ids": new_ids,
+        "count": n,
+    })
     refresh()
     skipped = len(result["rows"]) - len(accepted)
+    replaced_txt = (f" Previous import ({manifest['count']} row(s)) removed."
+                    if replace_ids else "")
     return (html.Div([
                 html.Div(f"Imported {n} transaction(s)"
                          + (f" — {skipped} duplicate(s) skipped." if skipped
-                            else "."),
+                            else ".") + replaced_txt,
                          style={"color": theme.ACCENT}),
-                html.Div("A backup was taken first; Undo restores the ledger "
-                         "to the moment before this import.", style=_MUTED),
+                html.Div("A backup was taken first (Undo restores the pre-import "
+                         "ledger); the uploaded file was archived under "
+                         "data/backups/.", style=_MUTED),
             ]),
             str(backup) if backup else None,
             shown if backup else hidden,
-            True)
+            True,
+            _last_import_hint())
 
 
 @callback(

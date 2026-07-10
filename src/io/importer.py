@@ -412,9 +412,65 @@ def build_insert_tuples(rows: list[dict],
     return out
 
 
-def commit_rows(rows: list[dict], account_map: dict[str, str] | None = None):
-    """Insert the accepted rows; returns (inserted_count, backup_path)."""
+def commit_rows(rows: list[dict], account_map: dict[str, str] | None = None,
+                replace_ids: list[str] | None = None):
+    """Insert the accepted rows, optionally deleting an earlier import's rows
+    first (``replace_ids``). Returns ``(inserted_count, backup_path, new_ids)``
+    where ``new_ids`` are the ledger ids of the rows just inserted (for the
+    last-import manifest)."""
     from src.io import store
     tuples = build_insert_tuples(rows, account_map)
-    backup = store.bulk_insert(tuples)
-    return len(tuples), backup
+    new_ids = [t[0] for t in tuples]
+    backup = store.replace_import(replace_ids or [], tuples)
+    return len(tuples), backup, new_ids
+
+
+# ── last-import manifest & file archive ──────────────────────────────────────
+# The wizard records its most recent import so a later import can optionally
+# replace exactly those rows, and archives each uploaded file next to the ledger
+# backups so the source is never lost.
+
+def _last_import_path() -> Path:
+    from src.io import store
+    return store.db_path().parent / "last_import.json"
+
+
+def load_last_import() -> dict | None:
+    path = _last_import_path()
+    if not path.exists():
+        return None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def save_last_import(manifest: dict) -> None:
+    path = _last_import_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(manifest, fh, indent=2, ensure_ascii=False)
+
+
+def clear_last_import() -> None:
+    path = _last_import_path()
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def archive_upload(filename: str, content: bytes) -> Path:
+    """Copy the raw uploaded file next to the ledger backups so the source of an
+    import is always retrievable. Returns the archive path."""
+    from datetime import datetime
+    from src.io import store
+    dest_dir = store.backups_dir()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "_", filename or "import").strip("_") or "import"
+    dest = dest_dir / f"import_{stamp}_{safe}"
+    dest.write_bytes(content)
+    return dest
