@@ -302,6 +302,15 @@ label.dash-options-list-option { color: var(--ink); }
     border-color: var(--border) !important;
 }
 .dash-datepicker-controls button { background: var(--surface) ; color: var(--ink); }
+/* Year field in the calendar header renders as a bare number input with a white
+   background — match it to the dark calendar surface. Scoped to the datepicker so
+   app-wide number inputs are unaffected. */
+.dash-datepicker-controls input[type="number"] {
+    background: var(--surface-2) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 6px;
+}
 .dash-datepicker-calendar-date-inside { color: var(--ink); }
 .dash-datepicker-calendar-date-outside { color: var(--muted); opacity: 0.5; }
 .dash-datepicker-calendar-date-inside:hover { background: var(--surface); }
@@ -311,6 +320,12 @@ label.dash-options-list-option { color: var(--ink); }
 }
 
 /* ── Transactions: summary page ──────────────────────────────────────────── */
+.txn-loading {
+    color: var(--muted);
+    font-size: 14px;
+    padding: 24px 4px;
+    text-align: center;
+}
 .txn-summary-strip {
     display: flex;
     gap: 32px;

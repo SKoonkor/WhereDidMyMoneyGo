@@ -13,7 +13,7 @@ from src.app import theme
 from src.app.components import (card, theme_toggle, censor_toggle, reminder_banner,
                                 menu_widget, home_link, money_span)
 from src.app.data import (get_df, default_range, emergency_fund_config, get_config,
-                          privacy_config, CURRENCY)
+                          privacy_config, currency)
 from src.app.figures.money_flow import build_money_flow_figure
 from src.app.figures.pie import build_pie_figure
 from src.app.figures.goals import build_goal_gauge
@@ -125,7 +125,7 @@ def _last_txn_block(df) -> html.Div:
     abbr = _TYPE_ABBR.get(str(row["Income/Expense"]), "")
     # Hard cap the note at 10 characters (no ellipsis).
     note = (clean(row["Note"]) or clean(row["Subcategory"]) or clean(row["Category"]))[:10]
-    cur = clean(row["Currency"]) or CURRENCY
+    cur = clean(row["Currency"]) or currency()
 
     left = []
     if abbr:
@@ -254,9 +254,9 @@ def _render_snapshots(theme_value, censor_value):
     df = get_df()
     start, end = default_range(30)
 
-    flow_fig = build_money_flow_figure(df, currency=CURRENCY, default_days=30,
+    flow_fig = build_money_flow_figure(df, currency=currency(), default_days=30,
                                        compact=True, dark=dark, censor=censor)
-    pie_fig = build_pie_figure(df, start, end, CURRENCY, dark=dark,
+    pie_fig = build_pie_figure(df, start, end, currency(), dark=dark,
                                compact=True, censor=censor)
 
     ef = emergency_fund_config()
@@ -272,7 +272,7 @@ def _render_snapshots(theme_value, censor_value):
         pooled_target=pooled,
         monthly_required=ef["monthly_required"],
         selected_labels=[EMERGENCY_FUND] + selected,
-        currency=CURRENCY,
+        currency=currency(),
         dark=dark,
         show_target=False,
         censor=censor,

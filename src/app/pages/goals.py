@@ -5,7 +5,7 @@ from dash import dcc, html, callback, Input, Output, State, no_update, ctx
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.data import get_df, emergency_fund_config, CURRENCY
+from src.app.data import get_df, emergency_fund_config, currency
 from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
 from src.analytics.goals import (
@@ -25,7 +25,7 @@ def _goal_rows(goals: dict, selected: list[str]) -> list:
         rows.append(html.Div(
             [
                 html.Span(className="goal-check"),
-                html.Span([f"{name} (", money_span(f"{amt:,.0f} {CURRENCY}"), ")"],
+                html.Span([f"{name} (", money_span(f"{amt:,.0f} {currency()}"), ")"],
                           className="goal-label"),
             ],
             className="goal-row" + (" selected" if name in selected else ""),
@@ -46,7 +46,7 @@ def _other_goals(goals: dict, censor: bool = False) -> list[dict]:
     # Dropdown labels are plain strings (no CSS masking) — drop the amount when
     # privacy mode is on.
     return [
-        {"label": (name if censor else f"{name} ({amt:,.0f} {CURRENCY})"),
+        {"label": (name if censor else f"{name} ({amt:,.0f} {currency()})"),
          "value": name}
         for name, amt in goals.items()
         if name != EMERGENCY_FUND
@@ -83,7 +83,7 @@ def layout(**_):
                             dcc.Input(id="goal-name", type="text", placeholder="Goal name",
                                       style=theme.INPUT_STYLE),
                             dcc.Input(id="goal-amount", type="number",
-                                      placeholder=f"Target ({CURRENCY})",
+                                      placeholder=f"Target ({currency()})",
                                       style=theme.INPUT_STYLE),
                             html.Button("+ Add goal", id="goal-add", n_clicks=0,
                                         style={**theme.BUTTON_STYLE, "width": "100%"}),
@@ -222,7 +222,7 @@ def _update_gauge(selected, goals, theme_value, censor):
     return build_goal_gauge(
         balance=balance, pooled_target=pooled,
         monthly_required=ef["monthly_required"],
-        selected_labels=labels, currency=CURRENCY,
+        selected_labels=labels, currency=currency(),
         dark=theme.is_dark(theme_value),
         censor=theme.is_censored(censor),
     )

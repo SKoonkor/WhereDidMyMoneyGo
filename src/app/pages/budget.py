@@ -15,7 +15,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.data import get_df, CURRENCY
+from src.app.data import get_df, currency
 from src.app.figures.budget_pie import build_budget_pie
 from src.analytics import budget as B
 from src.analytics.transaction_categories import load_categories
@@ -236,7 +236,7 @@ def _summary_children(summary: dict) -> list:
     head = html.P(
         [f"Period {summary['start'].strftime('%d %b')} – "
          f"{summary['end'].strftime('%d %b %Y')} · income base ",
-         money_span(f"{_fmt(summary['income'])} {CURRENCY}"),
+         money_span(f"{_fmt(summary['income'])} {currency()}"),
          f" ({mode_txt})"],
         style={"color": theme.MUTED, "marginTop": 0, "fontSize": "13px"},
     )
@@ -318,7 +318,7 @@ def _render_month(month: pd.Period, dark: bool, censor: bool = False):
     assignments = cfg.get("assignments", {})
     data = B.month_pie_data(df, month, budget, assignments)
     fig = build_budget_pie(data["pie"], data["remaining"], data["total"],
-                           budget, _month_label(month), CURRENCY, dark=dark,
+                           budget, _month_label(month), currency(), dark=dark,
                            censor=censor)
     return fig, _overflow_list(data["list"], budget)
 

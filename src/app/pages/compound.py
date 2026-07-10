@@ -5,7 +5,7 @@ from dash import dcc, html, callback, clientside_callback, Input, Output, State
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.data import CURRENCY
+from src.app.data import currency
 from src.app.figures.compound import compute_schedule, build_compound_figure, COMPOUNDING
 from src.analytics.goals import load_goals, EMERGENCY_FUND
 
@@ -23,7 +23,7 @@ def _field(label, component):
 
 def _goal_options() -> list[dict]:
     """Selectable goal targets, sourced from Financial Goals (no Emergency Fund)."""
-    return [{"label": f" {name} ({amt:,.0f} {CURRENCY})", "value": name}
+    return [{"label": f" {name} ({amt:,.0f} {currency()})", "value": name}
             for name, amt in load_goals().items() if name != EMERGENCY_FUND]
 
 
@@ -151,12 +151,12 @@ def _calculate(_n, theme_value, sel_goals, logy_val,
                              goal_values=goal_values)
 
     results = [
-        _result_row("Total Principal", f"{sched['total_principal']:,.2f} {CURRENCY}"),
-        _result_row("Interest Amount", f"{sched['interest']:,.2f} {CURRENCY}"),
-        _result_row("Maturity Value", f"{sched['maturity_value']:,.2f} {CURRENCY}"),
+        _result_row("Total Principal", f"{sched['total_principal']:,.2f} {currency()}"),
+        _result_row("Interest Amount", f"{sched['interest']:,.2f} {currency()}"),
+        _result_row("Maturity Value", f"{sched['maturity_value']:,.2f} {currency()}"),
         _result_row("APY", f"{sched['apy']*100:.4f}%"),
     ]
-    fig, arrows = build_compound_figure(sched, CURRENCY, dark=theme.is_dark(theme_value),
+    fig, arrows = build_compound_figure(sched, currency(), dark=theme.is_dark(theme_value),
                                         goals=selected, logy=("log" in (logy_val or [])))
     return fig, results, arrows
 

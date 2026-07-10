@@ -11,13 +11,14 @@ from datetime import date
 
 import dash
 import pandas as pd
-from dash import dcc, html, callback, ctx, Input, Output, State, no_update
+from dash import (dcc, html, callback, clientside_callback, ctx,
+                  Input, Output, State)
 
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, money_span
-from src.app.data import get_df
+from src.app.data import get_df, month_periods
 from src.io.exporter import export_frame, export_filename
 
 dash.register_page(__name__, path="/transactions", name="Transactions", order=6)
@@ -115,6 +116,8 @@ def layout(month=None, **_):
                 className="txn-month-nav",
             ),
             html.Div(id="txn-summary-strip", className="txn-summary-strip"),
+            html.Div("Loading transactions…", id="txn-loading",
+                     className="txn-loading", style={"display": "none"}),
             html.Div(id="txn-list", className="txn-list"),
             dcc.Link("+ Add", id="txn-fab", href="/transactions/add",
                      className="txn-fab"),
@@ -123,7 +126,28 @@ def layout(month=None, **_):
     )
 
 
-@callback(
+# Month navigation runs client-side (pure date arithmetic on the "YYYY-MM" store)
+# so a click updates the month with no server round-trip — only the list re-render
+# (`_render`) hits the server. Mirrors the previous Python logic exactly.
+clientside_callback(
+    """
+    function(_prev, _next, _today, _go, pickMonth, pickYear, current) {
+        const dc = window.dash_clientside;
+        const trig = dc.callback_context.triggered;
+        if (!trig || !trig.length || !trig[0].value) return dc.no_update;
+        const id = trig[0].prop_id.split('.')[0];
+        let parts = String(current || '').split('-');
+        let y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+        if (id === 'txn-prev') { m -= 1; if (m < 1) { m = 12; y -= 1; } }
+        else if (id === 'txn-next') { m += 1; if (m > 12) { m = 1; y += 1; } }
+        else if (id === 'txn-today') { const d = new Date(); y = d.getFullYear(); m = d.getMonth() + 1; }
+        else if (id === 'txn-pick-go') {
+            if (!pickMonth || !pickYear) return dc.no_update;
+            y = pickYear; m = pickMonth;
+        } else { return dc.no_update; }
+        return String(y).padStart(4, '0') + '-' + String(m).padStart(2, '0');
+    }
+    """,
     Output("txn-month", "data"),
     Input("txn-prev", "n_clicks"),
     Input("txn-next", "n_clicks"),
@@ -134,20 +158,17 @@ def layout(month=None, **_):
     State("txn-month", "data"),
     prevent_initial_call=True,
 )
-def _change_month(_p, _n, _t, _g, pick_month, pick_year, current):
-    cur = pd.Period(current, freq="M")
-    trigger = ctx.triggered_id
-    if trigger == "txn-prev":
-        cur = cur - 1
-    elif trigger == "txn-next":
-        cur = cur + 1
-    elif trigger == "txn-today":
-        cur = pd.Period(_month_str(date.today()), freq="M")
-    elif trigger == "txn-pick-go" and pick_month and pick_year:
-        cur = pd.Period(f"{pick_year:04d}-{pick_month:02d}", freq="M")
-    else:
-        return no_update
-    return str(cur)
+
+
+# Show the "Loading transactions…" note the instant the month changes (client-side,
+# so it appears before the server `_render` returns). `_render` hides it again once
+# the new month's list is ready — it owns the primary write of this style.
+clientside_callback(
+    "function(_m) { return {'display': 'block'}; }",
+    Output("txn-loading", "style", allow_duplicate=True),
+    Input("txn-month", "data"),
+    prevent_initial_call=True,
+)
 
 
 @callback(
@@ -205,7 +226,7 @@ def _export(_a, _b, _c, _d, month):
     df = get_df()
     if trigger.endswith("-month"):
         period = pd.Period(month, freq="M")
-        df = df[df["Period"].dt.to_period("M") == period]
+        df = df[month_periods() == period]
         scope = str(period)
     else:
         scope = "all"
@@ -299,16 +320,19 @@ def _summary_item(label: str, value: float, css: str) -> html.Div:
     Output("txn-pick-month", "value"),
     Output("txn-pick-year", "value"),
     Output("txn-fab", "href"),
+    Output("txn-loading", "style"),
     Input("txn-month", "data"),
 )
 def _render(month):
+    hide = {"display": "none"}  # the month's list is ready — clear the loading note
     period = pd.Period(month, freq="M")
     label = f"{_MONTHS[period.month - 1]} {period.year}"
     # Carry the viewed month so a generic "+ Add" returns here afterwards.
     fab_href = f"/transactions/add?month={month}"
 
     df = get_df()
-    month_df = df[df["Period"].dt.to_period("M") == period]
+    # Reuse the cached per-row month key instead of recomputing to_period() each render.
+    month_df = df[month_periods() == period]
 
     income = month_df.loc[month_df["Income/Expense"] == "Income", "Amount"].sum()
     expense = month_df.loc[month_df["Income/Expense"] == "Expense", "Amount"].sum()
@@ -321,7 +345,7 @@ def _render(month):
     if month_df.empty:
         empty = html.P("No transactions this month.",
                        style={"color": theme.MUTED, "padding": "24px 4px"})
-        return label, strip, empty, period.month, period.year, fab_href
+        return label, strip, empty, period.month, period.year, fab_href, hide
 
     visible = month_df[_transfer_display_mask(month_df)]
     items = []
@@ -354,4 +378,4 @@ def _render(month):
         day_sorted = day_df.sort_values("Period", ascending=False)
         items.extend(_row(row) for _, row in day_sorted.iterrows())
 
-    return label, strip, items, period.month, period.year, fab_href
+    return label, strip, items, period.month, period.year, fab_href, hide

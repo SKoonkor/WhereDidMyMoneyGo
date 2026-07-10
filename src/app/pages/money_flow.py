@@ -7,7 +7,7 @@ from dash import dcc, html, callback, Input, Output
 
 from src.app import theme
 from src.app.components import page_header
-from src.app.data import get_df, CURRENCY
+from src.app.data import get_df, currency
 from src.app.figures.money_flow import build_money_flow_figure
 from src.analytics import forecast as F
 
@@ -107,7 +107,7 @@ def _render(theme_value, horizon, _refresh, censor):
     df = get_df()
     model = F.load_model() or F.train_model(df)  # auto-train once if none saved
     fc = F.forecast(df, model, int(horizon or 30))
-    fig = build_money_flow_figure(df, currency=CURRENCY, default_days=60,
+    fig = build_money_flow_figure(df, currency=currency(), default_days=60,
                                   dark=theme.is_dark(theme_value), forecast=fc,
                                   censor=theme.is_censored(censor))
     return fig, _trained_text(model)

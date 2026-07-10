@@ -13,7 +13,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.data import get_df, account_names, refresh, CURRENCY
+from src.app.data import get_df, account_names, refresh, currency
 from src.analytics.reconciliation import (tracked_balances, hidden_cost_total,
                                           mark_reconciled, last_reconciled)
 from src.io import store
@@ -46,7 +46,7 @@ def layout(**_):
         [
             html.Div("Account", style=_NAME_CELL),
             html.Div("Tracked", style=_CELL),
-            html.Div(f"Actual ({CURRENCY})", style={**_CELL, "flex": "1.2"}),
+            html.Div(f"Actual ({currency()})", style={**_CELL, "flex": "1.2"}),
             html.Div("Discrepancy", style=_CELL),
         ],
         style=_HEADER_STYLE,
@@ -122,7 +122,7 @@ def layout(**_):
                     html.Div(
                         [html.Span("Recorded hidden cost (untracked)",
                                    style={"color": theme.MUTED}),
-                         html.Span(money_span(f"{hidden:+,.2f} {CURRENCY}"),
+                         html.Span(money_span(f"{hidden:+,.2f} {currency()}"),
                                    className=("amt-income" if hidden > 0
                                               else "amt-expense" if hidden < 0 else ""),
                                    style={"fontWeight": 600})],

@@ -17,8 +17,13 @@ def get_config() -> dict:
     return load_config("config")
 
 
-# Display currency, from settings.toml (rows carry their own Currency column).
-CURRENCY = (load_config("config").get("settings", {})
+def currency() -> str:
+    """Display currency from settings.toml (rows also carry their own Currency).
+
+    Read live through the cached config so a changed ``base_currency`` applies as
+    soon as Settings saves (``refresh_config`` clears the cache) — no restart.
+    """
+    return (get_config().get("settings", {})
             .get("general", {}).get("base_currency", "THB"))
 
 
@@ -28,18 +33,28 @@ def get_df() -> pd.DataFrame:
     return load_transactions()
 
 
+@lru_cache(maxsize=1)
+def month_periods() -> pd.PeriodIndex:
+    """Cached month (``freq='M'``) key for every row, aligned to ``get_df()``.
+
+    Lets the Transactions page filter a month without recomputing
+    ``.dt.to_period('M')`` over the whole frame on every render. Invalidated
+    alongside ``get_df`` in :func:`refresh`.
+    """
+    return get_df()["Period"].dt.to_period("M")
+
+
 def refresh() -> None:
     """Drop the cached DataFrame after the transactions file is modified."""
     get_df.cache_clear()
+    month_periods.cache_clear()
 
 
 def refresh_config() -> None:
     """Drop the cached config after settings.toml is modified.
 
-    Values read through ``get_config()`` (e.g. the emergency-fund settings) then
-    reflect the new file on the next render. Note: the module-level ``CURRENCY``
-    is bound once at import, so a changed ``base_currency`` only fully applies to
-    figures after an app restart.
+    Values read through ``get_config()`` (e.g. ``currency()`` and the
+    emergency-fund settings) then reflect the new file on the next render.
     """
     get_config.cache_clear()
 

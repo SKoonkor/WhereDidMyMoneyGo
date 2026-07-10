@@ -6,7 +6,7 @@ from dash import dcc, html, callback, Input, Output
 
 from src.app import theme
 from src.app.components import page_header, money_span
-from src.app.data import get_df, default_range, reference_date, CURRENCY
+from src.app.data import get_df, default_range, reference_date, currency
 from src.app.figures.pie import build_pie_figure
 from src.analytics import budget as B
 
@@ -26,7 +26,7 @@ def _subcat_children(title: str, groups: list) -> list:
     for cat, tot, subs in groups:
         out.append(html.Div(
             [html.Span(cat, className="subcat-name"),
-             money_span(f"{tot:,.0f} {CURRENCY}", className="subcat-amt")],
+             money_span(f"{tot:,.0f} {currency()}", className="subcat-amt")],
             className="subcat-group",
         ))
         if len(subs) == 1 and subs[0][0] == "—":  # no real sub-categories
@@ -132,7 +132,7 @@ def _update(preset, start, end, expense_order, theme_value, censor):
         e = end or _END
         disabled = False
 
-    fig = build_pie_figure(df, s, e, CURRENCY, dark=dark, expense_order=expense_order,
+    fig = build_pie_figure(df, s, e, currency(), dark=dark, expense_order=expense_order,
                            censor=theme.is_censored(censor))
 
     # Sub-category breakdown over the same window (end day inclusive, as the pie).
