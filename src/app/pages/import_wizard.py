@@ -33,6 +33,27 @@ _GUESS = "__guess__"
 _CREATE = "__create__"
 _MUTED = {"color": theme.MUTED, "fontSize": "13px"}
 _SECTION_TITLE = {"fontSize": "16px", "fontWeight": "600", "margin": "0 0 8px"}
+_HIDDEN = {"display": "none"}
+
+_DATE_FORMAT_OPTIONS = [
+    {"label": "Auto-detect", "value": "auto"},
+    {"label": "DD/MM/YYYY (day first)", "value": "dmy"},
+    {"label": "MM/DD/YYYY (month first)", "value": "mdy"},
+    {"label": "YYYY/MM/DD (year first)", "value": "ymd"},
+    {"label": "YYYY/DD/MM", "value": "ydm"},
+]
+_DECIMAL_FORMAT_OPTIONS = [
+    {"label": "1,234.56  (dot decimal)", "value": "dot"},
+    {"label": "1.234,56  (comma decimal)", "value": "comma"},
+]
+
+
+def _profile_formats(profile: dict) -> tuple[str, str]:
+    """Resolve a profile's date_order / decimal, honouring legacy option keys."""
+    opts = profile.get("options", {})
+    date_order = opts.get("date_order") or ("dmy" if opts.get("dayfirst") else "auto")
+    decimal = opts.get("decimal") or ("comma" if opts.get("decimal_comma") else "dot")
+    return date_order, decimal
 
 
 def _last_import_hint():
@@ -89,28 +110,32 @@ def layout(**_):
                         style={"display": "flex", "flexWrap": "wrap",
                                "gap": "10px"},
                     ),
-                    dcc.Checklist(
-                        id="imp-options",
-                        options=[
-                            {"label": " Day-first dates (31/12/2026)",
-                             "value": "dayfirst"},
-                            {"label": " European decimals (1.234,56)",
-                             "value": "decimal_comma"},
+                    html.Hr(style={"border": "none",
+                                   "borderTop": "1px solid var(--border)",
+                                   "margin": "16px 0"}),
+                    # Parsing hints for the Date and Amount columns, laid out like
+                    # the column-mapping items above.
+                    html.Div(
+                        [
+                            html.Div(
+                                [html.Label("Date format", style=_MUTED),
+                                 dcc.Dropdown(id="imp-date-format", clearable=False,
+                                              options=_DATE_FORMAT_OPTIONS,
+                                              value="auto")],
+                                style={"width": "240px"}),
+                            html.Div(
+                                [html.Label("Decimal format", style=_MUTED),
+                                 dcc.Dropdown(id="imp-decimal-format", clearable=False,
+                                              options=_DECIMAL_FORMAT_OPTIONS,
+                                              value="dot")],
+                                style={"width": "240px"}),
                         ],
-                        value=[], style={"marginTop": "10px", **_MUTED},
+                        style={"display": "flex", "flexWrap": "wrap", "gap": "10px"},
                     ),
                     html.Div([
                         html.Button("Preview import", id="imp-preview-btn",
                                     n_clicks=0, style=theme.BUTTON_STYLE),
-                        dcc.Input(id="imp-save-name", type="text",
-                                  placeholder="Profile name…", debounce=True,
-                                  style={"marginLeft": "24px"}),
-                        html.Button("Save as profile", id="imp-save-btn",
-                                    n_clicks=0, style=theme.BUTTON_STYLE),
-                        html.Span(id="imp-save-msg", style={"marginLeft": "8px",
-                                                            **_MUTED}),
-                    ], style={"marginTop": "14px", "display": "flex",
-                              "alignItems": "center", "gap": "8px"}),
+                    ], style={"marginTop": "14px"}),
                 ], style={"marginBottom": "16px"}),
                 id="imp-mapping-section", style={"display": "none"},
             ),
@@ -137,6 +162,51 @@ def layout(**_):
                       "margin": "16px 0"}),
             dcc.ConfirmDialog(id="imp-confirm"),
             html.Div(id="imp-result"),
+
+            # ── save the current mapping as a reusable profile ────────────
+            # Enabled only after a successful import (see _import_or_undo).
+            html.Div(
+                [
+                    html.Button("Save as profile", id="imp-save-btn", n_clicks=0,
+                                disabled=True, style=theme.BUTTON_STYLE),
+                    html.Span(id="imp-save-msg",
+                              style={"marginLeft": "10px", **_MUTED}),
+                ],
+                style={"margin": "28px 0 8px"},
+            ),
+            html.Div(  # name-input modal (revealed by the button above)
+                html.Div(
+                    [
+                        html.Div(
+                            [html.H3("Save as profile",
+                                     style={"flex": "1", "marginTop": 0}),
+                             html.Button("✕", id="imp-save-cancel", n_clicks=0,
+                                         className="theme-toggle")],
+                            style={"display": "flex", "alignItems": "center",
+                                   "gap": "10px"},
+                        ),
+                        html.Div("Name this column mapping so you can reuse it on a "
+                                 "future import.", style={**_MUTED,
+                                                          "margin": "4px 0 10px"}),
+                        dcc.Input(id="imp-save-name", type="text",
+                                  placeholder="Profile name…",
+                                  style={**theme.INPUT_STYLE, "marginBottom": 0}),
+                        html.Div(id="imp-save-modal-msg",
+                                 style={"color": theme.EXPENSE_COLOR,
+                                        "fontSize": "13px", "marginTop": "6px",
+                                        "minHeight": "16px"}),
+                        html.Div(
+                            [html.Button("Save", id="imp-save-modal-save",
+                                         n_clicks=0, style=theme.BUTTON_STYLE)],
+                            style={"display": "flex", "justifyContent": "flex-end",
+                                   "marginTop": "14px"},
+                        ),
+                    ],
+                    className="modal-card",
+                ),
+                id="imp-save-modal", className="modal-overlay", style=_HIDDEN,
+            ),
+            dcc.ConfirmDialog(id="imp-save-confirm"),
         ],
         style=theme.PAGE_STYLE,
     )
@@ -167,17 +237,17 @@ def _resolve_profile(name: str, headers: list[str]) -> dict:
     return importer.guess_mapping(headers)
 
 
-def _build_profile(mapping_states, options) -> dict:
+def _build_profile(mapping_states, date_order, decimal) -> dict:
     columns = {s["id"]["field"]: s.get("value") for s in mapping_states}
     return {"name": "", "columns": columns,
-            "options": {"dayfirst": "dayfirst" in (options or []),
-                        "decimal_comma": "decimal_comma" in (options or [])}}
+            "options": {"date_order": date_order or "auto",
+                        "decimal": decimal or "dot"}}
 
 
-def _parse_upload(file_data, mapping_states, options, ledger=None) -> dict:
+def _parse_upload(file_data, mapping_states, date_order, decimal, ledger=None) -> dict:
     raw = importer.read_table(file_data["filename"],
                               _decode(file_data["contents"]))
-    profile = _build_profile(mapping_states, options)
+    profile = _build_profile(mapping_states, date_order, decimal)
     result = importer.parse_rows(raw, profile)
     importer.mark_duplicates(result["rows"],
                              get_df() if ledger is None else ledger)
@@ -234,7 +304,8 @@ def _on_upload(contents, filename):
 @callback(
     Output({"role": "imp-map", "field": ALL}, "options"),
     Output({"role": "imp-map", "field": ALL}, "value"),
-    Output("imp-options", "value"),
+    Output("imp-date-format", "value"),
+    Output("imp-decimal-format", "value"),
     Input("imp-file-store", "data"),
     Input("imp-profile", "value"),
     prevent_initial_call=True,
@@ -250,9 +321,8 @@ def _apply_profile(file_data, profile_name):
     values = [profile["columns"].get(f) for f in fields]
     # drop mapped columns that don't exist in this file
     values = [v if v in headers else None for v in values]
-    opts = profile.get("options", {})
-    checked = [k for k in ("dayfirst", "decimal_comma") if opts.get(k)]
-    return [options] * n, values, checked
+    date_order, decimal = _profile_formats(profile)
+    return [options] * n, values, date_order, decimal
 
 
 @callback(
@@ -261,17 +331,18 @@ def _apply_profile(file_data, profile_name):
     Input("imp-preview-btn", "n_clicks"),
     State("imp-file-store", "data"),
     State({"role": "imp-map", "field": ALL}, "value"),
-    State("imp-options", "value"),
+    State("imp-date-format", "value"),
+    State("imp-decimal-format", "value"),
     State("imp-replace", "value"),
     prevent_initial_call=True,
 )
-def _preview(n_clicks, file_data, _mapping_values, options, replace_val):
+def _preview(n_clicks, file_data, _mapping_values, date_order, decimal, replace_val):
     if not n_clicks or not file_data:
         raise PreventUpdate
     mapping_states = ctx.states_list[1]
     ledger, _manifest, _replace_on = _dedupe_ledger(replace_val)
     try:
-        result = _parse_upload(file_data, mapping_states, options, ledger)
+        result = _parse_upload(file_data, mapping_states, date_order, decimal, ledger)
     except ValueError as e:
         return card([html.Div(str(e), style={"color": theme.EXPENSE_COLOR})]), True
 
@@ -365,13 +436,14 @@ def _preview(n_clicks, file_data, _mapping_values, options, replace_val):
     Input("imp-import-btn", "n_clicks"),
     State("imp-file-store", "data"),
     State({"role": "imp-map", "field": ALL}, "value"),
-    State("imp-options", "value"),
+    State("imp-date-format", "value"),
+    State("imp-decimal-format", "value"),
     State("imp-suspects", "value"),
     State("imp-replace", "value"),
     prevent_initial_call=True,
 )
-def _confirm_import(n_clicks, file_data, _mapping_values, options, suspect_sel,
-                    replace_val):
+def _confirm_import(n_clicks, file_data, _mapping_values, date_order, decimal,
+                    suspect_sel, replace_val):
     """Guardrail: clicking Import opens a summary dialog; the actual write only
     happens if the user confirms (see _import_or_undo)."""
     if not n_clicks or not file_data:
@@ -379,7 +451,7 @@ def _confirm_import(n_clicks, file_data, _mapping_values, options, suspect_sel,
     mapping_states = ctx.states_list[1]
     ledger, manifest, replace_on = _dedupe_ledger(replace_val)
     try:
-        result = _parse_upload(file_data, mapping_states, options, ledger)
+        result = _parse_upload(file_data, mapping_states, date_order, decimal, ledger)
     except ValueError as e:
         return f"Cannot import: {e}", True
     keep = set(suspect_sel or [])
@@ -410,18 +482,20 @@ def _confirm_import(n_clicks, file_data, _mapping_values, options, suspect_sel,
     Output("imp-undo-btn", "style"),
     Output("imp-import-btn", "disabled", allow_duplicate=True),
     Output("imp-last-info", "children"),
+    Output("imp-save-btn", "disabled", allow_duplicate=True),
     Input("imp-confirm", "submit_n_clicks"),
     Input("imp-undo-btn", "n_clicks"),
     State("imp-file-store", "data"),
     State({"role": "imp-map", "field": ALL}, "value"),
-    State("imp-options", "value"),
+    State("imp-date-format", "value"),
+    State("imp-decimal-format", "value"),
     State({"role": "imp-acct-map", "name": ALL}, "value"),
     State("imp-suspects", "value"),
     State("imp-backup-store", "data"),
     State("imp-replace", "value"),
     prevent_initial_call=True,
 )
-def _import_or_undo(_submit, _undo, file_data, _mapping_values, options,
+def _import_or_undo(_submit, _undo, file_data, _mapping_values, date_order, decimal,
                     _acct_values, suspect_sel, backup_path, replace_val):
     hidden = {**theme.BUTTON_STYLE, "display": "none"}
     shown = theme.BUTTON_STYLE
@@ -432,27 +506,28 @@ def _import_or_undo(_submit, _undo, file_data, _mapping_values, options,
         store.restore_backup(backup_path)
         importer.clear_last_import()  # restored ledger predates this import
         refresh()
+        # Undo reverts the import, so re-lock "Save as profile".
         return (html.Div("Import undone — the ledger was restored.",
                          style={"color": theme.ACCENT}),
-                None, hidden, False, _last_import_hint())
+                None, hidden, False, _last_import_hint(), True)
 
     if not ctx.triggered[0]["value"] or not file_data:
         raise PreventUpdate
 
     mapping_states = ctx.states_list[1]
     ledger, manifest, replace_on = _dedupe_ledger(replace_val)
-    result = _parse_upload(file_data, mapping_states, options, ledger)
+    result = _parse_upload(file_data, mapping_states, date_order, decimal, ledger)
     keep_suspects = set(suspect_sel or [])
     accepted = [r for r in result["rows"]
                 if r["_dup"] != "exact"
                 and (r["_dup"] != "suspect" or r["_source_row"] in keep_suspects)]
     if not accepted:
         return (html.Div("Nothing to import.", style=_MUTED),
-                no_update, no_update, True, no_update)
+                no_update, no_update, True, no_update, no_update)
 
     # account choices: create new ones, or rename onto existing accounts
     account_map = {}
-    for s in ctx.states_list[3]:
+    for s in ctx.states_list[4]:
         name, choice = s["id"]["name"], s.get("value") or _CREATE
         if choice == _CREATE:
             add_account(name)
@@ -504,23 +579,69 @@ def _import_or_undo(_submit, _undo, file_data, _mapping_values, options,
             str(backup) if backup else None,
             shown if backup else hidden,
             True,
-            _last_import_hint())
+            _last_import_hint(),
+            False)  # a successful import unlocks "Save as profile"
+
+
+# ── save the current mapping as a reusable profile ───────────────────────────
+
+@callback(
+    Output("imp-save-modal", "style"),
+    Output("imp-save-name", "value"),
+    Output("imp-save-modal-msg", "children"),
+    Input("imp-save-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _open_save_modal(n):
+    if not n:
+        raise PreventUpdate
+    return {}, "", ""   # {} lets the .modal-overlay CSS (display:flex) show it
 
 
 @callback(
-    Output("imp-save-msg", "children"),
-    Input("imp-save-btn", "n_clicks"),
-    State("imp-save-name", "value"),
-    State({"role": "imp-map", "field": ALL}, "value"),
-    State("imp-options", "value"),
+    Output("imp-save-modal", "style", allow_duplicate=True),
+    Input("imp-save-cancel", "n_clicks"),
     prevent_initial_call=True,
 )
-def _save(n_clicks, name, _mapping_values, options):
-    if not n_clicks:
+def _close_save_modal(n):
+    if not n:
+        raise PreventUpdate
+    return _HIDDEN
+
+
+@callback(
+    Output("imp-save-confirm", "message"),
+    Output("imp-save-confirm", "displayed"),
+    Output("imp-save-modal-msg", "children", allow_duplicate=True),
+    Input("imp-save-modal-save", "n_clicks"),
+    State("imp-save-name", "value"),
+    prevent_initial_call=True,
+)
+def _confirm_save(n, name):
+    # Naming then Save raises a final "are you sure" before writing to disk.
+    if not n:
         raise PreventUpdate
     if not (name or "").strip():
-        return "Give the profile a name first."
-    profile = _build_profile(ctx.states_list[1], options)
+        return "", False, "Give the profile a name first."
+    return f'Save this column mapping as profile "{name.strip()}"?', True, ""
+
+
+@callback(
+    Output("imp-save-modal", "style", allow_duplicate=True),
+    Output("imp-save-msg", "children"),
+    Output("imp-profile", "options", allow_duplicate=True),
+    Input("imp-save-confirm", "submit_n_clicks"),
+    State("imp-save-name", "value"),
+    State({"role": "imp-map", "field": ALL}, "value"),
+    State("imp-date-format", "value"),
+    State("imp-decimal-format", "value"),
+    prevent_initial_call=True,
+)
+def _write_profile(submit_n, name, _mapping_values, date_order, decimal):
+    if not submit_n or not (name or "").strip():
+        raise PreventUpdate
+    mapping_states = ctx.states_list[1]
+    profile = _build_profile(mapping_states, date_order, decimal)
     profile["name"] = name.strip()
     path = importer.save_profile(profile)
-    return f"Saved → {path.name}"
+    return _HIDDEN, f'Saved profile "{name.strip()}" → {path.name}', _profile_options()

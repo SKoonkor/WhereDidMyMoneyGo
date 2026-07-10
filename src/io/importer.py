@@ -8,8 +8,12 @@ A **mapping profile** describes how a foreign file maps onto the ledger:
     {
       "name": "My bank",
       "columns": {<target field>: <source column or None>, ...},
-      "options": {"dayfirst": false, "decimal_comma": false},
+      "options": {"date_order": "auto", "decimal": "dot"},
     }
+
+`date_order` is one of auto/dmy/mdy/ymd/ydm (date field ordering); `decimal` is
+"dot" (1,234.56) or "comma" (1.234,56). Legacy profiles with the older
+`dayfirst`/`decimal_comma` booleans are still read (see ``parse_rows``).
 
 Target fields: Date, Type, Amount, Inflow, Outflow, Account, Category,
 Subcategory, Note, Description, Currency, Id, TransferId.
@@ -75,7 +79,7 @@ PRESETS = [
                          Subcategory="Subcategory", Note="Note",
                          Description="Description", Currency="Currency",
                          Id="Id", TransferId="TransferId"),
-        "options": {"dayfirst": False, "decimal_comma": False},
+        "options": {"date_order": "auto", "decimal": "dot"},
     },
     {
         "name": "Realbyte Money Manager",
@@ -84,7 +88,7 @@ PRESETS = [
                          Account="Accounts", Category="Category",
                          Subcategory="Subcategory", Note="Note",
                          Description="Description"),
-        "options": {"dayfirst": False, "decimal_comma": False},
+        "options": {"date_order": "auto", "decimal": "dot"},
     },
     {
         "name": "YNAB register",
@@ -92,7 +96,7 @@ PRESETS = [
         "columns": _cols(Date="Date", Inflow="Inflow", Outflow="Outflow",
                          Account="Account", Category="Category", Note="Payee",
                          Description="Memo"),
-        "options": {"dayfirst": False, "decimal_comma": False},
+        "options": {"date_order": "auto", "decimal": "dot"},
     },
 ]
 
@@ -165,7 +169,7 @@ def guess_mapping(headers: list[str]) -> dict:
                 used.add(h)
                 break
     return {"name": "", "columns": columns,
-            "options": {"dayfirst": False, "decimal_comma": False}}
+            "options": {"date_order": "auto", "decimal": "dot"}}
 
 
 def load_profiles(profile_dir: Path | str = PROFILE_DIR) -> list[dict]:
@@ -224,6 +228,27 @@ def _clean(v) -> str:
     return "" if s.lower() == "nan" else s
 
 
+# (dayfirst, yearfirst) for each explicit date ordering; "auto" infers per value.
+_DATE_ORDER_FLAGS = {
+    "dmy": (True, False),    # DD/MM/YYYY
+    "mdy": (False, False),   # MM/DD/YYYY
+    "ymd": (False, True),    # YYYY/MM/DD
+    "ydm": (True, True),     # YYYY/DD/MM
+}
+
+
+def _parse_dates(series: pd.Series, date_order: str) -> pd.Series:
+    """Parse a date column under the chosen ordering. ``auto`` infers each value
+    individually; the explicit orders pass day/year-first hints and stay
+    separator-agnostic (works for ``/``, ``-``, ``.``)."""
+    if date_order not in _DATE_ORDER_FLAGS:
+        return pd.to_datetime(series, errors="coerce", dayfirst=False,
+                              format="mixed")
+    dayfirst, yearfirst = _DATE_ORDER_FLAGS[date_order]
+    return pd.to_datetime(series, errors="coerce",
+                          dayfirst=dayfirst, yearfirst=yearfirst)
+
+
 def parse_rows(df: pd.DataFrame, profile: dict) -> dict:
     """Turn a raw uploaded frame into ledger-ready row dicts.
 
@@ -232,8 +257,9 @@ def parse_rows(df: pd.DataFrame, profile: dict) -> dict:
     """
     cols = profile["columns"]
     opts = profile.get("options", {})
-    dayfirst = bool(opts.get("dayfirst"))
-    decimal_comma = bool(opts.get("decimal_comma"))
+    date_order = opts.get("date_order") or ("dmy" if opts.get("dayfirst") else "auto")
+    decimal = opts.get("decimal") or ("comma" if opts.get("decimal_comma") else "dot")
+    decimal_comma = decimal == "comma"
 
     def col(field):
         c = cols.get(field)
@@ -242,8 +268,7 @@ def parse_rows(df: pd.DataFrame, profile: dict) -> dict:
     dates = col("Date")
     if dates is None:
         raise ValueError("No Date column is mapped.")
-    parsed_dates = pd.to_datetime(dates, errors="coerce", dayfirst=dayfirst,
-                                  format="mixed")
+    parsed_dates = _parse_dates(dates, date_order)
 
     amount_s, inflow_s, outflow_s = col("Amount"), col("Inflow"), col("Outflow")
     type_s = col("Type")
