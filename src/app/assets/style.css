@@ -33,6 +33,25 @@ html[data-theme="light"] {
     --transfer: #7f8c8d;
 }
 
+/* Dash 4's dcc.Dropdown / DatePicker are driven by --Dash-* design tokens the
+   bundle defines on :root with a light-only palette (near-black text, faint
+   fills). Remap them to our theme vars — which already flip by data-theme — so
+   menus, search fields, options and calendars are legible in dark AND light.
+   `html:root` outranks Dash's `:root` regardless of stylesheet load order. */
+html:root {
+    --Dash-Text-Strong: var(--ink);
+    --Dash-Text-Primary: var(--ink);
+    --Dash-Text-Weak: var(--muted);
+    --Dash-Text-Disabled: var(--muted);
+    --Dash-Stroke-Strong: var(--border);
+    --Dash-Stroke-Weak: var(--border);
+    --Dash-Fill-Disabled: var(--border-soft);
+    --Dash-Fill-Interactive-Weak: var(--surface);    /* option hover fill */
+    --Dash-Fill-Interactive-Strong: var(--accent);   /* focus ring */
+    --Dash-Fill-Primary-Hover: var(--surface);
+    --Dash-Fill-Primary-Active: var(--surface-2);
+}
+
 html, body {
     background: var(--bg);
     color: var(--ink);
@@ -140,12 +159,13 @@ html[data-censor="on"] .censor-toggle .ct-eye {
 }
 .theme-toggle:hover { background: var(--surface-2); }
 
-/* dcc.Input renders its own custom −/+ stepper buttons for number inputs, inside
-   a `.dash-input-container` wrapper that also carries our className — so hide the
-   steppers on fields flagged `no-spin`. (Also drop any native webkit spinner.) */
-.no-spin .dash-input-stepper { display: none; }
-.no-spin input::-webkit-outer-spin-button,
-.no-spin input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* Number inputs: no −/+ steppers anywhere by default. Dash renders its own
+   `.dash-input-stepper` buttons; also drop the native browser spinners. (Opt a
+   specific field back in later if ever needed.) */
+.dash-input-stepper { display: none; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; }
 
 /* ── Light/dark sliding switch ────────────────────────────────────────────── */
 .theme-switch {
@@ -252,7 +272,16 @@ label.dash-options-list-option { color: var(--ink); }
    (black in light mode, white in dark), matching a selected value. */
 .dash-dropdown-placeholder { color: var(--ink) !important; }
 .dash-dropdown-value { color: var(--ink) !important; }
-.dash-dropdown-search { background: var(--surface-2); color: var(--ink); }
+/* In-menu search: give it a contrasting fill + visible border so it reads as an
+   input instead of blending into the menu surface. */
+.dash-dropdown-search-container {
+    background: var(--bg);
+    border: 1px solid var(--border) !important;
+    border-radius: 6px;
+}
+.dash-dropdown-search { background: transparent; color: var(--ink); }
+.dash-dropdown-search::placeholder { color: var(--muted); }
+.dash-dropdown-search-icon, .dash-dropdown-clear { color: var(--muted); }
 .dash-dropdown-option { background: var(--surface-2); color: var(--ink); }
 .dash-dropdown-option:hover,
 .dash-dropdown-option[data-highlighted],
