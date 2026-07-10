@@ -6,6 +6,8 @@ the cache triggers a re-fetch that is merged back in. Network/lookup failures
 raise ``StockError`` so callers can show a friendly message instead of crashing.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import pandas as pd

@@ -9,6 +9,8 @@ amount the user sets, or the rolling average of recent months' income. The
 current budget period runs from a configurable reset day each month.
 """
 
+from __future__ import annotations
+
 import calendar
 import json
 from datetime import date

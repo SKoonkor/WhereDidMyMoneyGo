@@ -6,6 +6,8 @@ equity line), and the S&P 500 normalised to the starting cash (dashed). Mirrors
 the Investment Simulator's comparison chart.
 """
 
+from __future__ import annotations
+
 import plotly.graph_objects as go
 
 from src.app import theme

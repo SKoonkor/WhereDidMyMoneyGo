@@ -6,6 +6,8 @@ twice would raise duplicate-callback errors). Component ids are shared too —
 safe, since only one of the two pages is ever mounted at a time.
 """
 
+from __future__ import annotations
+
 from datetime import date
 
 from dash import ALL, ctx, dcc, html, callback, Input, Output, State, no_update

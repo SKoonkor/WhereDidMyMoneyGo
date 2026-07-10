@@ -5,6 +5,8 @@ always present and acts as the base of the savings pool — selecting any other
 goal adds its target on top of the Emergency Fund target.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

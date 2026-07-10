@@ -11,6 +11,8 @@ options. Order types: market, limit, stop and trailing-stop; long and short.
 Pending orders fill when a live-price tick crosses their trigger (:func:`process`).
 """
 
+from __future__ import annotations
+
 import json
 import shutil
 import uuid

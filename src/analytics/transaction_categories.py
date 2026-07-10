@@ -6,6 +6,8 @@ categories may have them (slide 17). New categories/subcategories can be
 added from the category picker in the transaction form.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

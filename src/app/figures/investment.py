@@ -4,6 +4,8 @@ One line per portfolio (value over elapsed trading days), the S&P 500 normalised
 to the $10,000 starting stake (dashed), and a flat $10,000 reference line.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go

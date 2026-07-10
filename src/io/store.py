@@ -15,6 +15,8 @@ server is multi-threaded). Every write backs up the database first
 single transaction.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
 import sqlite3

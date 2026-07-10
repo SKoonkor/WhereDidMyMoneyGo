@@ -6,6 +6,8 @@ src/io/store.py:apply_reconciliation) using the "Adjustment-In" /
 "hidden cost" — the money that moved without being tracked.
 """
 
+from __future__ import annotations
+
 import calendar
 import json
 from datetime import date

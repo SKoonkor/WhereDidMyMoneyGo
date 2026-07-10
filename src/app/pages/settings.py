@@ -5,6 +5,8 @@ Reads the current values from the cached config and writes changes back with
 the config cache so emergency-fund settings take effect on the next render.
 """
 
+from __future__ import annotations
+
 import dash
 from dash import dcc, html, callback, Input, Output, State
 from dash.exceptions import PreventUpdate

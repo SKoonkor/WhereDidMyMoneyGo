@@ -1,5 +1,7 @@
 """Reusable UI components shared across pages."""
 
+from __future__ import annotations
+
 from dash import dcc, html, clientside_callback, Input, Output
 
 from src.app import theme

@@ -5,6 +5,8 @@ range one trading day at a time, buying/selling shares, and compares portfolios
 against the S&P 500. Game state persists to config/investment_game.json.
 """
 
+from __future__ import annotations
+
 from datetime import date, timedelta
 
 import dash

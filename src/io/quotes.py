@@ -5,6 +5,8 @@ in-memory for a few seconds to survive re-renders. Never raises for a single bad
 lookup returning None; a hard failure raises ``stocks.StockError``.
 """
 
+from __future__ import annotations
+
 import time
 
 import pandas as pd

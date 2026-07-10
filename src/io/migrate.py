@@ -13,6 +13,8 @@ fails loudly rather than starting on an empty ledger. Runs from bootstrap()
 on every launch but gates itself out when a ledger.db already exists.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from pathlib import Path
 import shutil

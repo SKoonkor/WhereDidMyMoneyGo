@@ -5,6 +5,8 @@ the design (slide 13). New accounts can be added from the account picker in
 the transaction form.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

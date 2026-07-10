@@ -56,8 +56,10 @@ ledger (`data/raw/ledger.db`) plus plain `.json` / `.toml` configuration.
 
 ## Requirements
 
-- **Python 3.10 or newer** (developed and tested on 3.14). On 3.10 the TOML reader
+- **Python 3.9 or newer** (developed and tested on 3.14). On 3.9/3.10 the TOML reader
   `tomli` is installed automatically (it is stdlib `tomllib` from 3.11 on).
+  Note that Python 3.9 reached end-of-life in October 2025, so a newer version is
+  still recommended where you can install one.
 - The packages in [`requirements.txt`](requirements.txt): pandas, openpyxl, numpy, plotly, dash, statsmodels, yfinance.
 
 > **Don't have a recent Python?** You don't need to change your system Python — grab one just for this app:

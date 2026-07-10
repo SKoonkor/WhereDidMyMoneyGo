@@ -6,6 +6,8 @@ orders, short selling and a benchmark against the S&P 500. Shares the Investment
 Simulator's two-card layout. State persists to config/paper_trading.json.
 """
 
+from __future__ import annotations
+
 from dash import (dcc, html, callback, clientside_callback, Input, Output, State,
                   ctx, no_update, ALL, register_page)
 from dash.exceptions import PreventUpdate

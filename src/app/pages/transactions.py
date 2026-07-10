@@ -5,6 +5,8 @@ Day-grouped list of one month's transactions. Transfer pairs are shown once
 totals. Every row links to its edit page; the floating button adds a new one.
 """
 
+from __future__ import annotations
+
 from datetime import date
 
 import dash

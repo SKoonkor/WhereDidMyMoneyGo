@@ -7,6 +7,8 @@ holdings, and value series are derived by replaying trades against cached prices
 (src/io/stocks.py), so mid-game edits stay consistent.
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
 

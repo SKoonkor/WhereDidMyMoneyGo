@@ -6,6 +6,8 @@ whichever account you select. State lives in one file per account under
 config/paper_accounts/ (see src.analytics.paper).
 """
 
+from __future__ import annotations
+
 from dash import (dcc, html, callback, Input, Output, State, ctx, no_update, ALL,
                   register_page)
 from dash.exceptions import PreventUpdate

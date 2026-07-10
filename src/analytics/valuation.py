@@ -5,6 +5,8 @@ required inputs are missing / a guardrail fails). ``run_all`` bundles them for t
 page, and ``suitability`` explains when each model fits a given company.
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 # Method registry: key → display name (order shown on the page).

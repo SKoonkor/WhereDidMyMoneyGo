@@ -12,6 +12,8 @@ at the carried balance. A dashed net-worth line and a per-account balance box ar
 overlaid (unless ``compact``).
 """
 
+from __future__ import annotations
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go

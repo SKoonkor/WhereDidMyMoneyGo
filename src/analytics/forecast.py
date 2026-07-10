@@ -11,6 +11,8 @@ Only the fit (`train_model`) needs statsmodels; prediction works from the stored
 coefficients/covariance with numpy, so the model persists as plain JSON.
 """
 
+from __future__ import annotations
+
 import json
 from datetime import date, datetime
 from pathlib import Path
