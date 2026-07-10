@@ -135,6 +135,7 @@ def layout(**_):
                          style={"color": theme.ACCENT, "marginLeft": "12px"}),
             ], style={"display": "flex", "alignItems": "center", "gap": "8px",
                       "margin": "16px 0"}),
+            dcc.ConfirmDialog(id="imp-confirm"),
             html.Div(id="imp-result"),
         ],
         style=theme.PAGE_STYLE,
@@ -359,12 +360,57 @@ def _preview(n_clicks, file_data, _mapping_values, options, replace_val):
 
 
 @callback(
+    Output("imp-confirm", "message"),
+    Output("imp-confirm", "displayed"),
+    Input("imp-import-btn", "n_clicks"),
+    State("imp-file-store", "data"),
+    State({"role": "imp-map", "field": ALL}, "value"),
+    State("imp-options", "value"),
+    State("imp-suspects", "value"),
+    State("imp-replace", "value"),
+    prevent_initial_call=True,
+)
+def _confirm_import(n_clicks, file_data, _mapping_values, options, suspect_sel,
+                    replace_val):
+    """Guardrail: clicking Import opens a summary dialog; the actual write only
+    happens if the user confirms (see _import_or_undo)."""
+    if not n_clicks or not file_data:
+        raise PreventUpdate
+    mapping_states = ctx.states_list[1]
+    ledger, manifest, replace_on = _dedupe_ledger(replace_val)
+    try:
+        result = _parse_upload(file_data, mapping_states, options, ledger)
+    except ValueError as e:
+        return f"Cannot import: {e}", True
+    keep = set(suspect_sel or [])
+    accepted = [r for r in result["rows"]
+                if r["_dup"] != "exact"
+                and (r["_dup"] != "suspect" or r["_source_row"] in keep)]
+    n = len(accepted)
+    skipped = len(result["rows"]) - n
+    fname = file_data.get("filename", "the file")
+    del_n = manifest.get("count", 0) if (replace_on and manifest) else 0
+
+    lines = []
+    if del_n:
+        lines.append(f"⚠ REPLACE MODE: {del_n} transaction(s) from the previous "
+                     f"import (\"{manifest.get('filename', '?')}\") will be DELETED "
+                     f"first.")
+    lines.append(f"{n} transaction(s) will be imported from \"{fname}\".")
+    if skipped:
+        lines.append(f"{skipped} row(s) will be skipped (duplicates / unticked).")
+    lines.append("")
+    lines.append("A backup is saved before any change. Continue?")
+    return "\n".join(lines), True
+
+
+@callback(
     Output("imp-result", "children"),
     Output("imp-backup-store", "data"),
     Output("imp-undo-btn", "style"),
     Output("imp-import-btn", "disabled", allow_duplicate=True),
     Output("imp-last-info", "children"),
-    Input("imp-import-btn", "n_clicks"),
+    Input("imp-confirm", "submit_n_clicks"),
     Input("imp-undo-btn", "n_clicks"),
     State("imp-file-store", "data"),
     State({"role": "imp-map", "field": ALL}, "value"),
@@ -375,7 +421,7 @@ def _preview(n_clicks, file_data, _mapping_values, options, replace_val):
     State("imp-replace", "value"),
     prevent_initial_call=True,
 )
-def _import_or_undo(_imp, _undo, file_data, _mapping_values, options,
+def _import_or_undo(_submit, _undo, file_data, _mapping_values, options,
                     _acct_values, suspect_sel, backup_path, replace_val):
     hidden = {**theme.BUTTON_STYLE, "display": "none"}
     shown = theme.BUTTON_STYLE

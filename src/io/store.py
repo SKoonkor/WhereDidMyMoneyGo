@@ -357,6 +357,44 @@ def backups_dir() -> Path:
     return db_path().parent.parent / "backups"
 
 
+def count_period(start, end) -> int:
+    """How many transactions fall within [start, end] (inclusive, whole end day).
+    Used to preview a period deletion before it happens."""
+    lo, hi = _period_bounds(start, end)
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM transactions WHERE period >= ? AND period <= ?",
+            (lo, hi)).fetchone()
+    finally:
+        conn.close()
+    return int(row[0])
+
+
+def delete_period(start, end) -> tuple[int, Path | None]:
+    """Delete every transaction dated within [start, end] (inclusive, whole end
+    day). Backs the ledger up first. Returns (deleted_count, backup_path)."""
+    lo, hi = _period_bounds(start, end)
+    backup = _backup()
+    conn = _connect()
+    try:
+        with conn:
+            cur = conn.execute(
+                "DELETE FROM transactions WHERE period >= ? AND period <= ?",
+                (lo, hi))
+            n = cur.rowcount
+    finally:
+        conn.close()
+    return n, backup
+
+
+def _period_bounds(start, end) -> tuple[str, str]:
+    """Inclusive [start 00:00:00, end 23:59:59] as sortable period strings."""
+    lo = pd.Timestamp(start).normalize()
+    hi = pd.Timestamp(end).normalize() + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+    return lo.strftime(PERIOD_FMT), hi.strftime(PERIOD_FMT)
+
+
 def replace_import(delete_ids: list[str], insert_tuples: list[tuple]) -> Path | None:
     """Delete an earlier import's rows and insert a new batch in one transaction.
 

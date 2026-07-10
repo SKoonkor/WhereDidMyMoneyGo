@@ -128,6 +128,19 @@ def layout(**_):
             ),
             dcc.Link("Reconcile balances", href="/reconcile", className="home-action-btn view"),
             dcc.Link("Backup & restore", href="/backup", className="home-action-btn view"),
+
+            html.Hr(style={"border": "none", "borderTop": "1px solid var(--border)",
+                           "margin": "16px 0 10px"}),
+            html.Button("Remove transactions", id="set-remove-btn", n_clicks=0,
+                        style={**theme.BUTTON_STYLE, "background": theme.EXPENSE_COLOR,
+                               "color": "#fff", "width": "100%"}),
+            dcc.ConfirmDialog(
+                id="set-remove-confirm",
+                message="⚠ Danger Zone\n\nThe next screen lets you permanently "
+                        "delete transactions within a date range you choose. "
+                        "Deletions are backed up first, but cannot be undone from "
+                        "that page.\n\nOpen the Remove Transactions tool?"),
+            dcc.Location(id="set-remove-nav", refresh="callback-nav"),
         ],
         style=theme.CARD_STYLE,
     )
@@ -186,3 +199,25 @@ def _save(n, app_name, currency, monthly, months, account, privacy_auto, privacy
         return "Saved.", ok
     except Exception as exc:  # surface any write/validation error to the user
         return f"Could not save: {exc}", err
+
+
+@callback(
+    Output("set-remove-confirm", "displayed"),
+    Input("set-remove-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _open_danger_dialog(n):
+    # Deletion lives on its own /remove page; this button only warns and, on
+    # confirmation, navigates there (see _go_remove).
+    return bool(n)
+
+
+@callback(
+    Output("set-remove-nav", "href"),
+    Input("set-remove-confirm", "submit_n_clicks"),
+    prevent_initial_call=True,
+)
+def _go_remove(submit_n):
+    if not submit_n:
+        raise PreventUpdate
+    return "/remove"
