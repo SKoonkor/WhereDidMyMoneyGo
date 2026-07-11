@@ -10,7 +10,7 @@ from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
 from src.analytics.goals import (
     load_goals, add_goal, remove_goal, reorder_goals,
-    load_selected, save_selected, EMERGENCY_FUND)
+    load_selected, save_selected, pool_target, EMERGENCY_FUND)
 
 dash.register_page(__name__, path="/goals", name="Financial Goals", order=3)
 
@@ -85,6 +85,15 @@ def layout(**_):
                             dcc.Input(id="goal-amount", type="number",
                                       placeholder=f"Target ({currency()})",
                                       style=theme.INPUT_STYLE),
+                            dcc.Input(id="goal-factor", type="number", min=1, step=1,
+                                      value=1,
+                                      placeholder="Importance ×factor (default 1)",
+                                      style=theme.INPUT_STYLE),
+                            html.Div("Multiplies this goal's target before it counts "
+                                     "as reached (the pool needs the highest of your "
+                                     "ticked goals).",
+                                     style={"color": theme.MUTED, "fontSize": "12px",
+                                            "marginBottom": "8px"}),
                             html.Button("+ Add goal", id="goal-add", n_clicks=0,
                                         style={**theme.BUTTON_STYLE, "width": "100%"}),
 
@@ -124,24 +133,27 @@ def layout(**_):
     Output("goal-msg", "children"),
     Output("goal-name", "value"),
     Output("goal-amount", "value"),
+    Output("goal-factor", "value"),
     Input("goal-add", "n_clicks"),
     Input("goal-del-confirm", "submit_n_clicks"),
     State("goal-name", "value"),
     State("goal-amount", "value"),
+    State("goal-factor", "value"),
     State("goal-del-select", "value"),
     prevent_initial_call=True,
 )
-def _mutate_goals(_add_clicks, _del_submit, name, amount, del_name):
+def _mutate_goals(_add_clicks, _del_submit, name, amount, factor, del_name):
     trigger = ctx.triggered_id
     if trigger == "goal-add":
         if not name or amount is None:
-            return no_update, "Enter both a name and a target amount.", no_update, no_update
-        goals = add_goal(name, amount)
-        return goals, f"Added '{name.strip()}'.", "", None
+            return (no_update, "Enter both a name and a target amount.",
+                    no_update, no_update, no_update)
+        goals = add_goal(name, amount, factor or 1)
+        return goals, f"Added '{name.strip()}'.", "", None, 1
     if trigger == "goal-del-confirm" and del_name:
         goals = remove_goal(del_name)
-        return goals, f"Deleted '{del_name}'.", no_update, no_update
-    return no_update, no_update, no_update, no_update
+        return goals, f"Deleted '{del_name}'.", no_update, no_update, no_update
+    return no_update, no_update, no_update, no_update, no_update
 
 
 @callback(
@@ -216,7 +228,7 @@ def _update_gauge(selected, goals, theme_value, censor):
     # Emergency-fund target comes from Settings (months × monthly required), so
     # editing it there flows through here and to the home snapshot.
     ef_target = ef["monthly_required"] * ef["target_months"]
-    pooled = ef_target + sum(goals.get(g, 0) for g in selected)
+    pooled = pool_target(ef_target, goals, selected)
     labels = [EMERGENCY_FUND] + selected
 
     return build_goal_gauge(

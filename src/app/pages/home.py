@@ -18,7 +18,7 @@ from src.app.figures.money_flow import build_money_flow_figure
 from src.app.figures.pie import build_pie_figure
 from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
-from src.analytics.goals import load_goals, load_selected, EMERGENCY_FUND
+from src.analytics.goals import load_goals, load_selected, pool_target, EMERGENCY_FUND
 from src.analytics import budget as B
 
 dash.register_page(__name__, path="/", name="Home", order=0)
@@ -266,7 +266,7 @@ def _render_snapshots(theme_value, censor_value):
     # ticked on the Financial Goals page, so the home gauge mirrors that page.
     goals_map = load_goals()
     selected = [g for g in load_selected() if g in goals_map]
-    pooled = status["target"] + sum(goals_map.get(g, 0) for g in selected)
+    pooled = pool_target(status["target"], goals_map, selected)
     gauge_fig = build_goal_gauge(
         balance=status["current_balance"],
         pooled_target=pooled,

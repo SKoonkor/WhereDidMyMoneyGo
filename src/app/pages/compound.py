@@ -7,7 +7,7 @@ from src.app import theme
 from src.app.components import page_header, card
 from src.app.data import currency
 from src.app.figures.compound import compute_schedule, build_compound_figure, COMPOUNDING
-from src.analytics.goals import load_goals, EMERGENCY_FUND
+from src.analytics.goals import load_goals, goal_factor, EMERGENCY_FUND
 
 dash.register_page(__name__, path="/compound", name="Compound Interest", order=4)
 
@@ -22,9 +22,18 @@ def _field(label, component):
 
 
 def _goal_options() -> list[dict]:
-    """Selectable goal targets, sourced from Financial Goals (no Emergency Fund)."""
-    return [{"label": f" {name} ({amt:,.0f} {currency()})", "value": name}
-            for name, amt in load_goals().items() if name != EMERGENCY_FUND]
+    """Selectable goal targets, sourced from Financial Goals (no Emergency Fund).
+    The label shows the xTimes factor when set (the goal is reached at amount×factor).
+    """
+    opts = []
+    for name, amt in load_goals().items():
+        if name == EMERGENCY_FUND:
+            continue
+        f = goal_factor(name)
+        label = (f" {name} ({amt:,.0f} {currency()} × {f:g})" if f > 1
+                 else f" {name} ({amt:,.0f} {currency()})")
+        opts.append({"label": label, "value": name})
+    return opts
 
 
 def layout(**_):
@@ -143,12 +152,14 @@ def _calculate(_n, theme_value, sel_goals, logy_val,
     r = float(rate or 0) / 100.0
 
     goals = load_goals()
-    selected = [(g, goals[g]) for g in (sel_goals or [])
-                if g in goals and g != EMERGENCY_FUND]
-    goal_values = [v for _, v in selected]
+    # Buy in the Financial Goals rank order (top-ranked first), not the order the
+    # user ticked them in the dropdown — load_goals() preserves the page order.
+    chosen = set(sel_goals or [])
+    selected = [(nm, goals[nm], goal_factor(nm)) for nm in goals
+                if nm != EMERGENCY_FUND and nm in chosen]
 
     sched = compute_schedule(P, D, M, r, compounding or "Annually",
-                             goal_values=goal_values)
+                             goals=selected)
 
     results = [
         _result_row("Total Principal", f"{sched['total_principal']:,.2f} {currency()}"),
