@@ -37,7 +37,7 @@ def _goal_rows(goals: dict, selected: list[str]) -> list:
 def _savings_balance() -> float:
     ef = emergency_fund_config()
     status = emergency_fund_status(
-        get_df(), ef["savings_account"], ef["monthly_required"], ef["target_months"]
+        get_df(), ef["savings_accounts"], ef["monthly_required"], ef["target_months"]
     )
     return status["current_balance"]
 

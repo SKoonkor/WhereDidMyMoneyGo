@@ -260,7 +260,7 @@ def _render_snapshots(theme_value, censor_value):
                                compact=True, censor=censor)
 
     ef = emergency_fund_config()
-    status = emergency_fund_status(df, ef["savings_account"],
+    status = emergency_fund_status(df, ef["savings_accounts"],
                                    ef["monthly_required"], ef["target_months"])
     # Pool = Emergency Fund (target from Settings) + whatever goals the user has
     # ticked on the Financial Goals page, so the home gauge mirrors that page.

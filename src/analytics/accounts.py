@@ -42,3 +42,23 @@ def add_account(name: str, path: str | Path = ACCOUNTS_PATH) -> list[str]:
         accounts.append(name)
         save_accounts(accounts, path)
     return accounts
+
+
+def rename_account(old: str, new: str, path: str | Path = ACCOUNTS_PATH) -> list[str]:
+    """Rename an account in the list (preserving position). No-op if ``old`` is
+    absent; merges onto an existing ``new`` by dropping the duplicate."""
+    accounts = load_accounts(path)
+    new = new.strip()
+    if not new or old not in accounts:
+        return accounts
+    accounts = [new if a == old else a for a in accounts]
+    accounts = list(dict.fromkeys(accounts))  # drop a dup if new already existed
+    save_accounts(accounts, path)
+    return accounts
+
+
+def delete_account(name: str, path: str | Path = ACCOUNTS_PATH) -> list[str]:
+    """Remove an account from the list (no-op if absent)."""
+    accounts = [a for a in load_accounts(path) if a != name]
+    save_accounts(accounts, path)
+    return accounts

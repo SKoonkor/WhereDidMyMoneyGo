@@ -99,8 +99,17 @@ def settings() -> dict:
 
 def emergency_fund_config() -> dict:
     ef = settings().get("emergency_fund", {})
+    # Prefer the list key; fall back to the legacy single-account scalar.
+    raw = ef.get("savings_accounts")
+    if raw is None:
+        legacy = ef.get("savings_account")
+        raw = [legacy] if legacy else ["Savings"]
+    elif isinstance(raw, str):
+        raw = [raw]
+    # Drop blanks/duplicates, keep order; never return an empty list.
+    accounts = list(dict.fromkeys(a for a in raw if a and str(a).strip()))
     return {
-        "savings_account": ef.get("savings_account", "Savings"),
+        "savings_accounts": accounts or ["Savings"],
         "monthly_required": ef.get("monthly_required_expenses", 20000.0),
         "target_months": ef.get("target_months", 3),
     }

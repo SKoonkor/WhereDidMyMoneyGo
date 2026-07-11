@@ -395,6 +395,141 @@ def _period_bounds(start, end) -> tuple[str, str]:
     return lo.strftime(PERIOD_FMT), hi.strftime(PERIOD_FMT)
 
 
+# ── account / category management ─────────────────────────────────────────────
+
+_TXN_TYPE_FOR_KIND = {"income": TYPE_INCOME, "expense": TYPE_EXPENSE}
+_TRANSFER_TYPES = (TYPE_TRANSFER_IN, TYPE_TRANSFER_OUT)
+
+
+def account_usage() -> dict[str, int]:
+    """How many transactions reference each account — either as the row's own
+    ``account`` or, for a transfer leg, as the counterparty stored in
+    ``category``. Names not present map to nothing (use ``.get(name, 0)``)."""
+    counts: dict[str, int] = {}
+    conn = _connect()
+    try:
+        for acct, n in conn.execute(
+                "SELECT account, COUNT(*) FROM transactions GROUP BY account"):
+            if acct:
+                counts[acct] = counts.get(acct, 0) + int(n)
+        placeholders = ",".join("?" * len(_TRANSFER_TYPES))
+        for acct, n in conn.execute(
+                f"SELECT category, COUNT(*) FROM transactions "
+                f"WHERE txn_type IN ({placeholders}) GROUP BY category",
+                _TRANSFER_TYPES):
+            if acct:
+                counts[acct] = counts.get(acct, 0) + int(n)
+    finally:
+        conn.close()
+    return counts
+
+
+def category_usage(kind: str) -> dict[str, int]:
+    """How many transactions use each top-level category of ``kind``
+    ("income"|"expense"), counting only rows of the matching ``txn_type``."""
+    txn_type = _TXN_TYPE_FOR_KIND[kind]
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT category, COUNT(*) FROM transactions WHERE txn_type=? "
+            "GROUP BY category", (txn_type,)).fetchall()
+    finally:
+        conn.close()
+    return {c: int(n) for c, n in rows if c}
+
+
+def subcategory_usage(kind: str, category: str) -> dict[str, int]:
+    """Per-subcategory usage counts within one category of ``kind``."""
+    txn_type = _TXN_TYPE_FOR_KIND[kind]
+    conn = _connect()
+    try:
+        rows = conn.execute(
+            "SELECT subcategory, COUNT(*) FROM transactions "
+            "WHERE txn_type=? AND category=? GROUP BY subcategory",
+            (txn_type, category)).fetchall()
+    finally:
+        conn.close()
+    return {s: int(n) for s, n in rows if s}
+
+
+def rename_account(old: str, new: str) -> int:
+    """Rename an account across the ledger: the ``account`` column plus any
+    transfer leg whose counterparty (stored in ``category``) is ``old``. Backs
+    up first; returns the number of rows changed."""
+    if not new or old == new:
+        return 0
+    _backup()
+    conn = _connect()
+    try:
+        with conn:
+            c1 = conn.execute(
+                "UPDATE transactions SET account=? WHERE account=?",
+                (new, old)).rowcount
+            placeholders = ",".join("?" * len(_TRANSFER_TYPES))
+            c2 = conn.execute(
+                f"UPDATE transactions SET category=? WHERE category=? "
+                f"AND txn_type IN ({placeholders})",
+                (new, old, *_TRANSFER_TYPES)).rowcount
+    finally:
+        conn.close()
+    return int(c1) + int(c2)
+
+
+def rename_category(kind: str, old: str, new: str) -> int:
+    """Rename a top-level category on all rows of the matching ``txn_type``."""
+    if not new or old == new:
+        return 0
+    txn_type = _TXN_TYPE_FOR_KIND[kind]
+    _backup()
+    conn = _connect()
+    try:
+        with conn:
+            n = conn.execute(
+                "UPDATE transactions SET category=? WHERE category=? AND txn_type=?",
+                (new, old, txn_type)).rowcount
+    finally:
+        conn.close()
+    return int(n)
+
+
+def move_subcategory(from_cat: str, to_cat: str, sub: str) -> int:
+    """Reassign a subcategory to a different expense category: matching expense
+    rows get ``category=to_cat`` (``subcategory`` unchanged). ``from_cat``
+    disambiguates a subcategory that exists under several categories. Backs up
+    first; returns the number of rows changed."""
+    if not to_cat or from_cat == to_cat:
+        return 0
+    _backup()
+    conn = _connect()
+    try:
+        with conn:
+            n = conn.execute(
+                "UPDATE transactions SET category=? WHERE category=? "
+                "AND subcategory=? AND txn_type=?",
+                (to_cat, from_cat, sub, TYPE_EXPENSE)).rowcount
+    finally:
+        conn.close()
+    return int(n)
+
+
+def rename_subcategory(kind: str, category: str, old: str, new: str) -> int:
+    """Rename a subcategory within one category on matching-``txn_type`` rows."""
+    if not new or old == new:
+        return 0
+    txn_type = _TXN_TYPE_FOR_KIND[kind]
+    _backup()
+    conn = _connect()
+    try:
+        with conn:
+            n = conn.execute(
+                "UPDATE transactions SET subcategory=? WHERE subcategory=? "
+                "AND category=? AND txn_type=?",
+                (new, old, category, txn_type)).rowcount
+    finally:
+        conn.close()
+    return int(n)
+
+
 def replace_import(delete_ids: list[str], insert_tuples: list[tuple]) -> Path | None:
     """Delete an earlier import's rows and insert a new batch in one transaction.
 

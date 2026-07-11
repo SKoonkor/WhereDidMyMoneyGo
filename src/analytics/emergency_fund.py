@@ -5,17 +5,23 @@ import pandas as pd
 
 def emergency_fund_status(
     df: pd.DataFrame,
-    savings_account: str,
+    savings_accounts,
     monthly_required: float,
     target_months: int,
 ) -> dict:
     """
-    Calculate emergency fund progress.
+    Calculate emergency fund progress across one or more savings accounts.
+
+    ``savings_accounts`` may be a single account name or a list of names; the
+    current balance is the combined signed balance of all of them. Transfers
+    between two pooled accounts net to zero, so the pool total is unaffected.
 
     Returns a dict with:
         current_balance, target, percentage, months_covered
     """
-    savings_df = df[df["Account"] == savings_account].copy()
+    if isinstance(savings_accounts, str):
+        savings_accounts = [savings_accounts]
+    savings_df = df[df["Account"].isin(savings_accounts)].copy()
 
     def sign(row):
         t = row["Income/Expense"]

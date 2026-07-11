@@ -22,7 +22,9 @@ def load_config(config_dir: str | Path = "config") -> dict:
 
 
 def _toml_scalar(v) -> str:
-    """Serialise a scalar to TOML. Python type decides the literal form."""
+    """Serialise a scalar (or a flat list) to TOML. Python type decides the form."""
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(_toml_scalar(x) for x in v) + "]"
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, int):

@@ -1049,6 +1049,88 @@ label.dash-options-list-option { color: var(--ink); }
 }
 .budget-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* ── Manage accounts & categories ────────────────────────────────────────── */
+.manage-cols { display: flex; gap: 14px; align-items: flex-start; }
+/* Expense board: content-width columns (as wide as their longest name), scrolls
+   horizontally. */
+.manage-board {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-top: 6px;
+}
+.manage-board .manage-col { flex: 0 0 auto; width: max-content; min-width: 72px; }
+.manage-col-head { cursor: pointer; white-space: nowrap; }
+
+/* Trello-style cards for accounts (name / uses / buttons) and income (name only). */
+.manage-cardlist { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;
+                   margin-top: 6px; }
+.manage-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 10px 12px;
+    width: max-content;
+    min-width: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.manage-card[data-select] { cursor: pointer; }
+.manage-card-name { font-weight: 600; color: var(--ink); white-space: nowrap; }
+.manage-card-btns { display: flex; gap: 8px; }
+.manage-card-btns button { flex: 1; }
+.manage-col {
+    flex: 1;
+    min-width: 0;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 10px;
+    transition: border-color 0.12s ease, background 0.12s ease;
+}
+.manage-col.drop-hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface-2));
+}
+.manage-col-head {
+    font-weight: 600;
+    padding: 2px 4px 8px;
+    border-bottom: 1px solid var(--border-soft);
+    margin-bottom: 8px;
+}
+.manage-chip-list { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+.manage-chip {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 14px;
+    cursor: grab;
+    user-select: none;
+    white-space: nowrap;
+}
+.manage-chip:hover { border-color: var(--accent); }
+.manage-chip:active { cursor: grabbing; }
+.manage-chip.dragging { opacity: 0.4; }
+/* Account / subcategory rows: name, usage count, action buttons. */
+.manage-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 2px;
+    border-bottom: 1px solid var(--border-soft);
+}
+.manage-row .manage-name { flex: 1; color: var(--ink); }
+.manage-row .manage-count {
+    color: var(--muted);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
 /* Over-budget overflow list beside a spending pie. */
 .budget-overflow-row {
     display: flex;

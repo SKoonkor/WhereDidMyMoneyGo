@@ -8,7 +8,7 @@ the config cache so emergency-fund settings take effect on the next render.
 from __future__ import annotations
 
 import dash
-from dash import dcc, html, callback, Input, Output, State
+from dash import dcc, html, callback, ctx, ALL, Input, Output, State
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
@@ -29,12 +29,39 @@ def _field(label: str, control, hint: str | None = None) -> html.Div:
     return html.Div(children, style={"marginBottom": "14px"})
 
 
+def _savings_rows(accounts: list[str]) -> list:
+    """One dropdown per pooled savings account; a remove button appears per row
+    only once there is more than one account."""
+    accounts = accounts or ["Savings"]
+    removable = len(accounts) > 1
+    names = account_names()
+    rows = []
+    for i, acct in enumerate(accounts):
+        # Keep the chosen account selectable even if it isn't in the current list.
+        options = list(dict.fromkeys([*names, acct])) if acct else names
+        children = [
+            dcc.Dropdown(id={"type": "set-ef-acct", "index": i},
+                         options=[{"label": a, "value": a} for a in options],
+                         value=acct, clearable=False,
+                         style={"flex": "1", "maxWidth": "260px"}),
+        ]
+        if removable:
+            children.append(
+                html.Button("− remove account",
+                            id={"type": "set-ef-acct-remove", "index": i}, n_clicks=0,
+                            className="nav-btn",
+                            style={"color": theme.EXPENSE_COLOR,
+                                   "borderColor": theme.EXPENSE_COLOR,
+                                   "whiteSpace": "nowrap"}))
+        rows.append(html.Div(children, style={"display": "flex", "gap": "8px",
+                                              "alignItems": "center",
+                                              "marginTop": "6px"}))
+    return rows
+
+
 def layout(**_):
     general = get_config().get("settings", {}).get("general", {})
     ef = emergency_fund_config()
-    sav = ef["savings_account"]
-    # Keep the current savings account selectable even if it isn't in the list.
-    options = list(dict.fromkeys([*account_names(), sav])) if sav else account_names()
 
     general_card = html.Div(
         [
@@ -68,11 +95,18 @@ def layout(**_):
                              style={**theme.INPUT_STYLE, "marginTop": "4px", "width": "120px",
                                     "marginLeft": "10px"}),
                    hint="Emergency-fund target = target months × monthly required expenses."),
-            _field("Savings account",
-                   dcc.Dropdown(id="set-ef-account",
-                                options=[{"label": a, "value": a} for a in options],
-                                value=sav, clearable=False,
-                                style={"marginTop": "4px", "maxWidth": "260px"})),
+            _field("Savings account(s)",
+                   html.Div(
+                       [
+                           dcc.Store(id="set-ef-accounts-store",
+                                     data=ef["savings_accounts"]),
+                           html.Div(id="set-ef-accounts"),
+                           html.Button("+ savings account", id="set-ef-acct-add",
+                                       n_clicks=0, className="nav-btn today",
+                                       style={"marginTop": "6px"}),
+                       ]),
+                   hint="The Financial Goals savings pool combines the balances of "
+                        "all listed accounts."),
         ],
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
@@ -127,6 +161,8 @@ def layout(**_):
                 style={"display": "flex", "gap": "10px"},
             ),
             dcc.Link("Reconcile balances", href="/reconcile", className="home-action-btn view"),
+            dcc.Link("Manage accounts & categories", href="/manage",
+                     className="home-action-btn view"),
             dcc.Link("Backup & restore", href="/backup", className="home-action-btn view"),
 
             html.Hr(style={"border": "none", "borderTop": "1px solid var(--border)",
@@ -169,16 +205,19 @@ def layout(**_):
     State("set-currency", "value"),
     State("set-ef-monthly", "value"),
     State("set-ef-months", "value"),
-    State("set-ef-account", "value"),
+    State({"type": "set-ef-acct", "index": ALL}, "value"),
     State("set-privacy-auto", "value"),
     State("set-privacy-seconds", "value"),
     prevent_initial_call=True,
 )
-def _save(n, app_name, currency, monthly, months, account, privacy_auto, privacy_seconds):
+def _save(n, app_name, currency, monthly, months, accounts, privacy_auto, privacy_seconds):
     if not n:
         raise PreventUpdate
     ok = {"alignSelf": "center", "fontSize": "14px", "color": theme.ACCENT}
     err = {"alignSelf": "center", "fontSize": "14px", "color": theme.EXPENSE_COLOR}
+    # Dedupe, drop blanks, keep order; never persist an empty pool.
+    savings = list(dict.fromkeys(
+        a.strip() for a in (accounts or []) if a and a.strip())) or ["Savings"]
     try:
         save_settings({
             "general": {
@@ -188,7 +227,7 @@ def _save(n, app_name, currency, monthly, months, account, privacy_auto, privacy
             "emergency_fund": {
                 "monthly_required_expenses": float(monthly or 0),
                 "target_months": int(months or 1),
-                "savings_account": (account or "").strip(),
+                "savings_accounts": savings,
             },
             "privacy": {
                 "auto_enabled": bool(privacy_auto),
@@ -199,6 +238,40 @@ def _save(n, app_name, currency, monthly, months, account, privacy_auto, privacy
         return "Saved.", ok
     except Exception as exc:  # surface any write/validation error to the user
         return f"Could not save: {exc}", err
+
+
+@callback(
+    Output("set-ef-accounts", "children"),
+    Input("set-ef-accounts-store", "data"),
+)
+def _render_savings_rows(accounts):
+    return _savings_rows(accounts)
+
+
+@callback(
+    Output("set-ef-accounts-store", "data"),
+    Input("set-ef-acct-add", "n_clicks"),
+    Input({"type": "set-ef-acct-remove", "index": ALL}, "n_clicks"),
+    State({"type": "set-ef-acct", "index": ALL}, "value"),
+    prevent_initial_call=True,
+)
+def _edit_savings_rows(_add, _removes, values):
+    # Ignore the spurious fire when rows are rebuilt (new buttons start at 0/None).
+    if not ctx.triggered or not ctx.triggered[0]["value"]:
+        raise PreventUpdate
+    accounts = [v for v in (values or [])]
+    trig = ctx.triggered_id
+    if trig == "set-ef-acct-add":
+        names = account_names()
+        nxt = next((a for a in names if a not in accounts),
+                   (names[0] if names else "Savings"))
+        return accounts + [nxt]
+    if isinstance(trig, dict) and trig.get("type") == "set-ef-acct-remove":
+        idx = trig.get("index")
+        if isinstance(idx, int) and 0 <= idx < len(accounts) and len(accounts) > 1:
+            accounts.pop(idx)
+        return accounts
+    raise PreventUpdate
 
 
 @callback(
