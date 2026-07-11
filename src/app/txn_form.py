@@ -152,6 +152,8 @@ def build_form(mode: str, initial: dict | None = None,
                 className="modal-card",
             ),
             id=modal_id, className="modal-overlay", style=_HIDDEN,
+            # Clicking the backdrop (handled in popup_dismiss.js) triggers this close.
+            **{"data-close": close_id},
         )
 
     cat_modal = _picker_modal("txn-cat-modal", "Category", "txn-cat-close",

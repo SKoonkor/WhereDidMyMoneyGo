@@ -59,7 +59,8 @@ def layout(**_):
     return html.Div(
         [
             page_header("Backup & Restore",
-                        "Everything personal in one file: your ledger and all settings."),
+                        "Everything personal in one file: your ledger and all settings.",
+                        back=("Settings", "/settings")),
             dcc.Store(id="bak-pending-ledger"),
 
             card([

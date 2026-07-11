@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dash import dcc, html, clientside_callback, Input, Output
+from dash import dcc, html
 
 from src.app import theme
 from src.analytics.reconciliation import is_reminder_due
@@ -121,14 +121,9 @@ def menu_widget():
     )
 
 
-# Show/hide the menu dropdown on button clicks (parity toggle). Navigating via a
-# dcc.Link re-renders the page layout, so the dropdown resets to hidden afterwards.
-clientside_callback(
-    "function(n){ return (n % 2 === 1) ? {display:'block'} : {display:'none'}; }",
-    Output("menu-dropdown", "style"),
-    Input("menu-toggle", "n_clicks"),
-    prevent_initial_call=True,
-)
+# The "☰ Menu" dropdown is opened/closed and dismissed on outside click entirely
+# in assets/popup_dismiss.js (so it behaves like the calendar popup). Navigating via
+# a dcc.Link re-renders the header, so the dropdown resets to hidden afterwards.
 
 
 def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
