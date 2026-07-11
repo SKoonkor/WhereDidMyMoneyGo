@@ -452,13 +452,21 @@ def subcategory_usage(kind: str, category: str) -> dict[str, int]:
     return {s: int(n) for s, n in rows if s}
 
 
-def rename_account(old: str, new: str) -> int:
+def backup_now() -> Path | None:
+    """Public one-shot ledger backup — used before a batch of updates that pass
+    ``backup=False`` (e.g. the Manage-page Apply) so the whole batch is one Undo
+    step instead of one backup per call."""
+    return _backup()
+
+
+def rename_account(old: str, new: str, backup: bool = True) -> int:
     """Rename an account across the ledger: the ``account`` column plus any
     transfer leg whose counterparty (stored in ``category``) is ``old``. Backs
-    up first; returns the number of rows changed."""
+    up first (unless ``backup=False``); returns the number of rows changed."""
     if not new or old == new:
         return 0
-    _backup()
+    if backup:
+        _backup()
     conn = _connect()
     try:
         with conn:
@@ -475,12 +483,13 @@ def rename_account(old: str, new: str) -> int:
     return int(c1) + int(c2)
 
 
-def rename_category(kind: str, old: str, new: str) -> int:
+def rename_category(kind: str, old: str, new: str, backup: bool = True) -> int:
     """Rename a top-level category on all rows of the matching ``txn_type``."""
     if not new or old == new:
         return 0
     txn_type = _TXN_TYPE_FOR_KIND[kind]
-    _backup()
+    if backup:
+        _backup()
     conn = _connect()
     try:
         with conn:
@@ -492,14 +501,15 @@ def rename_category(kind: str, old: str, new: str) -> int:
     return int(n)
 
 
-def move_subcategory(from_cat: str, to_cat: str, sub: str) -> int:
+def move_subcategory(from_cat: str, to_cat: str, sub: str, backup: bool = True) -> int:
     """Reassign a subcategory to a different expense category: matching expense
     rows get ``category=to_cat`` (``subcategory`` unchanged). ``from_cat``
     disambiguates a subcategory that exists under several categories. Backs up
-    first; returns the number of rows changed."""
+    first (unless ``backup=False``); returns the number of rows changed."""
     if not to_cat or from_cat == to_cat:
         return 0
-    _backup()
+    if backup:
+        _backup()
     conn = _connect()
     try:
         with conn:
@@ -512,12 +522,14 @@ def move_subcategory(from_cat: str, to_cat: str, sub: str) -> int:
     return int(n)
 
 
-def rename_subcategory(kind: str, category: str, old: str, new: str) -> int:
+def rename_subcategory(kind: str, category: str, old: str, new: str,
+                       backup: bool = True) -> int:
     """Rename a subcategory within one category on matching-``txn_type`` rows."""
     if not new or old == new:
         return 0
     txn_type = _TXN_TYPE_FOR_KIND[kind]
-    _backup()
+    if backup:
+        _backup()
     conn = _connect()
     try:
         with conn:

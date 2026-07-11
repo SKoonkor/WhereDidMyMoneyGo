@@ -1079,7 +1079,13 @@ label.dash-options-list-option { color: var(--ink); }
     gap: 6px;
 }
 .manage-card[data-select] { cursor: pointer; }
-.manage-card-name { font-weight: 600; color: var(--ink); white-space: nowrap; }
+.manage-card-name {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border-soft);
+    padding-bottom: 6px;
+}
 .manage-card-btns { display: flex; gap: 8px; }
 .manage-card-btns button { flex: 1; }
 .manage-col {
@@ -1125,11 +1131,39 @@ label.dash-options-list-option { color: var(--ink); }
     border-bottom: 1px solid var(--border-soft);
 }
 .manage-row .manage-name { flex: 1; color: var(--ink); }
-.manage-row .manage-count {
+/* Usage count — same muted, small style for account cards and category rows. */
+.manage-count {
     color: var(--muted);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
+/* Whole card header is the expand/collapse control. */
+.manage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 8px;
+}
+.manage-header:hover { background: var(--surface-2); }
+.manage-toggle-icon { font-size: 24px; line-height: 1; color: var(--ink); }
+
+/* Staged-deletion look: greyed item with a red ✕ (click again to undo). */
+.manage-card, .manage-col, .manage-chip { position: relative; }
+.deleted { opacity: 0.5; }
+.deleted .manage-card-name,
+.manage-chip.deleted { text-decoration: line-through; }
+.manage-x {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    color: var(--expense);
+    font-weight: 700;
+    font-size: 14px;
+    pointer-events: none;
+}
+.manage-chip.deleted { cursor: default; padding-right: 22px; }
 
 /* Over-budget overflow list beside a spending pie. */
 .budget-overflow-row {
