@@ -19,6 +19,11 @@ savings_account = "Savings"
 auto_enabled = true
 idle_seconds = 10
 
+[tax]
+# The Income Tax page sums this expense subcategory over the year as the tax you
+# have already paid (withholding / prepayments). Choose it on the Settings page.
+paid_subcategory = "Tax"
+
 [date_format]
 input = "%Y-%m-%d %H:%M:%S"
 display = "%b %Y"

@@ -117,6 +117,8 @@ def layout(**_):
                 ),
                 style={"marginTop": "20px"},
             ),
+            # Filled on Calculate: a table of months-to-reach per selected goal.
+            html.Div(id="ci-goal-table"),
         ],
         style=theme.PAGE_STYLE,
     )
@@ -130,10 +132,88 @@ def _result_row(label, value):
     )
 
 
+# Columns of the goal-achievement table, matched to the chart's line colours:
+# don't-buy = green maturity line, plain = pink line, factor = purple line.
+_ACH_COLS = [
+    ("month_nobuy", "Don't buy", theme.INCOME_COLOR),
+    ("month_plain", "Buy at amount", "#e84393"),
+    ("month_factor", "Buy at ×factor", "#8e44ad"),
+]
+_TH_STYLE = {"padding": "8px 10px", "fontSize": "12px", "fontWeight": 600,
+             "borderBottom": "1px solid var(--border)"}
+_TD_STYLE = {"padding": "8px 10px", "borderBottom": "1px solid var(--border-soft)",
+             "verticalAlign": "top"}
+
+
+def _fmt_months(m):
+    """A month count as a bold number over a muted years/months breakdown."""
+    if m is None:
+        return html.Span("—", style={"color": theme.MUTED})
+    m = int(m)
+    y, mo = divmod(m, 12)
+    sub = f"{y}y {mo}m" if (y and mo) else (f"{y}y" if y else f"{mo}m")
+    return html.Div(
+        [
+            html.Span(f"{m}", style={"fontWeight": 600, "color": theme.INK}),
+            html.Span(" mo", style={"color": theme.MUTED, "fontSize": "12px"}),
+            html.Div(sub, style={"color": theme.MUTED, "fontSize": "11px"}),
+        ]
+    )
+
+
+def _goal_table(achievement, cur):
+    """Card with a row per selected goal and a column per buying strategy, each
+    cell being the number of months until that goal is reached. Returns ``None``
+    when no goals are selected (nothing renders)."""
+    if not achievement:
+        return None
+
+    header = html.Tr(
+        [html.Th("Goal", style={**_TH_STYLE, "textAlign": "left",
+                                "color": theme.MUTED})]
+        + [html.Th(label, style={**_TH_STYLE, "textAlign": "right", "color": col})
+           for _, label, col in _ACH_COLS]
+    )
+
+    rows = []
+    for g in achievement:
+        f = g["factor"]
+        meta = f"{g['amount']:,.0f} {cur}" + (f" · ×{f:g}" if f > 1 else "")
+        label_cell = html.Td(
+            html.Div([
+                html.Span(g["name"], style={"fontWeight": 600, "color": theme.INK}),
+                html.Div(meta, style={"color": theme.MUTED, "fontSize": "12px"}),
+            ]),
+            style={**_TD_STYLE, "textAlign": "left"},
+        )
+        cells = [label_cell] + [
+            html.Td(_fmt_months(g[key]), style={**_TD_STYLE, "textAlign": "right"})
+            for key, _, _ in _ACH_COLS
+        ]
+        rows.append(html.Tr(cells))
+
+    return card(
+        [
+            html.H3("When you'll reach each goal",
+                    style={"marginTop": 0, "color": theme.INK}),
+            html.P("Months until each selected goal is reached, under three "
+                   "strategies. “Don't buy” follows the green maturity "
+                   "line (money is never spent). “Buy at amount” and "
+                   "“Buy at ×factor” spend in your Financial Goals "
+                   "rank order, so buying an earlier goal pushes later goals back.",
+                   style={"color": theme.MUTED, "fontSize": "13px"}),
+            html.Table([html.Thead(header), html.Tbody(rows)],
+                       style={"width": "100%", "borderCollapse": "collapse"}),
+        ],
+        style={"marginTop": "20px"},
+    )
+
+
 @callback(
     Output("ci-graph", "figure"),
     Output("ci-results", "children"),
     Output("ci-goal-arrows", "data"),
+    Output("ci-goal-table", "children"),
     Input("ci-calc", "n_clicks"),
     Input("theme-store", "data"),
     Input("ci-goals", "value"),
@@ -169,7 +249,8 @@ def _calculate(_n, theme_value, sel_goals, logy_val,
     ]
     fig, arrows = build_compound_figure(sched, currency(), dark=theme.is_dark(theme_value),
                                         goals=selected, logy=("log" in (logy_val or [])))
-    return fig, results, arrows
+    table = _goal_table(sched.get("achievement") or [], currency())
+    return fig, results, arrows, table
 
 
 # Hide each "above range" goal arrow once its line is panned/zoomed into view, and

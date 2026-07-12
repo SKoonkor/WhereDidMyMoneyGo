@@ -111,6 +111,28 @@ def compute_schedule(P: float, D: float, M: int, annual_rate: float,
     maturity_value = float(maturity[M])
     interest = maturity_value - total_principal
 
+    # Per-goal "month reached" under the three strategies drawn on the chart:
+    #   • no-buy   — first month the pure maturity line reaches the goal's actual
+    #                amount (money is never spent, so all goals share one balance);
+    #   • plain    — the month it's bought at its actual amount (sequential);
+    #   • factor   — the month it's bought at amount × factor (sequential).
+    # Buy months come straight from the two simulations; the no-buy month is read
+    # off the full pure series (to cap), so goals beyond the plotted horizon still
+    # get an accurate figure. ``None`` means "not reached within the horizon".
+    hit_f = {h["name"]: h["month"] for h in hits}
+    hit_p = {h["name"]: h["month"] for h in hits_p}
+    achievement = []
+    for nm, a, f in goals:
+        idx = np.where(pure >= float(a))[0]
+        achievement.append({
+            "name": nm,
+            "amount": float(a),
+            "factor": float(f),
+            "month_nobuy": int(idx[0]) if idx.size else None,
+            "month_plain": hit_p.get(nm),
+            "month_factor": hit_f.get(nm),
+        })
+
     return {
         "months": months,
         "principal": principal,
@@ -127,6 +149,7 @@ def compute_schedule(P: float, D: float, M: int, annual_rate: float,
         "interest": interest,
         "apy": apy(annual_rate, n),
         "annual_rate": annual_rate,
+        "achievement": achievement,
     }
 
 

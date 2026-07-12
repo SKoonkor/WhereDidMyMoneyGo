@@ -80,6 +80,7 @@ _MENU_GROUPS = [
         ("Transactions", "/transactions"),
         ("Budget", "/budget"),
         ("Financial Goals", "/goals"),
+        ("Income Tax", "/income-tax"),
     ],
     [
         ("Compound Interest", "/compound"),

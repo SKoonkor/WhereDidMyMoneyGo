@@ -14,7 +14,8 @@ from dash.exceptions import PreventUpdate
 from src.app import theme
 from src.app.components import page_header
 from src.app.data import (get_config, emergency_fund_config, privacy_config,
-                          account_names, refresh_config)
+                          account_names, refresh_config, tax_config)
+from src.analytics.transaction_categories import load_categories
 from src.utils.config import save_settings
 
 dash.register_page(__name__, path="/settings", name="Settings", order=8)
@@ -57,6 +58,19 @@ def _savings_rows(accounts: list[str]) -> list:
                                               "alignItems": "center",
                                               "marginTop": "6px"}))
     return rows
+
+
+def _subcategory_options(selected: str | None = None) -> list[dict]:
+    """Expense subcategories as "Category / Sub" options for the tax picker.
+    The value is the subcategory name (matched against the ledger's Subcategory)."""
+    seen: dict[str, str] = {}
+    for cat, subs in load_categories().get("expense", {}).items():
+        for sub in subs:
+            seen.setdefault(sub, f"{cat} / {sub}")
+    # Keep the saved value selectable even if the category set has since changed.
+    if selected and selected not in seen:
+        seen[selected] = selected
+    return [{"label": label, "value": sub} for sub, label in seen.items()]
 
 
 def layout(**_):
@@ -138,6 +152,21 @@ def layout(**_):
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
 
+    tc = tax_config()
+    tax_card = html.Div(
+        [
+            html.H2("Tax setting", style={"color": theme.INK, "marginTop": 0}),
+            _field("Tax-payment subcategory",
+                   dcc.Dropdown(id="set-tax-subcat",
+                                options=_subcategory_options(tc["paid_subcategory"]),
+                                value=tc["paid_subcategory"], clearable=False,
+                                style={"marginTop": "4px", "maxWidth": "300px"}),
+                   hint="The Income Tax page sums this expense subcategory over the "
+                        "year as the tax you have already paid."),
+        ],
+        style={**theme.CARD_STYLE, "marginTop": "16px"},
+    )
+
     save_row = html.Div(
         [
             html.Button("Save settings", id="set-save", n_clicks=0, style=theme.BUTTON_STYLE),
@@ -186,7 +215,7 @@ def layout(**_):
             page_header("Settings", "Edit your app configuration.", back=("Home", "/")),
             html.Div(
                 [
-                    html.Div([general_card, ef_card, privacy_card, save_row],
+                    html.Div([general_card, ef_card, tax_card, privacy_card, save_row],
                              style={"flex": "1", "maxWidth": "560px", "marginRight": "20px"}),
                     html.Div(tools_card, style={"flex": "0 0 260px"}),
                 ],
@@ -208,9 +237,11 @@ def layout(**_):
     State({"type": "set-ef-acct", "index": ALL}, "value"),
     State("set-privacy-auto", "value"),
     State("set-privacy-seconds", "value"),
+    State("set-tax-subcat", "value"),
     prevent_initial_call=True,
 )
-def _save(n, app_name, currency, monthly, months, accounts, privacy_auto, privacy_seconds):
+def _save(n, app_name, currency, monthly, months, accounts, privacy_auto,
+          privacy_seconds, tax_subcat):
     if not n:
         raise PreventUpdate
     ok = {"alignSelf": "center", "fontSize": "14px", "color": theme.ACCENT}
@@ -232,6 +263,9 @@ def _save(n, app_name, currency, monthly, months, accounts, privacy_auto, privac
             "privacy": {
                 "auto_enabled": bool(privacy_auto),
                 "idle_seconds": max(1, int(privacy_seconds or 10)),
+            },
+            "tax": {
+                "paid_subcategory": (tax_subcat or "").strip(),
             },
         })
         refresh_config()

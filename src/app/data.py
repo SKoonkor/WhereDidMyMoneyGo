@@ -122,3 +122,14 @@ def privacy_config() -> dict:
         "auto_enabled": bool(p.get("auto_enabled", True)),
         "idle_seconds": int(p.get("idle_seconds", 10)),
     }
+
+
+def tax_config() -> dict:
+    """Income-tax settings: which expense subcategory records tax payments, and
+    which country's tax model to use (Thailand today)."""
+    t = settings().get("tax", {})
+    sub = t.get("paid_subcategory")
+    return {
+        "paid_subcategory": (str(sub).strip() or None) if sub else "Tax",
+        "country": t.get("country") or "Thailand",
+    }
