@@ -22,6 +22,7 @@ from src.app.figures.income_tax import build_tax_figure
 from src.analytics.income_tax import (
     spec_for, allowance_defs, income_tax_status, gross_income_for_year,
     tax_paid_for_year, ledger_years, load_tax, save_tax, TH_ALLOWANCES)
+from src.io.tax_report import build_report_html
 
 dash.register_page(__name__, path="/income-tax", name="Income Tax", order=3.5)
 
@@ -81,12 +82,18 @@ def _personal_field():
                   hint=a.get("hint"))
 
 
-def layout(**_):
+def _default_year_gross():
+    """Default tax year (current if the ledger has it, else the newest) and the
+    gross income prefilled for it. Shared by the layout and the Reset callback."""
     df = get_df()
     years = ledger_years(df)
     cur_year = datetime.date.today().year
     default_year = cur_year if cur_year in years else years[0]
-    gross0 = round(gross_income_for_year(df, default_year), 2)
+    return years, default_year, round(gross_income_for_year(df, default_year), 2)
+
+
+def layout(**_):
+    years, default_year, gross0 = _default_year_gross()
     saved = load_tax()
     subcat = tax_config().get("paid_subcategory")
 
@@ -106,9 +113,21 @@ def layout(**_):
                    hint="Prefilled from your tracked income for the year — "
                         "edit if some of it isn't taxable."),
             _personal_field(),
-            html.Button("CALCULATE", id="tax-calc", n_clicks=0,
-                        style={**theme.BUTTON_STYLE, "width": "100%"}),
+            html.Div(
+                [
+                    html.Button("CALCULATE", id="tax-calc", n_clicks=0,
+                                style={**theme.BUTTON_STYLE, "flex": "1"}),
+                    html.Button("RESET", id="tax-reset", n_clicks=0,
+                                style={**theme.PERIOD_BUTTON_STYLE, "flex": "0 0 auto"}),
+                ],
+                style={"display": "flex", "gap": "10px"},
+            ),
             html.Div(id="tax-results", style={"marginTop": "16px"}),
+            html.Button("⬇ Export report", id="tax-export", n_clicks=0,
+                        style={**theme.PERIOD_BUTTON_STYLE, "width": "100%",
+                               "marginTop": "12px"}),
+            dcc.Download(id="tax-download"),
+            dcc.Store(id="tax-status-store"),
         ],
         style={"flex": "0 0 320px"},
     )
@@ -266,6 +285,7 @@ def _prefill_gross(year):
     Output("tax-results", "children"),
     Output("tax-breakdown", "children"),
     Output({"type": "tax-applied", "key": ALL}, "children"),
+    Output("tax-status-store", "data"),
     Input("tax-calc", "n_clicks"),
     Input("theme-store", "data"),
     State("tax-year", "value"),
@@ -302,5 +322,53 @@ def _calculate(_n, theme_value, year, gross, allow_values, allow_ids):
                 if applied_by_key.get(cid["key"], 0) else "")
                for cid in (allow_ids or [])]
 
+    # Snapshot for the export report; export and the on-screen result stay in sync.
+    payload = {"status": status, "year": year,
+               "country": spec.get("country", "Thailand"), "currency": cur,
+               "subcat": subcat,
+               "generated": datetime.date.today().isoformat()}
+
     fig = build_tax_figure(status, cur, dark=theme.is_dark(theme_value))
-    return fig, _results_block(status, subcat), _breakdown_card(status), applied
+    return (fig, _results_block(status, subcat), _breakdown_card(status),
+            applied, payload)
+
+
+@callback(
+    Output("tax-year", "value"),
+    Output("tax-gross", "value", allow_duplicate=True),
+    Output({"type": "tax-allow", "key": ALL}, "value"),
+    Output("tax-results", "children", allow_duplicate=True),
+    Output("tax-breakdown", "children", allow_duplicate=True),
+    Output("tax-graph", "figure", allow_duplicate=True),
+    Output({"type": "tax-applied", "key": ALL}, "children", allow_duplicate=True),
+    Output("tax-status-store", "data", allow_duplicate=True),
+    Input("tax-reset", "n_clicks"),
+    State({"type": "tax-allow", "key": ALL}, "id"),
+    prevent_initial_call=True,
+)
+def _reset(_n, allow_ids):
+    """Clear the on-screen form and results; the saved tax.json is left intact."""
+    _years, default_year, default_gross = _default_year_gross()
+    # Reset each allowance input to its empty value: [] for a checkbox, 0 for a number.
+    allow_values = []
+    applied = []
+    for cid in (allow_ids or []):
+        defn = _ALLOW_BY_KEY.get(cid.get("key"))
+        allow_values.append([] if (defn and defn["type"] == "flag") else 0)
+        applied.append("")
+    return (default_year, default_gross, allow_values,
+            None, None, {}, applied, None)
+
+
+@callback(
+    Output("tax-download", "data"),
+    Input("tax-export", "n_clicks"),
+    State("tax-status-store", "data"),
+    prevent_initial_call=True,
+)
+def _export(_n, payload):
+    """Download the last calculation as a self-contained HTML report."""
+    if not payload or not payload.get("status"):
+        raise PreventUpdate
+    html_doc = build_report_html(payload)
+    return dcc.send_string(html_doc, f"income_tax_{payload.get('year', '')}.html")
