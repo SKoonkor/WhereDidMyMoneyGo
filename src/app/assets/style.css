@@ -125,6 +125,41 @@ html[data-censor="on"] .ci-goals-block { display: none !important; }
    mode (the checklist itself is hidden by the .ci-goals-block rule above). */
 .goals-hidden-hint { display: none; }
 html[data-censor="on"] .goals-hidden-hint { display: inline; }
+
+/* Click-to-toggle info popovers (the ⓘ buttons on the retirement form labels).
+   Hidden until the ⓘ is clicked; toggled/dismissed by assets/info_popover.js. */
+.info-wrap { position: relative; display: inline-block; }
+.info-dot {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+    margin-left: 4px;
+    user-select: none;
+}
+.info-dot:hover { color: var(--ink); }
+.info-wrap.open .info-dot { color: var(--accent); }
+.info-pop {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 60;
+    width: 210px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    white-space: normal;
+    text-transform: none;
+}
+.info-wrap.open .info-pop { display: block; }
+/* Right-align the popover for fields near the right edge so it stays on-card. */
+.info-pop.info-pop-right { left: auto; right: 0; }
 /* Privacy toggle — a minimalist eye / eye-off icon (theme-adaptive via mask). */
 .censor-toggle {
     background: none;

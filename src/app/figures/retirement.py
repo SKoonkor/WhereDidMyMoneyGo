@@ -21,7 +21,7 @@ FREEDOM_COLOR = "#f1c40f"  # gold vertical line for the financial-freedom age
 
 
 def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
-                            show_real: bool = True) -> go.Figure:
+                            show_real: bool = True, logy: bool = False) -> go.Figure:
     ft = theme.fig_theme(dark)
     ages = res["ages"]
     ret_age = float(res["retirement_age"])
@@ -129,14 +129,25 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                            text=f"Financial freedom · age {freedom_age:.0f}",
                            font=dict(color=FREEDOM_COLOR, size=12))
 
-    # Cap the y-axis to the "without goals" baseline's height at the retirement age.
-    # Otherwise the baseline's post-retirement growth (often tens of millions) would
-    # dominate and flatten the goal trajectories against the bottom.
-    baseline_at_retire = float(res.get("balance_at_retirement") or 0.0)
-    if has_goals and baseline_at_retire > 0:
-        y_top = baseline_at_retire
+    # Y-axis. On a log scale, show the full span (small→large is what log is for) with
+    # a floor a few decades below the peak; annotations/vlines are paper/x-referenced
+    # so they need no conversion. On a linear scale, cap the top to the "without goals"
+    # baseline's height at retirement — otherwise its post-retirement growth (often tens
+    # of millions) dominates and flattens the goal trajectories against the bottom.
+    if logy:
+        top_all = max((float(np.max(s)) for s in drawn if s.size), default=1.0) * 1.1
+        y_floor = max(1.0, top_all / 1e4)
+        yaxis = dict(type="log", title=f"Value ({currency})",
+                     range=[float(np.log10(y_floor)),
+                            float(np.log10(max(top_all, y_floor * 10)))])
     else:
-        y_top = max((float(np.max(s)) for s in drawn if s.size), default=1.0) * 1.08
+        baseline_at_retire = float(res.get("balance_at_retirement") or 0.0)
+        if has_goals and baseline_at_retire > 0:
+            y_top = baseline_at_retire
+        else:
+            y_top = max((float(np.max(s)) for s in drawn if s.size),
+                        default=1.0) * 1.08
+        yaxis = dict(title=f"Value ({currency})", range=[0, y_top or 1.0])
 
     fig.update_layout(
         template=ft.template,
@@ -144,7 +155,7 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
         title=dict(text="Retirement projection", x=0.5, xanchor="center",
                    y=0.97, yanchor="top"),
         xaxis=dict(title="Age", range=[float(ages[0]), float(ages[-1])]),
-        yaxis=dict(title=f"Value ({currency})", range=[0, y_top or 1.0]),
+        yaxis=yaxis,
         hovermode="x unified",
         hoverlabel=dict(bgcolor=ft.anno_bg, bordercolor=ft.grid,
                         font=dict(color=ft.ink)),

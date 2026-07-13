@@ -43,6 +43,19 @@ def _goal_options() -> list[dict]:
     return opts
 
 
+def _logy_toggle(cid):
+    """A small "Log y-axis" checkbox, right-aligned in a header row so it sits at the
+    top-right of the plot card it precedes. Shared by both calculator modes."""
+    return html.Div(
+        dcc.Checklist(
+            id=cid, options=[{"label": " Log y-axis", "value": "log"}],
+            value=[], inline=True,
+            labelStyle={"cursor": "pointer", "whiteSpace": "nowrap"},
+        ),
+        style={"display": "flex", "justifyContent": "flex-end", "marginBottom": "4px"},
+    )
+
+
 def _mode_bar():
     """Two buttons at the top of the page choosing which tool is shown. The active
     tool's button uses the filled style; a callback swaps them on click."""
@@ -100,10 +113,13 @@ def _simple_view():
                         style={"flex": "0 0 320px"},
                     ),
                     card(
-                        dcc.Graph(id="ci-graph", style={"height": "520px"},
-                                  config={"scrollZoom": True, "displaylogo": False,
-                                          "modeBarButtonsToRemove": [
-                                              "zoom2d", "select2d", "lasso2d"]}),
+                        [
+                            _logy_toggle("ci-logy"),
+                            dcc.Graph(id="ci-graph", style={"height": "500px"},
+                                      config={"scrollZoom": True, "displaylogo": False,
+                                              "modeBarButtonsToRemove": [
+                                                  "zoom2d", "select2d", "lasso2d"]}),
+                        ],
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],
@@ -112,30 +128,29 @@ def _simple_view():
             card(
                 html.Div(
                     [
-                        # Goal selector — hidden by CSS in privacy mode (reveals goal
-                        # names + target amounts); the Log y-axis toggle stays visible.
+                        # The "Goals" title stays visible in privacy mode; only the
+                        # checklist (goal names + amounts) is hidden via .ci-goals-block.
+                        # The hint reveals itself only when censored.
+                        html.Span("Goals", style={"fontWeight": 600,
+                                                  "marginRight": "8px"}),
+                        html.Span("(unhide to see goals)",
+                                  className="goals-hidden-hint",
+                                  style={"color": theme.MUTED, "marginRight": "12px"}),
                         html.Div(
-                            [
-                                html.Span("Goals", style={"fontWeight": 600,
-                                                          "marginRight": "12px"}),
-                                dcc.Checklist(
-                                    id="ci-goals", options=_goal_options(), value=[],
-                                    inline=True,
-                                    labelStyle={"marginRight": "18px", "cursor": "pointer"},
-                                ),
-                            ],
+                            dcc.Checklist(
+                                id="ci-goals", options=_goal_options(), value=[],
+                                inline=True,
+                                labelStyle={"marginRight": "18px",
+                                            "cursor": "pointer"},
+                            ),
                             className="ci-goals-block",
                             style={"display": "flex", "alignItems": "center",
                                    "flexWrap": "wrap", "gap": "6px"},
                         ),
-                        dcc.Checklist(
-                            id="ci-logy",
-                            options=[{"label": " Log y-axis", "value": "log"}],
-                            value=[], inline=True,
-                            labelStyle={"cursor": "pointer", "whiteSpace": "nowrap"},
-                        ),
                     ],
                     className="ci-goals-bar",
+                    style={"display": "flex", "alignItems": "center",
+                           "flexWrap": "wrap", "gap": "6px"},
                 ),
                 style={"marginTop": "20px"},
             ),
@@ -146,15 +161,18 @@ def _simple_view():
     )
 
 
-def _num_field(label, cid, value, info=None):
+def _num_field(label, cid, value, info=None, pop_right=False):
     """A labelled number input for the retirement form. ``info`` adds a small "ⓘ"
-    beside the label with a hover tooltip explaining the parameter."""
+    button beside the label; clicking it reveals the explanation (toggled/dismissed
+    by assets/info_popover.js), which is hidden by default. ``pop_right`` right-aligns
+    the popover so it stays on-card for right-edge fields."""
     label_children = [html.Span(label)]
     if info:
+        pop_cls = "info-pop info-pop-right" if pop_right else "info-pop"
         label_children.append(html.Span(
-            " ⓘ", title=info,
-            style={"cursor": "help", "color": theme.MUTED, "fontSize": "12px",
-                   "marginLeft": "4px"}))
+            [html.Span("ⓘ", className="info-dot"),
+             html.Span(info, className=pop_cls)],
+            className="info-wrap"))
     return html.Div([
         html.Label(label_children,
                    style={**_LABEL_STYLE, "display": "block", "marginBottom": "6px"}),
@@ -210,14 +228,16 @@ def _retire_view():
                     ]),
                     _retire_col("Retirement", [
                         _num_field("Retirement Bonus", "ci-ret-bonus", d["bonus"],
+                                   pop_right=True,
                                    info="One-off lump sum added to savings the year you "
                                         "retire (e.g. gratuity/severance)."),
                         _num_field("Pension (monthly)", "ci-ret-pension", d["pension"],
+                                   pop_right=True,
                                    info="Fixed monthly income through retirement (not "
                                         "inflation-adjusted); offsets expenses before "
                                         "drawing on savings."),
                         _num_field("Expected Monthly Expense", "ci-ret-expense",
-                                   d["expense"],
+                                   d["expense"], pop_right=True,
                                    info="Monthly spending in today's money; it inflates "
                                         "each year and savings cover whatever the "
                                         "pension doesn't."),
@@ -252,7 +272,7 @@ def _retire_view():
                 # itself only when censored (CSS in style.css).
                 html.Span("Financial Goals to achieve", style={"fontWeight": 600,
                                                                "marginRight": "8px"}),
-                html.Span("(unhide to view)", className="goals-hidden-hint",
+                html.Span("(unhide to see goals)", className="goals-hidden-hint",
                           style={"color": theme.MUTED, "marginRight": "12px"}),
                 html.Div(
                     dcc.Checklist(
@@ -278,10 +298,13 @@ def _retire_view():
             card(html.Div(id="ci-ret-results"),
                  style={"flex": "0 0 400px", "minWidth": 0}),
             card(
-                dcc.Graph(id="ci-ret-graph", style={"height": "480px"},
-                          config={"scrollZoom": True, "displaylogo": False,
-                                  "modeBarButtonsToRemove": [
-                                      "zoom2d", "select2d", "lasso2d"]}),
+                [
+                    _logy_toggle("ci-ret-logy"),
+                    dcc.Graph(id="ci-ret-graph", style={"height": "460px"},
+                              config={"scrollZoom": True, "displaylogo": False,
+                                      "modeBarButtonsToRemove": [
+                                          "zoom2d", "select2d", "lasso2d"]}),
+                ],
                 style={"flex": "1", "marginLeft": "20px"},
             ),
         ],
@@ -636,6 +659,7 @@ def _ret_results_block(res, cur):
     Input("theme-store", "data"),
     Input("ci-ret-showreal", "value"),
     Input("ci-ret-goals", "value"),
+    Input("ci-ret-logy", "value"),
     State("ci-cur-age", "value"),
     State("ci-ret-age", "value"),
     State("ci-life", "value"),
@@ -648,9 +672,9 @@ def _ret_results_block(res, cur):
     State("ci-ret-pension", "value"),
     State("ci-ret-expense", "value"),
 )
-def _calculate_retire(_n, theme_value, showreal, sel_goals, cur_age, ret_age, life,
-                      principal, deposit, increase, rate, infl, bonus, pension,
-                      expense):
+def _calculate_retire(_n, theme_value, showreal, sel_goals, logy_val, cur_age,
+                      ret_age, life, principal, deposit, increase, rate, infl, bonus,
+                      pension, expense):
     # Buy in Financial-Goals rank order (top-ranked first), like the Simple calc.
     goals = load_goals()
     chosen = set(sel_goals or [])
@@ -665,7 +689,8 @@ def _calculate_retire(_n, theme_value, showreal, sel_goals, cur_age, ret_age, li
         goals=selected)
     show_real = "real" in (showreal or [])
     fig = build_retirement_figure(res, currency(), dark=theme.is_dark(theme_value),
-                                  show_real=show_real)
+                                  show_real=show_real,
+                                  logy=("log" in (logy_val or [])))
     return fig, _ret_results_block(res, currency())
 
 

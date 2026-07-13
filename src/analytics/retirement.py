@@ -44,7 +44,10 @@ def _financial_freedom_age(P, D0, g, i, infl, pension, expense0,
     investment return alone covers expenses (net of a fixed pension), so savings
     never need to shrink. Uses a pure accumulation path (deposits keep going, no
     draw-down, no retirement bonus). Selected ``goals`` are bought as the pot reaches
-    their ×factor target (FIFO rank order), draining it and pushing freedom later.
+    their ×factor target (FIFO rank order), draining it. Freedom is only declared
+    once **every** selected goal has been bought *and* the remaining pot's return
+    covers expenses — so a goal you can only afford later pushes freedom later (and a
+    goal never reachable within the horizon means freedom is never declared).
     Returns an age (float) or ``None`` if not reached within the horizon.
     """
     queue = [{"amount": float(a), "target": float(a) * float(f)}
@@ -63,8 +66,9 @@ def _financial_freedom_age(P, D0, g, i, infl, pension, expense0,
             bal = (bal + D0 * (1.0 + g) ** year) * (1.0 + i)
             _buy()
         net_monthly_expense = expense0 * (1.0 + infl) ** (t / 12.0) - pension
-        # Monthly interest earned vs. monthly expenses left after the pension.
-        if bal * i >= net_monthly_expense:
+        # All goals bought, and monthly interest earned covers what's left of the
+        # monthly expense after the pension.
+        if not queue and bal * i >= net_monthly_expense:
             return current_age + t / 12.0
     return None
 

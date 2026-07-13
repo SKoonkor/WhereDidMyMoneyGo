@@ -172,6 +172,26 @@ def test_goals_delay_financial_freedom():
     assert withg > base                       # buying a goal drains the pot, delaying it
 
 
+def test_freedom_waits_until_all_goals_bought():
+    # Freedom isn't declared until every selected goal is bought: a pricier goal
+    # (reached later) pushes freedom later than a cheap one.
+    base = _plan(monthly_deposit=30_000, expense=15_000)["financial_freedom_age"]
+    cheap = _plan(monthly_deposit=30_000, expense=15_000,
+                  goals=[("Small", 200_000, 1)])["financial_freedom_age"]
+    pricey = _plan(monthly_deposit=30_000, expense=15_000,
+                   goals=[("Big", 8_000_000, 1)])["financial_freedom_age"]
+    assert base <= cheap < pricey
+
+
+def test_unreachable_goal_blocks_freedom():
+    # A goal whose ×factor target is never reached means freedom is never declared,
+    # even though the goal-free plan would be free.
+    assert _plan(monthly_deposit=10_000, expense=15_000)["financial_freedom_age"] is not None
+    r = _plan(monthly_deposit=10_000, expense=15_000,
+              goals=[("Yacht", 900_000_000, 2)])
+    assert r["financial_freedom_age"] is None
+
+
 def test_late_depletion_after_life_expectancy():
     # Savings last through life expectancy (85) but eventually run dry after it.
     r = _plan(monthly_deposit=10_000, expense=15_000)
