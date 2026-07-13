@@ -130,3 +130,73 @@ def test_hits_carry_age_and_target():
     for h in g["goal_hits_factor"]:
         assert 30 <= h["age"] <= 85
         assert h["target"] == 500_000 * 2
+
+
+def test_goal_names_in_rank_order():
+    g = _plan(goals=[("Car", 500_000, 2), ("House", 3_000_000, 1)])
+    assert g["goal_names"] == ["Car", "House"]
+
+
+def test_financial_freedom_within_horizon():
+    # The default plan eventually reaches the FIRE point within life expectancy.
+    r = _plan()
+    ff = r["financial_freedom_age"]
+    assert ff is not None
+    assert r["current_age"] < ff <= r["life_expectancy"]
+
+
+def test_pension_covering_expenses_means_immediate_freedom():
+    # Pension already exceeds today's expense → passive income covers from day one.
+    r = _plan(pension=40_000, expense=30_000)
+    assert r["financial_freedom_age"] == r["current_age"]
+
+
+def test_more_savings_reaches_freedom_earlier():
+    low = _plan(monthly_deposit=10_000)["financial_freedom_age"]
+    high = _plan(monthly_deposit=50_000)["financial_freedom_age"]
+    assert low is not None and high is not None
+    assert high < low
+
+
+def test_freedom_unreachable_returns_none():
+    # Tiny deposits, huge inflating expense, low return → never covered.
+    r = _plan(monthly_deposit=100, expense=100_000, annual_rate=0.02, inflation=0.05)
+    assert r["financial_freedom_age"] is None
+
+
+def test_goals_delay_financial_freedom():
+    base = _plan(monthly_deposit=30_000, expense=15_000)["financial_freedom_age"]
+    withg = _plan(monthly_deposit=30_000, expense=15_000,
+                  goals=[("House", 3_000_000, 1)])["financial_freedom_age"]
+    assert base is not None and withg is not None
+    assert withg > base                       # buying a goal drains the pot, delaying it
+
+
+def test_late_depletion_after_life_expectancy():
+    # Savings last through life expectancy (85) but eventually run dry after it.
+    r = _plan(monthly_deposit=10_000, expense=15_000)
+    assert r["depletion_age"] is None and r["covered"] is True
+    assert r["late_depletion_age"] is not None
+    assert r["late_depletion_age"] > r["life_expectancy"]
+
+
+def test_grows_forever_has_no_late_depletion():
+    r = _plan(monthly_deposit=20_000, expense=15_000)
+    assert r["depletion_age"] is None
+    assert r["late_depletion_age"] is None     # lasts beyond the ~100 cap
+
+
+def test_within_life_depletion_has_no_late_age():
+    r = _plan()                                # depletes before life expectancy
+    assert r["depletion_age"] is not None
+    assert r["late_depletion_age"] is None
+
+
+def test_goal_reached_plain_but_not_factor():
+    # Plain target 5M is reached (pot peaks ~9.8M); ×factor target 15M never is.
+    g = _plan(goals=[("Yacht", 5_000_000, 3)])
+    factor_names = {h["name"] for h in g["goal_hits_factor"]}
+    plain_names = {h["name"] for h in g["goal_hits_plain"]}
+    assert "Yacht" in plain_names and "Yacht" not in factor_names
+    assert g["summary_factor"]["total_spent"] == 0            # never bought
+    assert g["summary_plain"]["total_spent"] == 5_000_000

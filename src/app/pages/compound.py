@@ -146,15 +146,20 @@ def _simple_view():
     )
 
 
-def _num_field(label, cid, value, hint=None):
-    """A labelled number input for the retirement form."""
-    children = [html.Label(label, style=_LABEL_STYLE),
-                dcc.Input(id=cid, type="number", value=value, style=_INPUT_STYLE)]
-    if hint:
-        children.append(html.Div(hint, style={"color": theme.MUTED,
-                                               "fontSize": "11px", "marginTop": "-6px",
-                                               "marginBottom": "10px"}))
-    return html.Div(children)
+def _num_field(label, cid, value, info=None):
+    """A labelled number input for the retirement form. ``info`` adds a small "ⓘ"
+    beside the label with a hover tooltip explaining the parameter."""
+    label_children = [html.Span(label)]
+    if info:
+        label_children.append(html.Span(
+            " ⓘ", title=info,
+            style={"cursor": "help", "color": theme.MUTED, "fontSize": "12px",
+                   "marginLeft": "4px"}))
+    return html.Div([
+        html.Label(label_children,
+                   style={**_LABEL_STYLE, "display": "block", "marginBottom": "6px"}),
+        dcc.Input(id=cid, type="number", value=value, style=_INPUT_STYLE),
+    ])
 
 
 def _retire_col(title, fields):
@@ -174,24 +179,48 @@ def _retire_view():
             html.Div(
                 [
                     _retire_col("Ages", [
-                        _num_field("Current age (yr)", "ci-cur-age", d["cur_age"]),
-                        _num_field("Retirement age (yr)", "ci-ret-age", d["ret_age"]),
-                        _num_field("Life expectancy (yr)", "ci-life", d["life"]),
+                        _num_field("Current age (yr)", "ci-cur-age", d["cur_age"],
+                                   info="Your age today; the projection starts here."),
+                        _num_field("Retirement age (yr)", "ci-ret-age", d["ret_age"],
+                                   info="When you stop working: deposits stop and the "
+                                        "retirement bonus is added; draw-down begins."),
+                        _num_field("Life expectancy (yr)", "ci-life", d["life"],
+                                   info="The age the projection runs to — savings must "
+                                        "last from retirement to here."),
                     ]),
                     _retire_col("Savings", [
-                        _num_field("Principal Amount", "ci-ret-principal", d["principal"]),
-                        _num_field("Monthly Deposit", "ci-ret-deposit", d["deposit"]),
+                        _num_field("Principal Amount", "ci-ret-principal", d["principal"],
+                                   info="Savings you already have today, before any "
+                                        "deposits."),
+                        _num_field("Monthly Deposit", "ci-ret-deposit", d["deposit"],
+                                   info="Added to savings at the start of each month "
+                                        "while working; grows yearly by the deposit-"
+                                        "increase rate."),
                         _num_field("Deposit increase (%/yr)", "ci-ret-increase",
-                                   d["increase"], hint="Yearly raise of your deposit."),
-                        _num_field("Annual Interest Rate (%)", "ci-ret-rate", d["rate"]),
-                        _num_field("Inflation Rate (%)", "ci-ret-infl", d["infl"]),
+                                   d["increase"],
+                                   info="Yearly raise applied to your monthly deposit "
+                                        "(e.g. a salary raise), compounded until "
+                                        "retirement."),
+                        _num_field("Annual Interest Rate (%)", "ci-ret-rate", d["rate"],
+                                   info="Expected yearly investment return, applied "
+                                        "monthly to the balance throughout the plan."),
+                        _num_field("Inflation Rate (%)", "ci-ret-infl", d["infl"],
+                                   info="Yearly rise in prices: inflates your expenses "
+                                        "and converts the balance into today's money."),
                     ]),
                     _retire_col("Retirement", [
                         _num_field("Retirement Bonus", "ci-ret-bonus", d["bonus"],
-                                   hint="Lump sum received at retirement."),
-                        _num_field("Pension (monthly)", "ci-ret-pension", d["pension"]),
+                                   info="One-off lump sum added to savings the year you "
+                                        "retire (e.g. gratuity/severance)."),
+                        _num_field("Pension (monthly)", "ci-ret-pension", d["pension"],
+                                   info="Fixed monthly income through retirement (not "
+                                        "inflation-adjusted); offsets expenses before "
+                                        "drawing on savings."),
                         _num_field("Expected Monthly Expense", "ci-ret-expense",
-                                   d["expense"], hint="In today's money — inflates over time."),
+                                   d["expense"],
+                                   info="Monthly spending in today's money; it inflates "
+                                        "each year and savings cover whatever the "
+                                        "pension doesn't."),
                     ]),
                 ],
                 style={"display": "flex", "gap": "20px", "flexWrap": "wrap"},
@@ -206,9 +235,8 @@ def _retire_view():
                         id="ci-ret-showreal",
                         options=[{"label": " Show today's money (real)", "value": "real"}],
                         value=["real"], inline=True,
-                        labelStyle={"cursor": "pointer", "whiteSpace": "nowrap",
-                                    "marginLeft": "16px"},
-                        style={"display": "inline-block"},
+                        labelStyle={"cursor": "pointer", "whiteSpace": "nowrap"},
+                        style={"display": "inline-block", "marginLeft": "24px"},
                     ),
                 ],
                 style={"marginTop": "16px", "display": "flex", "alignItems": "center",
@@ -219,30 +247,36 @@ def _retire_view():
     goals_card = card(
         html.Div(
             [
-                # Same privacy-aware classes as the Simple view's goals bar, so goal
-                # names/amounts are masked in privacy mode.
+                # The title stays visible in privacy mode; only the checklist (goal
+                # names/amounts) is hidden via .ci-goals-block. The hint span reveals
+                # itself only when censored (CSS in style.css).
+                html.Span("Financial Goals to achieve", style={"fontWeight": 600,
+                                                               "marginRight": "8px"}),
+                html.Span("(unhide to view)", className="goals-hidden-hint",
+                          style={"color": theme.MUTED, "marginRight": "12px"}),
                 html.Div(
-                    [
-                        html.Span("Goals to buy", style={"fontWeight": 600,
-                                                         "marginRight": "12px"}),
-                        dcc.Checklist(
-                            id="ci-ret-goals", options=_goal_options(), value=[],
-                            inline=True,
-                            labelStyle={"marginRight": "18px", "cursor": "pointer"},
-                        ),
-                    ],
+                    dcc.Checklist(
+                        id="ci-ret-goals", options=_goal_options(), value=[],
+                        inline=True,
+                        labelStyle={"marginRight": "18px", "cursor": "pointer"},
+                    ),
                     className="ci-goals-block",
                     style={"display": "flex", "alignItems": "center",
                            "flexWrap": "wrap", "gap": "6px"},
                 ),
             ],
             className="ci-goals-bar",
+            style={"display": "flex", "alignItems": "center", "flexWrap": "wrap",
+                   "gap": "6px"},
         ),
         style={"marginTop": "20px"},
     )
     results_graph = html.Div(
         [
-            card(html.Div(id="ci-ret-results"), style={"flex": "0 0 320px"}),
+            # Fixed width (minWidth:0 stops the two-column goals table from expanding
+            # the flex item), so the box stays the same size with or without goals.
+            card(html.Div(id="ci-ret-results"),
+                 style={"flex": "0 0 400px", "minWidth": 0}),
             card(
                 dcc.Graph(id="ci-ret-graph", style={"height": "480px"},
                           config={"scrollZoom": True, "displaylogo": False,
@@ -503,12 +537,40 @@ def _strategy_table(res, money):
           "textAlign": "right", "whiteSpace": "nowrap"}
     lab = {**td, "textAlign": "left", "color": theme.MUTED}
 
-    def row(label, fcell, pcell, fcolor=theme.INK, pcolor=theme.INK):
+    def row(label, fcell, pcell, fcolor=theme.INK, pcolor=theme.INK,
+            border=True, topline=False):
+        bd = {} if border else {"borderBottom": "none"}
+        if topline:
+            bd = {**bd, "borderTop": "1px solid var(--border-soft)"}
         return html.Tr([
-            html.Td(label, style=lab),
-            html.Td(fcell, style={**td, "color": fcolor, "fontWeight": 600}),
-            html.Td(pcell, style={**td, "color": pcolor, "fontWeight": 600}),
+            html.Td(label, style={**lab, **bd}),
+            html.Td(fcell, style={**td, **bd, "color": fcolor, "fontWeight": 600}),
+            html.Td(pcell, style={**td, **bd, "color": pcolor, "fontWeight": 600}),
         ])
+
+    # One indented, borderless row per selected goal, showing the age it's reached
+    # under each strategy (grey) — red "not reached" when never bought.
+    f_age = {h["name"]: h["age"] for h in res.get("goal_hits_factor", [])}
+    p_age = {h["name"]: h["age"] for h in res.get("goal_hits_plain", [])}
+    goal_lab = {**lab, "paddingLeft": "20px", "fontSize": "12px",
+                "borderBottom": "none"}
+    goal_val = {**td, "fontSize": "12px", "fontWeight": 500, "borderBottom": "none"}
+
+    def _age_cell(ages_map, name):
+        if name in ages_map:
+            return f"{ages_map[name]:.0f}", theme.MUTED
+        return "not reached", theme.EXPENSE_COLOR
+
+    def goal_row(name):
+        f_txt, f_c = _age_cell(f_age, name)
+        p_txt, p_c = _age_cell(p_age, name)
+        return html.Tr([
+            html.Td(name, style=goal_lab),
+            html.Td(f_txt, style={**goal_val, "color": f_c}),
+            html.Td(p_txt, style={**goal_val, "color": p_c}),
+        ])
+
+    goal_rows = [goal_row(name) for name in res.get("goal_names", [])]
 
     header = html.Tr([
         html.Th("", style={**th, "textAlign": "left"}),
@@ -518,8 +580,10 @@ def _strategy_table(res, money):
     body = [
         row("Pot at retirement", money(sf["pot_at_retirement"]),
             money(sp["pot_at_retirement"])),
-        row("Spent on goals", money(sf["total_spent"]), money(sp["total_spent"])),
-        row("Outcome", f_out, p_out, f_col, p_col),
+        row("Spent on goals", money(sf["total_spent"]), money(sp["total_spent"]),
+            border=False),
+        *goal_rows,
+        row("Outcome", f_out, p_out, f_col, p_col, topline=True),
         row("Ending balance", money(sf["ending_nominal"]),
             money(sp["ending_nominal"])),
     ]
@@ -530,10 +594,13 @@ def _strategy_table(res, money):
 
 def _ret_results_block(res, cur):
     money = lambda v: f"{v:,.0f} {cur}"
+    ff = res.get("financial_freedom_age")
+    ff_txt = f"age {ff:.0f}" if ff is not None else "—"
     shared = [
         _result_row("Monthly expense at retirement", money(res["expense_at_retirement"])),
         _result_row("Pension (monthly)", money(res["pension"])),
         _result_row("Years in retirement", f"{res['years_in_retirement']:.0f}"),
+        _result_row("Financial freedom", ff_txt),
         _result_row("Total contributions", money(res["total_contributions"])),
     ]
 

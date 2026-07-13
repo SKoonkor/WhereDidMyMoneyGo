@@ -38,6 +38,56 @@ def _monthly_rate(annual_rate: float) -> float:
     return (1.0 + float(annual_rate)) ** (1.0 / 12.0) - 1.0
 
 
+def _financial_freedom_age(P, D0, g, i, infl, pension, expense0,
+                           total_months, current_age, goals=None):
+    """The FIRE 'financial freedom' age: the earliest age at which the pot's
+    investment return alone covers expenses (net of a fixed pension), so savings
+    never need to shrink. Uses a pure accumulation path (deposits keep going, no
+    draw-down, no retirement bonus). Selected ``goals`` are bought as the pot reaches
+    their ×factor target (FIFO rank order), draining it and pushing freedom later.
+    Returns an age (float) or ``None`` if not reached within the horizon.
+    """
+    queue = [{"amount": float(a), "target": float(a) * float(f)}
+             for _nm, a, f in (goals or [])]
+    bal = float(P)
+
+    def _buy():
+        nonlocal bal
+        while queue and bal >= queue[0]["target"]:
+            bal -= queue.pop(0)["amount"]
+
+    _buy()
+    for t in range(0, total_months + 1):
+        if t > 0:
+            year = (t - 1) // 12
+            bal = (bal + D0 * (1.0 + g) ** year) * (1.0 + i)
+            _buy()
+        net_monthly_expense = expense0 * (1.0 + infl) ** (t / 12.0) - pension
+        # Monthly interest earned vs. monthly expenses left after the pension.
+        if bal * i >= net_monthly_expense:
+            return current_age + t / 12.0
+    return None
+
+
+def _late_depletion_age(bal_at_life, i, infl, pension, expense0,
+                        total_months, current_age, cap_age=100):
+    """When savings survive to life expectancy, keep drawing down *past* it to find
+    when they would eventually hit zero. Returns that age (> life expectancy), or
+    ``None`` if they last beyond ``cap_age`` (the caller shows '100+'). Returns
+    ``None`` immediately if the balance was already depleted within the horizon.
+    """
+    if bal_at_life <= 0:
+        return None
+    bal = float(bal_at_life)
+    cap_month = int(round((cap_age - current_age) * 12))
+    for t in range(total_months + 1, cap_month + 1):
+        expense_nominal = expense0 * (1.0 + infl) ** (t / 12.0)
+        bal = (bal + pension - expense_nominal) * (1.0 + i)
+        if bal <= 0:
+            return current_age + t / 12.0
+    return None
+
+
 def _simulate(P, D0, g, i, infl, pension, expense0, bonus,
               total_months, retire_month, current_age, goals, use_factor):
     """Run the month-by-month projection, optionally buying goals as reached.
@@ -160,6 +210,14 @@ def compute_retirement(current_age: float, retirement_age: float,
         "annual_rate": float(annual_rate or 0.0),
         "inflation": infl,
         "has_goals": bool(goals),
+        "financial_freedom_age": _financial_freedom_age(
+            P, D0, g, i, infl, pension, expense0, total_months, current_age,
+            goals=goals),
+        # Where the base plan would eventually run dry past life expectancy (None if
+        # it lasts beyond ~age 100, or if it already depleted within the horizon).
+        "late_depletion_age": _late_depletion_age(
+            float(nominal[-1]), i, infl, pension, expense0, total_months,
+            current_age),
     }
 
     if goals:
@@ -174,6 +232,9 @@ def compute_retirement(current_age: float, retirement_age: float,
                 "ending_nominal": float(nom[-1]),
                 "ending_real": float(rl[-1]),
                 "total_spent": float(spent),
+                "late_depletion_age": _late_depletion_age(
+                    float(nom[-1]), i, infl, pension, expense0, total_months,
+                    current_age),
             }
             return nom, rl, hits, summary
 
@@ -184,6 +245,9 @@ def compute_retirement(current_age: float, retirement_age: float,
             "balance_plain_nominal": p_nom, "balance_plain_real": p_real,
             "goal_hits_factor": f_hits, "goal_hits_plain": p_hits,
             "summary_factor": f_sum, "summary_plain": p_sum,
+            # Selected goals in rank order — lets the results table list every goal,
+            # including ones never reached (which have no hit).
+            "goal_names": [nm for nm, _a, _f in goals],
         })
 
     return result

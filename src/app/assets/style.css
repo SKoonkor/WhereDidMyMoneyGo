@@ -121,6 +121,10 @@ html[data-censor="on"] .money-input input { -webkit-text-security: disc; }
 /* Compound page: hide the Goals selector (goal names + target amounts) in privacy
    mode; !important overrides its inline display:flex. Log y-axis stays visible. */
 html[data-censor="on"] .ci-goals-block { display: none !important; }
+/* Retirement "Goals to buy" box: the title stays; this hint appears only in privacy
+   mode (the checklist itself is hidden by the .ci-goals-block rule above). */
+.goals-hidden-hint { display: none; }
+html[data-censor="on"] .goals-hidden-hint { display: inline; }
 /* Privacy toggle — a minimalist eye / eye-off icon (theme-adaptive via mask). */
 .censor-toggle {
     background: none;
