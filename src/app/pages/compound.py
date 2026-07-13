@@ -11,6 +11,7 @@ from src.app.figures.compound import compute_schedule, build_compound_figure, CO
 from src.app.figures.retirement import build_retirement_figure
 from src.analytics.goals import load_goals, goal_factor, EMERGENCY_FUND
 from src.analytics.retirement import compute_retirement
+from src.analytics.retirement_mc import simulate_retirement_mc
 
 dash.register_page(__name__, path="/compound", name="Compound Interest", order=4)
 
@@ -18,7 +19,9 @@ DEFAULTS = dict(principal=0, deposit=500, period=120, rate=10, compounding="Annu
 
 # Retirement-mode input defaults (rates are whole percents, as entered).
 RETIRE_DEFAULTS = dict(cur_age=30, ret_age=60, life=85, principal=0, deposit=10000,
-                       increase=3, rate=6, infl=3, bonus=0, pension=0, expense=30000)
+                       increase=3, rate=6, infl=3, bonus=0, pension=0, expense=30000,
+                       # Monte Carlo uncertainty: annual volatilities (%) + run count.
+                       vol_return=15, vol_infl=1, vol_deposit=2, n_mc=1000)
 
 _INPUT_STYLE = theme.INPUT_STYLE
 _LABEL_STYLE = {"color": theme.MUTED, "fontSize": "13px"}
@@ -261,6 +264,63 @@ def _retire_view():
                 ],
                 style={"marginTop": "16px", "display": "flex", "alignItems": "center",
                        "flexWrap": "wrap"},
+            ),
+            # ── Uncertainty (Monte Carlo) ────────────────────────────────────────
+            html.Div(
+                [
+                    html.Div(
+                        dcc.Checklist(
+                            id="ci-ret-mc",
+                            options=[{"label": " Show uncertainty (Monte Carlo)",
+                                      "value": "on"}],
+                            value=[], inline=True,
+                            labelStyle={"cursor": "pointer", "whiteSpace": "nowrap",
+                                        "fontWeight": 600},
+                        ),
+                        style={"marginBottom": "10px"},
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                _num_field("Return volatility (%/yr)",
+                                           "ci-ret-vol-return", d["vol_return"],
+                                           info="Year-to-year swing (std. dev.) of the "
+                                                "investment return — the main source of "
+                                                "uncertainty. ~15% is typical for a "
+                                                "stock-heavy portfolio."),
+                                style={"flex": "1 1 150px", "minWidth": "140px"}),
+                            html.Div(
+                                _num_field("Inflation volatility (%/yr)",
+                                           "ci-ret-vol-infl", d["vol_infl"],
+                                           info="Year-to-year swing of inflation around "
+                                                "the rate you entered."),
+                                style={"flex": "1 1 150px", "minWidth": "140px"}),
+                            html.Div(
+                                _num_field("Deposit-growth volatility (%/yr)",
+                                           "ci-ret-vol-deposit", d["vol_deposit"],
+                                           pop_right=True,
+                                           info="Year-to-year swing of your salary-raise "
+                                                "rate."),
+                                style={"flex": "1 1 150px", "minWidth": "140px"}),
+                            html.Div(
+                                _num_field("Simulations", "ci-ret-nmc", d["n_mc"],
+                                           pop_right=True,
+                                           info="How many random futures to simulate. "
+                                                "More runs give a smoother median "
+                                                "(100–3000)."),
+                                style={"flex": "1 1 120px", "minWidth": "110px"}),
+                        ],
+                        style={"display": "flex", "gap": "16px", "flexWrap": "wrap"},
+                    ),
+                    html.Div(
+                        "Ages, retirement age, life expectancy, principal and the "
+                        "initial monthly deposit are held fixed; only the rates above "
+                        "vary between runs.",
+                        style={"color": theme.MUTED, "fontSize": "12px",
+                               "marginTop": "8px"}),
+                ],
+                style={"marginTop": "16px", "paddingTop": "16px",
+                       "borderTop": "1px solid var(--border)"},
             ),
         ],
     )
@@ -547,8 +607,9 @@ def _outcome_text(summary, life):
     return f"Runs out {summary['depletion_age']:.0f}", theme.EXPENSE_COLOR
 
 
-def _strategy_table(res, money):
-    """Two-column (×factor | plain) comparison of the goal-affected figures."""
+def _strategy_table(res, money, mc=None):
+    """Two-column (×factor | plain) comparison of the goal-affected figures. When ``mc``
+    is given, each goal's ×factor age cell shows the 16–84% achievement range."""
     life = res["life_expectancy"]
     sf, sp = res["summary_factor"], res["summary_plain"]
     f_out, f_col = _outcome_text(sf, life)
@@ -584,8 +645,19 @@ def _strategy_table(res, money):
             return f"{ages_map[name]:.0f}", theme.MUTED
         return "not reached", theme.EXPENSE_COLOR
 
+    # In Monte Carlo mode the ×factor column shows each goal's 16–84% age range.
+    mc_ev = {e["name"]: e for e in ((mc.get("goal_events") or []) if mc else [])}
+
+    def _factor_cell(name):
+        if mc is not None:
+            ev = mc_ev.get(name)
+            if ev and ev.get("prob", 0) > 0:
+                return f"{ev['p50']:.0f} ({ev['p16']:.0f}–{ev['p84']:.0f})", theme.MUTED
+            return "not reached", theme.EXPENSE_COLOR
+        return _age_cell(f_age, name)
+
     def goal_row(name):
-        f_txt, f_c = _age_cell(f_age, name)
+        f_txt, f_c = _factor_cell(name)
         p_txt, p_c = _age_cell(p_age, name)
         return html.Tr([
             html.Td(name, style=goal_lab),
@@ -615,10 +687,41 @@ def _strategy_table(res, money):
                              "marginTop": "8px"})
 
 
-def _ret_results_block(res, cur):
+def _range_txt(ev):
+    """A "med (16–84%: a–b)" string for a Monte Carlo event dict, or "—" if it never
+    happened."""
+    if not ev:
+        return "—"
+    return f"age {ev['p50']:.0f} (16–84%: {ev['p16']:.0f}–{ev['p84']:.0f})"
+
+
+def _mc_summary_rows(mc, cur):
+    """Monte Carlo headline: the probability the plan's money lasts to life expectancy,
+    plus the 16–84% age range over the runs where it runs out."""
+    prob = mc["success_prob"]
+    color = (theme.INCOME_COLOR if prob >= 0.85 else
+             "#f39c12" if prob >= 0.6 else theme.EXPENSE_COLOR)
+    rows = [html.Div(
+        [html.Span("Plan succeeds", style={"color": theme.MUTED}),
+         html.Span(f"{prob:.0%} of {mc['n_mc']:,} runs",
+                   style={"fontWeight": 700, "color": color, "whiteSpace": "nowrap"})],
+        style=theme.RESULT_ROW_STYLE)]
+    dep = mc.get("depletion")
+    if dep is not None:
+        rows.append(_result_row("Funds-out age (16–84%)",
+                                f"{dep['p16']:.0f}–{dep['p84']:.0f} (med {dep['p50']:.0f})"))
+    return rows
+
+
+def _ret_results_block(res, cur, mc=None):
     money = lambda v: f"{v:,.0f} {cur}"
-    ff = res.get("financial_freedom_age")
-    ff_txt = f"age {ff:.0f}" if ff is not None else "—"
+    if mc is not None:
+        # Freedom age becomes a 16–84% range across the simulated futures.
+        ff_txt = _range_txt(mc.get("freedom"))
+    else:
+        ff = res.get("financial_freedom_age")
+        ff_txt = f"age {ff:.0f}" if ff is not None else "—"
+    mc_rows = _mc_summary_rows(mc, cur) if mc is not None else []
     shared = [
         _result_row("Monthly expense at retirement", money(res["expense_at_retirement"])),
         _result_row("Pension (monthly)", money(res["pension"])),
@@ -630,10 +733,11 @@ def _ret_results_block(res, cur):
     if res.get("has_goals"):
         # Goals selected: pot / outcome / ending differ by buy strategy, so compare
         # ×factor vs plain side by side.
-        return html.Div(shared + [_strategy_table(res, money)],
+        return html.Div(mc_rows + shared + [_strategy_table(res, money, mc)],
                         style={"marginTop": "4px"})
 
-    rows = [_result_row("Pot at retirement", money(res["balance_at_retirement"]))] + shared
+    rows = mc_rows + [_result_row("Pot at retirement",
+                                  money(res["balance_at_retirement"]))] + shared
     if res["covered"]:
         word = f"Funds last through age {res['life_expectancy']:.0f}"
         color = theme.INCOME_COLOR
@@ -660,6 +764,7 @@ def _ret_results_block(res, cur):
     Input("ci-ret-showreal", "value"),
     Input("ci-ret-goals", "value"),
     Input("ci-ret-logy", "value"),
+    Input("ci-ret-mc", "value"),
     State("ci-cur-age", "value"),
     State("ci-ret-age", "value"),
     State("ci-life", "value"),
@@ -671,27 +776,42 @@ def _ret_results_block(res, cur):
     State("ci-ret-bonus", "value"),
     State("ci-ret-pension", "value"),
     State("ci-ret-expense", "value"),
+    State("ci-ret-vol-return", "value"),
+    State("ci-ret-vol-infl", "value"),
+    State("ci-ret-vol-deposit", "value"),
+    State("ci-ret-nmc", "value"),
 )
-def _calculate_retire(_n, theme_value, showreal, sel_goals, logy_val, cur_age,
+def _calculate_retire(_n, theme_value, showreal, sel_goals, logy_val, mc_val, cur_age,
                       ret_age, life, principal, deposit, increase, rate, infl, bonus,
-                      pension, expense):
+                      pension, expense, vol_return, vol_infl, vol_deposit, n_mc):
     # Buy in Financial-Goals rank order (top-ranked first), like the Simple calc.
     goals = load_goals()
     chosen = set(sel_goals or [])
     selected = [(nm, goals[nm], goal_factor(nm)) for nm in goals
                 if nm != EMERGENCY_FUND and nm in chosen]
-    res = compute_retirement(
+    plan = dict(
         current_age=cur_age or 0, retirement_age=ret_age or 0,
         life_expectancy=life or 0, principal=principal or 0,
         monthly_deposit=deposit or 0, increasement=(increase or 0) / 100.0,
         annual_rate=(rate or 0) / 100.0, inflation=(infl or 0) / 100.0,
         retirement_bonus=bonus or 0, pension=pension or 0, expense=expense or 0,
         goals=selected)
+    res = compute_retirement(**plan)
+
+    # Optional Monte Carlo overlay: median line + nested uncertainty bands.
+    mc = None
+    if "on" in (mc_val or []):
+        n_runs = int(min(max(int(n_mc or 1000), 100), 3000))
+        mc = simulate_retirement_mc(
+            **plan, vol_return=(vol_return or 0) / 100.0,
+            vol_inflation=(vol_infl or 0) / 100.0,
+            vol_deposit=(vol_deposit or 0) / 100.0, n_mc=n_runs)
+
     show_real = "real" in (showreal or [])
     fig = build_retirement_figure(res, currency(), dark=theme.is_dark(theme_value),
                                   show_real=show_real,
-                                  logy=("log" in (logy_val or [])))
-    return fig, _ret_results_block(res, currency())
+                                  logy=("log" in (logy_val or [])), mc=mc)
+    return fig, _ret_results_block(res, currency(), mc=mc)
 
 
 @callback(
@@ -706,6 +826,10 @@ def _calculate_retire(_n, theme_value, showreal, sel_goals, logy_val, cur_age,
     Output("ci-ret-bonus", "value"),
     Output("ci-ret-pension", "value"),
     Output("ci-ret-expense", "value"),
+    Output("ci-ret-vol-return", "value"),
+    Output("ci-ret-vol-infl", "value"),
+    Output("ci-ret-vol-deposit", "value"),
+    Output("ci-ret-nmc", "value"),
     Input("ci-ret-reset", "n_clicks"),
     prevent_initial_call=True,
 )
@@ -713,4 +837,4 @@ def _reset_retire(_n):
     d = RETIRE_DEFAULTS
     return (d["cur_age"], d["ret_age"], d["life"], d["principal"], d["deposit"],
             d["increase"], d["rate"], d["infl"], d["bonus"], d["pension"],
-            d["expense"])
+            d["expense"], d["vol_return"], d["vol_infl"], d["vol_deposit"], d["n_mc"])

@@ -18,10 +18,47 @@ from src.app import theme
 
 PLAIN_COLOR = "#e84393"   # matches the Simple calculator's no-factor line
 FREEDOM_COLOR = "#f1c40f"  # gold vertical line for the financial-freedom age
+GOAL_COLOR = "#8e44ad"    # purple vertical band for goal-achievement age (MC mode)
+
+
+def _rgba(hex_color: str, alpha: float) -> str:
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+def _band(fig, x, lo, hi, fill):
+    """A filled percentile band between ``lo`` and ``hi`` (two invisible edge lines
+    joined by a ``tonexty`` fill). Non-interactive and hidden from the legend."""
+    fig.add_trace(go.Scatter(x=x, y=lo, mode="lines", line=dict(width=0),
+                             hoverinfo="skip", showlegend=False))
+    fig.add_trace(go.Scatter(x=x, y=hi, mode="lines", line=dict(width=0),
+                             fill="tonexty", fillcolor=fill, hoverinfo="skip",
+                             showlegend=False))
+
+
+def _event_band(fig, ev, color, ages, label, y_paper):
+    """Draw a Monte Carlo event (freedom / depletion / a goal) as a vertical shaded band
+    spanning its 16th–84th-percentile age, with a dashed median line and a label at the
+    median. ``ev`` is ``{"p16","p50","p84",...}``; a no-op when ``ev`` is falsy."""
+    if not ev:
+        return
+    p16, p50, p84 = ev["p16"], ev["p50"], ev["p84"]
+    if p84 > p16:
+        fig.add_vrect(x0=p16, x1=p84, line_width=0, fillcolor=_rgba(color, 0.12),
+                      layer="below")
+    fig.add_vline(x=p50, line=dict(color=color, dash="dash", width=1.5))
+    x0, x1 = float(ages[0]), float(ages[-1])
+    frac = (p50 - x0) / (x1 - x0) if x1 > x0 else 0.0
+    xa, xs = ("right", -4) if frac > 0.6 else ("left", 4)
+    fig.add_annotation(x=p50, yref="paper", y=y_paper, yanchor="top", xanchor=xa,
+                       xshift=xs, showarrow=False, text=f"{label} · {p50:.0f}",
+                       font=dict(color=color, size=12))
 
 
 def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
-                            show_real: bool = True, logy: bool = False) -> go.Figure:
+                            show_real: bool = True, logy: bool = False,
+                            mc: dict | None = None) -> go.Figure:
     ft = theme.fig_theme(dark)
     ages = res["ages"]
     ret_age = float(res["retirement_age"])
@@ -56,7 +93,30 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
         ))
 
     drawn = []   # nominal series contributing to the y-axis top
-    if has_goals:
+    if mc is not None:
+        # Monte Carlo: a stable median (p50) line per series, with a single 16–84%
+        # (±1σ) band on the primary nominal series.
+        prim = mc["factor_nominal"] if has_goals else mc["nominal"]
+        pcolor = theme.INCOME_COLOR
+        _band(fig, ages, prim["p16"], prim["p84"], _rgba(pcolor, 0.18))
+        if has_goals:
+            _line(mc["nominal"]["p50"], "Without goals (median)", ft.muted,
+                  width=1.5, dash="dot", hover="Without goals")
+            _line(prim["p50"], "After buying ×factor (median)", pcolor, hover="×factor")
+            _line(mc["plain_nominal"]["p50"], "After buying plain (median)",
+                  PLAIN_COLOR, hover="Plain amount")
+            if show_real:
+                _line(mc["factor_real"]["p50"], "×factor today's money (median)",
+                      theme.SAVING_COLOR, width=2, dash="dash", hover="×factor · today")
+        else:
+            _line(prim["p50"], "Balance (median)", pcolor, hover="Future money")
+            if show_real:
+                _line(mc["real"]["p50"], "Balance today's money (median)",
+                      theme.SAVING_COLOR, width=2, dash="dash", hover="Today's money")
+        drawn = [prim["p84"], prim["p50"]]
+        depletion_age = None    # events are drawn from the MC distributions below
+        late_dep = None
+    elif has_goals:
         f_nom = res["balance_factor_nominal"]
         p_nom = res["balance_plain_nominal"]
         # Faint baseline: the plan with no goal spending, for contrast.
@@ -106,8 +166,9 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                            showarrow=False,
                            text=f"Funds depleted · age {depletion_age:.0f}",
                            font=dict(color=theme.EXPENSE_COLOR, size=12))
-    else:
+    elif mc is None:
         # Funds last through life expectancy — note when they'd eventually deplete.
+        # (Skipped in Monte Carlo mode, where the success probability carries this.)
         txt = (f"Funds depleted · age {late_dep:.0f} →" if late_dep is not None
                else "Funds depleted · 100+ yr →")
         fig.add_annotation(xref="paper", x=0.995, xanchor="right",
@@ -118,7 +179,7 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     # cover expenses, so savings never need to shrink. May land before your set
     # retirement age (retire early) or after it (must work longer).
     freedom_age = res.get("financial_freedom_age")
-    if freedom_age is not None:
+    if mc is None and freedom_age is not None:
         x0, x1 = float(ages[0]), float(ages[-1])
         frac = (float(freedom_age) - x0) / (x1 - x0) if x1 > x0 else 0.0
         fxa, fxs = ("right", -4) if frac > 0.6 else ("left", 4)
@@ -128,6 +189,16 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                            yanchor="top", xanchor=fxa, xshift=fxs, showarrow=False,
                            text=f"Financial freedom · age {freedom_age:.0f}",
                            font=dict(color=FREEDOM_COLOR, size=12))
+
+    # Monte Carlo event spreads: each drawn as a vertical 16–84% band + median line.
+    if mc is not None:
+        _event_band(fig, mc.get("depletion"), theme.EXPENSE_COLOR, ages,
+                    "Funds depleted", 0.92)
+        _event_band(fig, mc.get("freedom"), FREEDOM_COLOR, ages,
+                    "Financial freedom", 0.84)
+        for ev in (mc.get("goal_events") or []):
+            if ev.get("prob", 0) > 0:
+                _event_band(fig, ev, GOAL_COLOR, ages, ev["name"], 0.76)
 
     # Y-axis. On a log scale, show the full span (small→large is what log is for) with
     # a floor a few decades below the peak; annotations/vlines are paper/x-referenced
