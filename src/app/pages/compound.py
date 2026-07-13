@@ -1,17 +1,24 @@
 """Feature 4 — Compound Interest Calculator page (slide 7)."""
 
 import dash
-from dash import dcc, html, callback, clientside_callback, Input, Output, State
+from dash import (dcc, html, callback, clientside_callback, ctx,
+                  Input, Output, State)
 
 from src.app import theme
 from src.app.components import page_header, card
 from src.app.data import currency
 from src.app.figures.compound import compute_schedule, build_compound_figure, COMPOUNDING
+from src.app.figures.retirement import build_retirement_figure
 from src.analytics.goals import load_goals, goal_factor, EMERGENCY_FUND
+from src.analytics.retirement import compute_retirement
 
 dash.register_page(__name__, path="/compound", name="Compound Interest", order=4)
 
 DEFAULTS = dict(principal=0, deposit=500, period=120, rate=10, compounding="Annually")
+
+# Retirement-mode input defaults (rates are whole percents, as entered).
+RETIRE_DEFAULTS = dict(cur_age=30, ret_age=60, life=85, principal=0, deposit=10000,
+                       increase=3, rate=6, infl=3, bonus=0, pension=0, expense=30000)
 
 _INPUT_STYLE = theme.INPUT_STYLE
 _LABEL_STYLE = {"color": theme.MUTED, "fontSize": "13px"}
@@ -36,11 +43,26 @@ def _goal_options() -> list[dict]:
     return opts
 
 
-def layout(**_):
+def _mode_bar():
+    """Two buttons at the top of the page choosing which tool is shown. The active
+    tool's button uses the filled style; a callback swaps them on click."""
     return html.Div(
         [
-            page_header("Compound Interest Calculator",
-                        "A standalone tool for exploring investment growth."),
+            html.Button("Simple Compound Interest Calculator", id="ci-mode-simple",
+                        n_clicks=0, style=theme.PERIOD_BUTTON_ACTIVE_STYLE),
+            html.Button("Retirement Planning", id="ci-mode-retire", n_clicks=0,
+                        style=theme.PERIOD_BUTTON_STYLE),
+        ],
+        style={"display": "flex", "gap": "10px", "flexWrap": "wrap",
+               "marginBottom": "16px"},
+    )
+
+
+def _simple_view():
+    """The original Simple Compound Interest Calculator (unchanged), wrapped in a
+    container so it can be shown/hidden by the mode switch."""
+    return html.Div(
+        [
             dcc.Store(id="ci-goal-arrows", data=[]),
             html.Div(
                 [
@@ -119,6 +141,130 @@ def layout(**_):
             ),
             # Filled on Calculate: a table of months-to-reach per selected goal.
             html.Div(id="ci-goal-table"),
+        ],
+        id="ci-simple-view",
+    )
+
+
+def _num_field(label, cid, value, hint=None):
+    """A labelled number input for the retirement form."""
+    children = [html.Label(label, style=_LABEL_STYLE),
+                dcc.Input(id=cid, type="number", value=value, style=_INPUT_STYLE)]
+    if hint:
+        children.append(html.Div(hint, style={"color": theme.MUTED,
+                                               "fontSize": "11px", "marginTop": "-6px",
+                                               "marginBottom": "10px"}))
+    return html.Div(children)
+
+
+def _retire_col(title, fields):
+    return html.Div(
+        [html.Div(title, style={"fontWeight": 600, "color": theme.INK,
+                                "marginBottom": "10px"})] + fields,
+        style={"flex": "1 1 200px", "minWidth": "180px"},
+    )
+
+
+def _retire_view():
+    """The Retirement Planning tool — hidden until its mode button is clicked."""
+    d = RETIRE_DEFAULTS
+    plan_card = card(
+        [
+            html.H3("Your plan", style={"marginTop": 0, "color": theme.INK}),
+            html.Div(
+                [
+                    _retire_col("Ages", [
+                        _num_field("Current age (yr)", "ci-cur-age", d["cur_age"]),
+                        _num_field("Retirement age (yr)", "ci-ret-age", d["ret_age"]),
+                        _num_field("Life expectancy (yr)", "ci-life", d["life"]),
+                    ]),
+                    _retire_col("Savings", [
+                        _num_field("Principal Amount", "ci-ret-principal", d["principal"]),
+                        _num_field("Monthly Deposit", "ci-ret-deposit", d["deposit"]),
+                        _num_field("Deposit increase (%/yr)", "ci-ret-increase",
+                                   d["increase"], hint="Yearly raise of your deposit."),
+                        _num_field("Annual Interest Rate (%)", "ci-ret-rate", d["rate"]),
+                        _num_field("Inflation Rate (%)", "ci-ret-infl", d["infl"]),
+                    ]),
+                    _retire_col("Retirement", [
+                        _num_field("Retirement Bonus", "ci-ret-bonus", d["bonus"],
+                                   hint="Lump sum received at retirement."),
+                        _num_field("Pension (monthly)", "ci-ret-pension", d["pension"]),
+                        _num_field("Expected Monthly Expense", "ci-ret-expense",
+                                   d["expense"], hint="In today's money — inflates over time."),
+                    ]),
+                ],
+                style={"display": "flex", "gap": "20px", "flexWrap": "wrap"},
+            ),
+            html.Div(
+                [
+                    html.Button("RESET", id="ci-ret-reset", n_clicks=0,
+                                style={**theme.PERIOD_BUTTON_STYLE, "marginRight": "10px"}),
+                    html.Button("CALCULATE", id="ci-ret-calc", n_clicks=0,
+                                style=theme.BUTTON_STYLE),
+                    dcc.Checklist(
+                        id="ci-ret-showreal",
+                        options=[{"label": " Show today's money (real)", "value": "real"}],
+                        value=["real"], inline=True,
+                        labelStyle={"cursor": "pointer", "whiteSpace": "nowrap",
+                                    "marginLeft": "16px"},
+                        style={"display": "inline-block"},
+                    ),
+                ],
+                style={"marginTop": "16px", "display": "flex", "alignItems": "center",
+                       "flexWrap": "wrap"},
+            ),
+        ],
+    )
+    goals_card = card(
+        html.Div(
+            [
+                # Same privacy-aware classes as the Simple view's goals bar, so goal
+                # names/amounts are masked in privacy mode.
+                html.Div(
+                    [
+                        html.Span("Goals to buy", style={"fontWeight": 600,
+                                                         "marginRight": "12px"}),
+                        dcc.Checklist(
+                            id="ci-ret-goals", options=_goal_options(), value=[],
+                            inline=True,
+                            labelStyle={"marginRight": "18px", "cursor": "pointer"},
+                        ),
+                    ],
+                    className="ci-goals-block",
+                    style={"display": "flex", "alignItems": "center",
+                           "flexWrap": "wrap", "gap": "6px"},
+                ),
+            ],
+            className="ci-goals-bar",
+        ),
+        style={"marginTop": "20px"},
+    )
+    results_graph = html.Div(
+        [
+            card(html.Div(id="ci-ret-results"), style={"flex": "0 0 320px"}),
+            card(
+                dcc.Graph(id="ci-ret-graph", style={"height": "480px"},
+                          config={"scrollZoom": True, "displaylogo": False,
+                                  "modeBarButtonsToRemove": [
+                                      "zoom2d", "select2d", "lasso2d"]}),
+                style={"flex": "1", "marginLeft": "20px"},
+            ),
+        ],
+        style={"display": "flex", "alignItems": "stretch", "marginTop": "20px"},
+    )
+    return html.Div([plan_card, goals_card, results_graph], id="ci-retire-view",
+                    style={"display": "none"})
+
+
+def layout(**_):
+    return html.Div(
+        [
+            page_header("Compound Interest Calculator",
+                        "A standalone tool for exploring investment growth."),
+            _mode_bar(),
+            _simple_view(),
+            _retire_view(),
         ],
         style=theme.PAGE_STYLE,
     )
@@ -315,3 +461,164 @@ clientside_callback(
 def _reset(_n):
     return (DEFAULTS["principal"], DEFAULTS["deposit"], DEFAULTS["period"],
             DEFAULTS["rate"], DEFAULTS["compounding"])
+
+
+# ── Retirement Planning mode ─────────────────────────────────────────────────
+
+@callback(
+    Output("ci-simple-view", "style"),
+    Output("ci-retire-view", "style"),
+    Output("ci-mode-simple", "style"),
+    Output("ci-mode-retire", "style"),
+    Input("ci-mode-simple", "n_clicks"),
+    Input("ci-mode-retire", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _switch_mode(_s, _r):
+    """Show one tool and hide the other, moving the active-button style with it."""
+    retire = ctx.triggered_id == "ci-mode-retire"
+    active, inactive = theme.PERIOD_BUTTON_ACTIVE_STYLE, theme.PERIOD_BUTTON_STYLE
+    if retire:
+        return ({"display": "none"}, {"display": "block"}, inactive, active)
+    return ({"display": "block"}, {"display": "none"}, active, inactive)
+
+
+def _outcome_text(summary, life):
+    """(text, colour) for a strategy's funds-last / runs-out outcome."""
+    if summary["covered"]:
+        return f"Lasts to {life:.0f}", theme.INCOME_COLOR
+    return f"Runs out {summary['depletion_age']:.0f}", theme.EXPENSE_COLOR
+
+
+def _strategy_table(res, money):
+    """Two-column (×factor | plain) comparison of the goal-affected figures."""
+    life = res["life_expectancy"]
+    sf, sp = res["summary_factor"], res["summary_plain"]
+    f_out, f_col = _outcome_text(sf, life)
+    p_out, p_col = _outcome_text(sp, life)
+
+    th = {"padding": "6px 8px", "fontSize": "12px", "fontWeight": 600,
+          "borderBottom": "1px solid var(--border)", "textAlign": "right"}
+    td = {"padding": "6px 8px", "borderBottom": "1px solid var(--border-soft)",
+          "textAlign": "right", "whiteSpace": "nowrap"}
+    lab = {**td, "textAlign": "left", "color": theme.MUTED}
+
+    def row(label, fcell, pcell, fcolor=theme.INK, pcolor=theme.INK):
+        return html.Tr([
+            html.Td(label, style=lab),
+            html.Td(fcell, style={**td, "color": fcolor, "fontWeight": 600}),
+            html.Td(pcell, style={**td, "color": pcolor, "fontWeight": 600}),
+        ])
+
+    header = html.Tr([
+        html.Th("", style={**th, "textAlign": "left"}),
+        html.Th("×factor", style={**th, "color": theme.INCOME_COLOR}),
+        html.Th("plain", style={**th, "color": "#e84393"}),
+    ])
+    body = [
+        row("Pot at retirement", money(sf["pot_at_retirement"]),
+            money(sp["pot_at_retirement"])),
+        row("Spent on goals", money(sf["total_spent"]), money(sp["total_spent"])),
+        row("Outcome", f_out, p_out, f_col, p_col),
+        row("Ending balance", money(sf["ending_nominal"]),
+            money(sp["ending_nominal"])),
+    ]
+    return html.Table([html.Thead(header), html.Tbody(body)],
+                      style={"width": "100%", "borderCollapse": "collapse",
+                             "marginTop": "8px"})
+
+
+def _ret_results_block(res, cur):
+    money = lambda v: f"{v:,.0f} {cur}"
+    shared = [
+        _result_row("Monthly expense at retirement", money(res["expense_at_retirement"])),
+        _result_row("Pension (monthly)", money(res["pension"])),
+        _result_row("Years in retirement", f"{res['years_in_retirement']:.0f}"),
+        _result_row("Total contributions", money(res["total_contributions"])),
+    ]
+
+    if res.get("has_goals"):
+        # Goals selected: pot / outcome / ending differ by buy strategy, so compare
+        # ×factor vs plain side by side.
+        return html.Div(shared + [_strategy_table(res, money)],
+                        style={"marginTop": "4px"})
+
+    rows = [_result_row("Pot at retirement", money(res["balance_at_retirement"]))] + shared
+    if res["covered"]:
+        word = f"Funds last through age {res['life_expectancy']:.0f}"
+        color = theme.INCOME_COLOR
+        tail = _result_row("Ending balance", money(res["ending_nominal"]))
+    else:
+        word = f"Funds run out at age {res['depletion_age']:.0f}"
+        color = theme.EXPENSE_COLOR
+        tail = None
+    outcome = html.Div(
+        [html.Span("Outcome", style={"color": theme.MUTED}),
+         html.Span(word, style={"fontWeight": 700, "color": color,
+                                "textAlign": "right"})],
+        style={**theme.RESULT_ROW_STYLE, "borderBottom": "none"},
+    )
+    body = rows + ([tail] if tail else []) + [outcome]
+    return html.Div(body, style={"marginTop": "4px"})
+
+
+@callback(
+    Output("ci-ret-graph", "figure"),
+    Output("ci-ret-results", "children"),
+    Input("ci-ret-calc", "n_clicks"),
+    Input("theme-store", "data"),
+    Input("ci-ret-showreal", "value"),
+    Input("ci-ret-goals", "value"),
+    State("ci-cur-age", "value"),
+    State("ci-ret-age", "value"),
+    State("ci-life", "value"),
+    State("ci-ret-principal", "value"),
+    State("ci-ret-deposit", "value"),
+    State("ci-ret-increase", "value"),
+    State("ci-ret-rate", "value"),
+    State("ci-ret-infl", "value"),
+    State("ci-ret-bonus", "value"),
+    State("ci-ret-pension", "value"),
+    State("ci-ret-expense", "value"),
+)
+def _calculate_retire(_n, theme_value, showreal, sel_goals, cur_age, ret_age, life,
+                      principal, deposit, increase, rate, infl, bonus, pension,
+                      expense):
+    # Buy in Financial-Goals rank order (top-ranked first), like the Simple calc.
+    goals = load_goals()
+    chosen = set(sel_goals or [])
+    selected = [(nm, goals[nm], goal_factor(nm)) for nm in goals
+                if nm != EMERGENCY_FUND and nm in chosen]
+    res = compute_retirement(
+        current_age=cur_age or 0, retirement_age=ret_age or 0,
+        life_expectancy=life or 0, principal=principal or 0,
+        monthly_deposit=deposit or 0, increasement=(increase or 0) / 100.0,
+        annual_rate=(rate or 0) / 100.0, inflation=(infl or 0) / 100.0,
+        retirement_bonus=bonus or 0, pension=pension or 0, expense=expense or 0,
+        goals=selected)
+    show_real = "real" in (showreal or [])
+    fig = build_retirement_figure(res, currency(), dark=theme.is_dark(theme_value),
+                                  show_real=show_real)
+    return fig, _ret_results_block(res, currency())
+
+
+@callback(
+    Output("ci-cur-age", "value"),
+    Output("ci-ret-age", "value"),
+    Output("ci-life", "value"),
+    Output("ci-ret-principal", "value"),
+    Output("ci-ret-deposit", "value"),
+    Output("ci-ret-increase", "value"),
+    Output("ci-ret-rate", "value"),
+    Output("ci-ret-infl", "value"),
+    Output("ci-ret-bonus", "value"),
+    Output("ci-ret-pension", "value"),
+    Output("ci-ret-expense", "value"),
+    Input("ci-ret-reset", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _reset_retire(_n):
+    d = RETIRE_DEFAULTS
+    return (d["cur_age"], d["ret_age"], d["life"], d["principal"], d["deposit"],
+            d["increase"], d["rate"], d["infl"], d["bonus"], d["pension"],
+            d["expense"])

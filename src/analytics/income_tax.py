@@ -237,6 +237,21 @@ def tax_paid_for_year(df: pd.DataFrame, subcategory: str | None, year: int) -> f
     return float(df.loc[mask, "Amount"].sum())
 
 
+def tax_payments_for_year(df: pd.DataFrame, subcategory: str | None,
+                          year: int) -> list[dict]:
+    """The individual tax-payment transactions for the year (the rows summed by
+    :func:`tax_paid_for_year`), oldest first. Each item is
+    ``{"date": "DD-MMM-YYYY", "amount": float}`` — JSON-safe for a dcc.Store."""
+    if df is None or df.empty or not subcategory:
+        return []
+    mask = ((df["Income/Expense"] == "Expense")
+            & (df["Subcategory"] == subcategory)
+            & (df["Period"].dt.year == int(year)))
+    sub = df.loc[mask, ["Period", "Amount"]].sort_values("Period")
+    return [{"date": pd.Timestamp(p).strftime("%d-%b-%Y"), "amount": float(a)}
+            for p, a in zip(sub["Period"], sub["Amount"])]
+
+
 def ledger_years(df: pd.DataFrame, current: int | None = None) -> list[int]:
     """Years present in the ledger plus the current year, newest first."""
     cur = int(current or datetime.date.today().year)

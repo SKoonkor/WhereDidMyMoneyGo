@@ -4,7 +4,8 @@ import pandas as pd
 
 from src.analytics.income_tax import (
     TH_SPEC, expense_deduction, apply_allowances, progressive_tax,
-    income_tax_status, gross_income_for_year, tax_paid_for_year, ledger_years)
+    income_tax_status, gross_income_for_year, tax_paid_for_year,
+    tax_payments_for_year, ledger_years)
 from tests.conftest import make_df
 
 
@@ -111,6 +112,19 @@ def test_tax_paid_for_year_sums_subcategory():
     assert tax_paid_for_year(df, "Tax", 2026) == 5_000
     assert tax_paid_for_year(df, "Tax", 2025) == 0
     assert tax_paid_for_year(df, None, 2026) == 0
+
+
+def test_tax_payments_for_year_lists_rows_oldest_first():
+    df = _year_df()
+    payments = tax_payments_for_year(df, "Tax", 2026)
+    assert payments == [
+        {"date": "10-Mar-2026", "amount": 2_000.0},
+        {"date": "10-Sep-2026", "amount": 3_000.0},
+    ]
+    # Sum of the listed rows equals the summed figure shown on the page.
+    assert sum(p["amount"] for p in payments) == tax_paid_for_year(df, "Tax", 2026)
+    assert tax_payments_for_year(df, "Tax", 2025) == []
+    assert tax_payments_for_year(df, None, 2026) == []
 
 
 def test_ledger_years_includes_current():

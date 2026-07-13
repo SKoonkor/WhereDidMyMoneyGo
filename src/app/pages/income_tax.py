@@ -18,10 +18,10 @@ from dash.exceptions import PreventUpdate
 from src.app import theme
 from src.app.components import page_header, card
 from src.app.data import get_df, currency, tax_config
-from src.app.figures.income_tax import build_tax_figure
 from src.analytics.income_tax import (
     spec_for, allowance_defs, income_tax_status, gross_income_for_year,
-    tax_paid_for_year, ledger_years, load_tax, save_tax, TH_ALLOWANCES)
+    tax_paid_for_year, tax_payments_for_year, ledger_years, load_tax, save_tax,
+    TH_ALLOWANCES)
 from src.io.tax_report import build_report_html
 
 dash.register_page(__name__, path="/income-tax", name="Income Tax", order=3.5)
@@ -146,13 +146,15 @@ def layout(**_):
         style={"flex": "1", "marginLeft": "20px"},
     )
 
-    chart_card = card(
-        dcc.Graph(id="tax-graph", style={"height": "300px"},
-                  config={"displaylogo": False,
-                          "modeBarButtonsToRemove": ["zoom2d", "select2d",
-                                                     "lasso2d", "pan2d"]}),
-        style={"marginTop": "20px"},
-    )
+    paid_modal = html.Div(
+        html.Div(
+            [html.H3(id="tax-paid-title", style={"color": theme.INK}),
+             html.Div(id="tax-paid-list"),
+             html.Button("Close", id="tax-paid-close", n_clicks=0,
+                         style={**theme.PERIOD_BUTTON_STYLE, "marginTop": "16px"})],
+            className="modal-card"),
+        id="tax-paid-modal", className="modal-overlay", style={"display": "none"},
+        **{"data-close": "tax-paid-close"})
 
     return html.Div(
         [
@@ -162,7 +164,7 @@ def layout(**_):
             html.Div([input_card, deductions_card],
                      style={"display": "flex", "alignItems": "flex-start"}),
             html.Div(id="tax-breakdown"),
-            chart_card,
+            paid_modal,
         ],
         style=theme.PAGE_STYLE,
     )
@@ -186,6 +188,43 @@ def _result_row(label, value, strong=False):
     )
 
 
+def _paid_row(status, subcat):
+    """The 'Tax already paid' row — its amount is a clickable link that opens the
+    per-month payments pop-up."""
+    cur = currency()
+    label = "Tax already paid" + (f" · {subcat}" if subcat else "")
+    amount = html.Span(
+        f"{status['tax_paid']:,.0f} {cur}", id="tax-paid-open", n_clicks=0,
+        title="See which months you paid tax",
+        style={"fontWeight": 600, "color": theme.ACCENT, "whiteSpace": "nowrap",
+               "cursor": "pointer", "textDecoration": "underline",
+               "textDecorationStyle": "dotted", "textUnderlineOffset": "3px"})
+    return html.Div([html.Span(label, style={"color": theme.MUTED}), amount],
+                    style=theme.RESULT_ROW_STYLE)
+
+
+def _payment_rows(payments, cur):
+    """Render the pop-up body: one 'DD-MMM-YYYY  X.XX CUR' line per payment."""
+    if not payments:
+        return html.Div("No tax payments recorded for this year.",
+                        style={"color": theme.MUTED, "fontSize": "13px"})
+    line = {"display": "flex", "justifyContent": "space-between", "gap": "16px",
+            "padding": "7px 0", "borderBottom": "1px solid var(--border-soft)",
+            "fontVariantNumeric": "tabular-nums"}
+    items = [html.Div([html.Span(p["date"], style={"color": theme.MUTED}),
+                       html.Span(f"{p['amount']:,.2f} {cur}",
+                                 style={"color": theme.INK, "fontWeight": 600})],
+                      style=line)
+             for p in payments]
+    total = sum(p["amount"] for p in payments)
+    items.append(html.Div(
+        [html.Span("Total", style={"color": theme.INK}),
+         html.Span(f"{total:,.2f} {cur}", style={"color": theme.INK})],
+        style={**line, "borderBottom": "none", "fontWeight": 700,
+               "marginTop": "2px"}))
+    return html.Div(items)
+
+
 def _results_block(status, subcat):
     cur = currency()
     money = lambda v: f"{v:,.0f} {cur}"
@@ -197,8 +236,7 @@ def _results_block(status, subcat):
         _result_row("Tax due", money(status["tax_due"]), strong=True),
         _result_row("Effective rate", f"{status['effective_rate']*100:.2f}%"),
         _result_row("Marginal rate", f"{status['marginal_rate']*100:.0f}%"),
-        _result_row("Tax already paid" + (f" · {subcat}" if subcat else ""),
-                    money(status["tax_paid"])),
+        _paid_row(status, subcat),
     ]
     rem = status["remaining"]
     if rem > 0:
@@ -281,19 +319,17 @@ def _prefill_gross(year):
 
 
 @callback(
-    Output("tax-graph", "figure"),
     Output("tax-results", "children"),
     Output("tax-breakdown", "children"),
     Output({"type": "tax-applied", "key": ALL}, "children"),
     Output("tax-status-store", "data"),
     Input("tax-calc", "n_clicks"),
-    Input("theme-store", "data"),
     State("tax-year", "value"),
     State("tax-gross", "value"),
     State({"type": "tax-allow", "key": ALL}, "value"),
     State({"type": "tax-allow", "key": ALL}, "id"),
 )
-def _calculate(_n, theme_value, year, gross, allow_values, allow_ids):
+def _calculate(_n, year, gross, allow_values, allow_ids):
     cfg = tax_config()
     spec = spec_for(cfg.get("country"))
     cur = currency()
@@ -322,14 +358,15 @@ def _calculate(_n, theme_value, year, gross, allow_values, allow_ids):
                 if applied_by_key.get(cid["key"], 0) else "")
                for cid in (allow_ids or [])]
 
-    # Snapshot for the export report; export and the on-screen result stay in sync.
+    # Snapshot for the export report + the per-month payments pop-up; everything
+    # stays in sync with the on-screen result.
     payload = {"status": status, "year": year,
                "country": spec.get("country", "Thailand"), "currency": cur,
                "subcat": subcat,
+               "payments": tax_payments_for_year(get_df(), subcat, year),
                "generated": datetime.date.today().isoformat()}
 
-    fig = build_tax_figure(status, cur, dark=theme.is_dark(theme_value))
-    return (fig, _results_block(status, subcat), _breakdown_card(status),
+    return (_results_block(status, subcat), _breakdown_card(status),
             applied, payload)
 
 
@@ -339,7 +376,6 @@ def _calculate(_n, theme_value, year, gross, allow_values, allow_ids):
     Output({"type": "tax-allow", "key": ALL}, "value"),
     Output("tax-results", "children", allow_duplicate=True),
     Output("tax-breakdown", "children", allow_duplicate=True),
-    Output("tax-graph", "figure", allow_duplicate=True),
     Output({"type": "tax-applied", "key": ALL}, "children", allow_duplicate=True),
     Output("tax-status-store", "data", allow_duplicate=True),
     Input("tax-reset", "n_clicks"),
@@ -357,7 +393,7 @@ def _reset(_n, allow_ids):
         allow_values.append([] if (defn and defn["type"] == "flag") else 0)
         applied.append("")
     return (default_year, default_gross, allow_values,
-            None, None, {}, applied, None)
+            None, None, applied, None)
 
 
 @callback(
@@ -372,3 +408,34 @@ def _export(_n, payload):
         raise PreventUpdate
     html_doc = build_report_html(payload)
     return dcc.send_string(html_doc, f"income_tax_{payload.get('year', '')}.html")
+
+
+@callback(
+    Output("tax-paid-modal", "style"),
+    Output("tax-paid-list", "children"),
+    Output("tax-paid-title", "children"),
+    Input("tax-paid-open", "n_clicks"),
+    State("tax-status-store", "data"),
+    prevent_initial_call=True,
+)
+def _open_paid_modal(_n, payload):
+    """Open the per-month payments pop-up. The 'tax-paid-open' span is recreated on
+    every Calculate, so guard the phantom fire (n_clicks None/0 on recreation)."""
+    if not ctx.triggered or not ctx.triggered[0]["value"]:
+        raise PreventUpdate
+    payload = payload or {}
+    cur = payload.get("currency") or currency()
+    year = payload.get("year")
+    subcat = payload.get("subcat")
+    title = f"Tax paid — {year}" + (f" · {subcat}" if subcat else "")
+    return ({"display": "flex"},
+            _payment_rows(payload.get("payments") or [], cur), title)
+
+
+@callback(
+    Output("tax-paid-modal", "style", allow_duplicate=True),
+    Input("tax-paid-close", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _close_paid_modal(_n):
+    return {"display": "none"}
