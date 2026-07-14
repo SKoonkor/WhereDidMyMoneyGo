@@ -6,6 +6,7 @@ amount and folds the remainder into 'Other' so no pie exceeds 12 slices.
 
 import pandas as pd
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from src.app import theme
 from src.processing.summaries import filter_by_date
@@ -194,6 +195,85 @@ def build_pie_figure(df: pd.DataFrame, start: str, end: str,
         margin=dict(t=60, b=92, l=20, r=20),
         annotations=annotations,
     )
+    return fig
+
+
+def build_hist_figure(df: pd.DataFrame, start: str, end: str,
+                      currency: str = "THB", dark: bool = True,
+                      expense_order: str = "amount",
+                      censor: bool = False) -> go.Figure:
+    """Bar-chart ("histogram") twin of :func:`build_pie_figure`. Income and Expense are
+    shown side by side, one bar per category, reusing the pies' breakdowns and colour
+    scheme so each bar matches its slice (Income Greens; Expense Reds, or Needs=Blues /
+    Wants=Oranges in bucket mode; hidden cost slate). Amounts are masked under privacy."""
+    ft = theme.fig_theme(dark)
+    end_incl = pd.Timestamp(end).normalize() + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+    data = filter_by_date(df, start, str(end_incl))
+    income = _category_breakdown(data, "Income")
+    bucket_mode = expense_order == "bucket"
+    if bucket_mode:
+        expense = _expense_bucket_breakdown(data, B.load_budget().get("assignments", {}))
+    else:
+        expense = _category_breakdown(data, "Expense")
+
+    income_hidden = data.loc[data["Income/Expense"] == "Adjustment-In", "Amount"].sum()
+    expense_hidden = data.loc[data["Income/Expense"] == "Adjustment-Out", "Amount"].sum()
+
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Income", "Expense"),
+                        horizontal_spacing=0.12)
+    specs = [
+        dict(frame=income, palette="Greens", col=1, cx=0.21, hidden=income_hidden,
+             bucket=False),
+        dict(frame=expense, palette="Reds", col=2, cx=0.79, hidden=expense_hidden,
+             bucket=bucket_mode),
+    ]
+    for spec in specs:
+        frame, palette, col = spec["frame"], spec["palette"], spec["col"]
+        cx, hidden, bucket = spec["cx"], spec["hidden"], spec["bucket"]
+        has_hidden = bool(hidden and hidden > 0)
+        n_needs = int((frame["bucket"] == B.NEEDS).sum()) if bucket and not frame.empty else 0
+        n_wants = int((frame["bucket"] == B.WANTS).sum()) if bucket and not frame.empty else 0
+        if has_hidden:
+            frame = pd.concat([frame, pd.DataFrame(
+                {"Category": ["Hidden cost (untracked)"], "Amount": [hidden]})],
+                ignore_index=True)
+        if frame.empty:
+            fig.add_annotation(text="No data", x=cx, y=0.5, xref="paper", yref="paper",
+                               showarrow=False, xanchor="center", yanchor="middle",
+                               font=dict(color=ft.muted))
+            continue
+        # Match the donut's slice colours exactly (see build_pie_figure).
+        if bucket:
+            colors = ((_shade(n_needs, "Blues") if n_needs else [])
+                      + (_shade(n_wants, "Oranges") if n_wants else [])
+                      + ([_HIDDEN_COLOR] if has_hidden else []))
+        else:
+            n_real = len(frame) - 1 if has_hidden else len(frame)
+            colors = _shade(n_real, palette) + ([_HIDDEN_COLOR] if has_hidden else [])
+        vals = frame["Amount"]
+        text = ["" for _ in vals] if censor else [f"{v:,.0f}" for v in vals]
+        fig.add_trace(go.Bar(
+            x=frame["Category"], y=vals, marker=dict(color=colors),
+            text=text, textposition="outside", textfont=dict(size=10, color=ft.ink),
+            cliponaxis=False,
+            hovertemplate="%{x}: "
+                          + ("*****" if censor else "%{y:,.0f} " + currency)
+                          + "<extra></extra>",
+        ), row=1, col=col)
+
+    fig.update_layout(
+        template=ft.template, showlegend=False,
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(t=60, b=100, l=40, r=20), dragmode="pan",
+    )
+    fig.update_xaxes(tickangle=-30, tickfont=dict(size=11), automargin=True)
+    fig.update_yaxes(title_text=currency, showticklabels=not censor,
+                     gridcolor=ft.grid, zeroline=False)
+    # Restyle the make_subplots column titles to bold theme ink (matching the pies).
+    for ann in fig.layout.annotations:
+        if ann.text in ("Income", "Expense"):
+            ann.text = f"<b>{ann.text}</b>"
+            ann.font = dict(size=15, color=ft.ink)
     return fig
 
 
