@@ -5,7 +5,7 @@ import pandas as pd
 from dash import dcc, html, callback, ctx, Input, Output
 
 from src.app import theme
-from src.app.components import page_header, money_span
+from src.app.components import page_header, money_span, card
 from src.app.data import get_df, default_range, reference_date, currency
 from src.app.figures.pie import build_pie_figure, build_hist_figure
 from src.analytics import budget as B
@@ -57,43 +57,47 @@ def layout(**_):
                 style={"display": "flex", "gap": "10px", "flexWrap": "wrap",
                        "marginBottom": "16px"},
             ),
-            dcc.RadioItems(
-                id="pie-preset",
-                options=[
-                    {"label": "  Past 30 days", "value": "30"},
-                    {"label": "  Past 120 days", "value": "120"},
-                    {"label": "  Past year", "value": "365"},
-                    {"label": "  Selected period", "value": "custom"},
-                ],
-                value="30",
-                inline=True,
-                inputStyle={"marginRight": "4px"},
-                labelStyle={"marginRight": "18px", "cursor": "pointer"},
-                style={"marginBottom": "12px"},
-            ),
-            dcc.DatePickerRange(
-                id="pie-dates",
-                start_date=_START,
-                end_date=_END,
-                display_format="DD/MM/YYYY",
-                style={"marginBottom": "16px"},
-            ),
-            html.Div(
+            card(
                 [
-                    html.Span("Expense order:", style={"color": theme.MUTED,
-                                                       "marginRight": "8px"}),
                     dcc.RadioItems(
-                        id="pie-expense-order",
-                        options=[{"label": "  By amount", "value": "amount"},
-                                 {"label": "  By Needs/Wants", "value": "bucket"}],
-                        value="amount",
+                        id="pie-preset",
+                        className="sq-radio",
+                        options=[
+                            {"label": "  Past 30 days", "value": "30"},
+                            {"label": "  Past 120 days", "value": "120"},
+                            {"label": "  Past year", "value": "365"},
+                            {"label": "  Selected period", "value": "custom"},
+                        ],
+                        value="30",
                         inline=True,
-                        inputStyle={"marginRight": "4px"},
                         labelStyle={"marginRight": "18px", "cursor": "pointer"},
+                        style={"marginBottom": "12px"},
+                    ),
+                    dcc.DatePickerRange(
+                        id="pie-dates",
+                        start_date=_START,
+                        end_date=_END,
+                        display_format="DD/MM/YYYY",
+                        style={"marginBottom": "16px"},
+                    ),
+                    html.Div(
+                        [
+                            html.Span("Expense order:", style={"color": theme.MUTED,
+                                                               "marginRight": "8px"}),
+                            dcc.RadioItems(
+                                id="pie-expense-order",
+                                className="sq-radio",
+                                options=[{"label": "  By amount", "value": "amount"},
+                                         {"label": "  By Needs/Wants", "value": "bucket"}],
+                                value="amount",
+                                inline=True,
+                                labelStyle={"marginRight": "18px", "cursor": "pointer"},
+                            ),
+                        ],
+                        style={"display": "flex", "alignItems": "center"},
                     ),
                 ],
-                style={"display": "flex", "alignItems": "center",
-                       "marginBottom": "12px"},
+                style={"marginBottom": "16px"},
             ),
             html.Div(dcc.Graph(id="pie-graph", style={"height": "520px"}),
                      id="pie-view-pie"),

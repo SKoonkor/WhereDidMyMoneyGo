@@ -10,13 +10,14 @@ from datetime import date
 
 import dash
 import pandas as pd
-from dash import dcc, html, callback, Input, Output, State, ctx
+from dash import dcc, html, callback, Input, Output, State, ctx, no_update
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
 from src.app.data import get_df, currency
 from src.app.figures.budget_pie import build_budget_pie
+from src.app.figures.budget_trend import build_spending_trend
 from src.analytics import budget as B
 from src.analytics.transaction_categories import load_categories
 
@@ -361,13 +362,18 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
         style={"display": "flex", "alignItems": "center",
                "marginBottom": "8px", "minHeight": "38px"},
     )
-    return card(
+    return html.Div(card(
         [
-            html.H3("Spending vs budget", style={"marginTop": 0}),
+            dcc.Store(id="budget-trend-sel", data=[]),
+            html.H3("Spending vs budget", id="budget-spending-title",
+                    style={"marginTop": 0}),
             html.P("Each slice is the category's share of that month's budget. "
                    "Needs (blue) fill the budget first, then Wants (orange); "
-                   "anything over budget drops to the list.",
+                   "anything over budget drops to the list. "
+                   "Click a row below to see its monthly trend.",
+                   id="budget-spending-desc",
                    style={"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}),
+            # Two monthly pies — shown until a category/sub-category row is clicked.
             html.Div(
                 [
                     _month_column("prev", prev_header, "budget-pie-prev",
@@ -375,8 +381,21 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
                     _month_column("current", current_header, "budget-pie-current",
                                   "budget-list-current"),
                 ],
+                id="budget-view-pies",
                 style={"display": "flex", "gap": "20px", "flexWrap": "wrap",
                        "alignItems": "flex-start"},
+            ),
+            # Spending-trend histogram — replaces the pies while rows are selected.
+            html.Div(
+                [
+                    html.Button("✕", id="budget-trend-close", className="trend-close",
+                                n_clicks=0),
+                    dcc.Graph(id="budget-trend-graph", style={"height": "300px"},
+                              config={"scrollZoom": True, "displayModeBar": False,
+                                      "displaylogo": False}),
+                ],
+                id="budget-view-trend",
+                style={"display": "none", "position": "relative"},
             ),
             html.Details(
                 [
@@ -403,7 +422,7 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
                 style={"marginTop": "16px"},
             ),
         ],
-    )
+    ), className="budget-spending-card")
 
 
 # ── Sub-category detail (this month vs selected previous month) ──────────────
@@ -437,18 +456,27 @@ def _pct_key(pct):
     return float("inf") if pct is None else pct
 
 
-def _subcat_grid_row(name, cur, prev, delta, pct, cls: str) -> html.Div:
+def _subcat_grid_row(name, cur, prev, delta, pct, cls: str,
+                     cat=None, sub="", selected=None) -> html.Div:
+    # Rows carry data-cat/data-sub and a click affordance so the trend JS can toggle
+    # them into the Spending-trend view; the .selected class marks active ones.
+    attrs = {}
+    if cat is not None:
+        cls += " subcat-clickable"
+        if (cat, sub) in (selected or set()):
+            cls += " selected"
+        attrs = {"data-cat": cat, "data-sub": sub or ""}
     return html.Div(
         [html.Span(name, className="subcat-name"),
          money_span(f"{cur:,.0f}", className="subcat-col"),
          money_span(f"{prev:,.0f}", className="subcat-col"),
          html.Span(_delta_children(delta, pct), className="subcat-col change",
                    style={"color": _change_color(pct, delta), "fontWeight": 600})],
-        className=cls,
+        className=cls, **attrs,
     )
 
 
-def _subcat_detail_children(changes: list, sort: dict) -> list:
+def _subcat_detail_children(changes: list, sort: dict, selected=None) -> list:
     if not changes:
         return [html.Div("No expense data for these months.",
                          style={"color": theme.MUTED})]
@@ -464,10 +492,13 @@ def _subcat_detail_children(changes: list, sort: dict) -> list:
     out = []
     for g in sorted(changes, key=grp_key, reverse=reverse):
         out.append(_subcat_grid_row(g["category"], g["cur"], g["prev"], g["delta"],
-                                    _grp_pct(g), "subcat-group subcat-grid"))
+                                    _grp_pct(g), "subcat-group subcat-grid",
+                                    cat=g["category"], sub="", selected=selected))
         for r in sorted(g["rows"], key=row_key, reverse=reverse):
             out.append(_subcat_grid_row(r["sub"], r["cur"], r["prev"], r["delta"],
-                                        r["pct"], "subcat-row subcat-grid"))
+                                        r["pct"], "subcat-row subcat-grid",
+                                        cat=g["category"], sub=r["sub"],
+                                        selected=selected))
     return out
 
 
@@ -661,6 +692,11 @@ def _toggle_sort(_n_this, _n_change, sort):
     return {"by": col, "dir": "desc"}
 
 
+def _sel_set(sel) -> set:
+    """The selection store (list of {cat, sub}) as a set of (cat, sub) tuples."""
+    return {(item.get("cat"), item.get("sub") or "") for item in (sel or [])}
+
+
 @callback(
     Output("budget-subcat-detail", "children"),
     Output("budget-sort-this-arrow", "children"),
@@ -668,14 +704,57 @@ def _toggle_sort(_n_this, _n_change, sort):
     Input("budget-prev-month", "value"),
     Input("budget-subcat-sort", "data"),
     Input("budget-refresh", "data"),
+    Input("budget-trend-sel", "data"),
 )
-def _render_subcat_detail(prev_value, sort, _refresh):
+def _render_subcat_detail(prev_value, sort, _refresh, sel):
     current = pd.Period(date.today(), freq="M")
     prev = pd.Period(prev_value, freq="M") if prev_value else current - 1
     changes = B.subcategory_month_changes(get_df(), current, prev)
     sort = sort or {"by": "cur", "dir": "desc"}
-    rows = _subcat_detail_children(changes, sort)
+    rows = _subcat_detail_children(changes, sort, _sel_set(sel))
     arrow = "▾" if sort["dir"] == "desc" else "▴"
     this_arrow = arrow if sort["by"] == "cur" else ""
     change_arrow = arrow if sort["by"] == "pct" else ""
     return rows, this_arrow, change_arrow
+
+
+# ── Spending-trend view (click-to-drill) ─────────────────────────────────────
+
+_PIES_STYLE = {"display": "flex", "gap": "20px", "flexWrap": "wrap",
+               "alignItems": "flex-start"}
+_DESC_STYLE = {"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}
+
+
+@callback(
+    Output("budget-spending-title", "children"),
+    Output("budget-spending-desc", "style"),
+    Output("budget-view-pies", "style"),
+    Output("budget-view-trend", "style"),
+    Output("budget-trend-graph", "figure"),
+    Input("budget-trend-sel", "data"),
+    Input("theme-store", "data"),
+    Input("censor-store", "data"),
+    Input("budget-refresh", "data"),
+)
+def _render_trend(sel, theme_value, censor, _refresh):
+    if not sel:
+        # No selection → the pies (and the default title) are shown.
+        return ("Spending vs budget", _DESC_STYLE, _PIES_STYLE,
+                {"display": "none"}, no_update)
+
+    df = get_df()
+    series, labels = [], []
+    for item in sel:
+        cat = item.get("cat")
+        sub = item.get("sub") or None            # "" (group row) → whole category
+        label = f"{cat}:{sub}" if sub else cat
+        labels.append(label)
+        ser = B.monthly_category_series(df, cat, sub)
+        series.append({"label": label, "months": [m for m, _ in ser],
+                       "values": [v for _, v in ser]})
+
+    title = f"Spending trend: {labels[0]}" if len(labels) == 1 else "Spending Trend"
+    fig = build_spending_trend(series, currency(), dark=theme.is_dark(theme_value),
+                               censor=theme.is_censored(censor))
+    return (title, {"display": "none"}, {"display": "none"},
+            {"display": "block", "position": "relative"}, fig)

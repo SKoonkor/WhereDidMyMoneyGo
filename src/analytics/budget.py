@@ -297,6 +297,32 @@ def _expense_cat_sub(df: pd.DataFrame, month) -> dict:
     return {(str(c), str(s)): float(v) for (c, s), v in g.items()}
 
 
+def monthly_category_series(df: pd.DataFrame, category: str,
+                            sub: str | None = None) -> list[tuple]:
+    """Monthly expense total for a category (or a specific sub-category) over time.
+
+    Returns ``[(pd.Period('M'), amount), ...]`` ascending by month, **zero-filled**
+    across the df's full expense-month span so multiple selected series line up on one
+    shared, continuous month axis (needed for the grouped-bar trend chart and panning).
+    A blank ``sub`` in the data reads as ``"—"`` (matching ``_expense_cat_sub``); pass
+    ``sub=None`` for the whole category.
+    """
+    exp = df[df["Income/Expense"] == "Expense"]
+    if exp.empty:
+        return []
+    months = exp["Period"].dt.to_period("M")
+    full = pd.period_range(months.min(), months.max(), freq="M")
+
+    sel = exp[exp["Category"] == category].copy()
+    if sub is not None:
+        subs = sel["Subcategory"].fillna("").replace("", "—")
+        sel = sel[subs == sub]
+    if sel.empty:
+        return [(m, 0.0) for m in full]
+    totals = sel.groupby(sel["Period"].dt.to_period("M"))["Amount"].sum()
+    return [(m, float(totals.get(m, 0.0))) for m in full]
+
+
 def subcategory_month_changes(df: pd.DataFrame, current_month, prev_month) -> list:
     """Expense sub-category change between two months, grouped by parent category.
 
