@@ -21,17 +21,22 @@ def ensure_data_dirs(root: Path | str = ".") -> None:
         (root / d).mkdir(parents=True, exist_ok=True)
 
 
-def ensure_config(root: Path | str = ".", template: str = "config.example") -> bool:
+def ensure_config(root: Path | str = ".", template: str | Path = "config.example") -> bool:
     """Seed ``config/`` from the templates when it doesn't exist.
 
-    Returns True if a fresh ``config/`` was created, False if one already
-    existed (or no templates are present to copy).
+    ``template`` may be a name relative to ``root`` (the usual source-run case)
+    or an **absolute** path — the frozen build passes the bundled
+    ``config.example`` extracted alongside the executable. Returns True if a
+    fresh ``config/`` was created, False if one already existed (or no
+    templates are present to copy).
     """
     root = Path(root)
     config = root / "config"
     if config.exists():
         return False
-    tmpl = root / template
+    tmpl = Path(template)
+    if not tmpl.is_absolute():
+        tmpl = root / tmpl
     if not tmpl.exists():
         config.mkdir(parents=True, exist_ok=True)
         return False
@@ -41,11 +46,12 @@ def ensure_config(root: Path | str = ".", template: str = "config.example") -> b
     return True
 
 
-def bootstrap(root: Path | str = ".") -> None:
+def bootstrap(root: Path | str = ".", template: str | Path = "config.example") -> None:
     """Ensure data dirs and a config/ exist, then migrate any legacy xlsx
-    ledger to SQLite. Call once on launch."""
+    ledger to SQLite. Call once on launch. ``template`` is forwarded to
+    :func:`ensure_config` (the frozen build passes the bundled path)."""
     ensure_data_dirs(root)
-    ensure_config(root)
+    ensure_config(root, template)
     # Lazy import: migration needs pandas, plain dir/config setup does not.
     from src.io.migrate import migrate_legacy_xlsx
     migrate_legacy_xlsx(root)

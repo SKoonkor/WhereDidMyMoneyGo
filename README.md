@@ -16,6 +16,29 @@ ledger (`data/raw/ledger.db`) plus plain `.json` / `.toml` configuration.
 > financial advice. Paper trading is a **simulation** using delayed public quotes — no real
 > orders are ever placed.
 
+## Download & run (no Python needed)
+
+Prefer a double-click? Grab a ready-made build for your OS from the
+[**Releases**](https://github.com/SKoonkor/WhereDidMyMoneyGo/releases) page — **no Python, no
+terminal**. It opens in your browser and keeps running behind a small **tray / menu-bar icon**
+(*Open Money Tracker* / *Quit*); closing the browser tab leaves it running in the tray.
+
+| OS | Download | First launch |
+|---|---|---|
+| **macOS** | `MoneyTracker-macOS.dmg` | Open the DMG, drag **Money Tracker** into **Applications**. First open: right-click the app → **Open** → **Open** (unsigned build, so macOS asks once). |
+| **Windows** | `MoneyTracker-Windows.exe` | Double-click. SmartScreen may warn — click **More info → Run anyway** (unsigned build). |
+| **Linux** | `MoneyTracker-Linux.AppImage` | `chmod +x MoneyTracker-Linux.AppImage`, then double-click or run it. |
+
+> 📖 **New to this? Follow the step-by-step [Download & run guide](docs/download-and-run.md)** —
+> per-OS walkthroughs, where your data is stored, updating, and troubleshooting.
+
+The app serves at <http://127.0.0.1:8050> (it picks another free port automatically if 8050 is
+busy — use the tray's **Open Money Tracker** to get the right link). Your data lives in a per-user
+folder: macOS `~/Library/Application Support/MoneyTracker`, Windows `%APPDATA%\MoneyTracker`,
+Linux `~/.local/share/money-tracker`. Builds are currently **unsigned** (signing/notarization is
+planned), so each OS shows a one-time "unidentified developer" prompt — the steps above (and the
+guide) clear it. Developers can still run from source below.
+
 ## Screenshots
 
 <!-- Captured with synthetic sample data in an isolated sandbox — never a real ledger. -->
@@ -94,6 +117,7 @@ first — an existing ledger is never overwritten.)
 | `MT_PORT` | `8050` | Port to serve on |
 | `MT_HOST` | `127.0.0.1` | Interface to bind (localhost only by default) |
 | `MT_DEBUG` | *(off)* | Set to `1`/`true` to enable Dash debug mode |
+| `MT_DATA_DIR` | *(see below)* | Override the config/data folder. Defaults to the project root from source, and the per-user app-data folder in the packaged build. |
 
 ```bash
 MT_PORT=9000 python run_app.py
@@ -101,6 +125,19 @@ MT_PORT=9000 python run_app.py
 
 > The bundled server is Flask's development server. It's fine for local single-user use; if you
 > ever expose it, put it behind a proper WSGI server and keep `MT_DEBUG` off.
+
+### Building the desktop apps yourself
+
+The downloadable builds are produced by [`.github/workflows/build.yml`](.github/workflows/build.yml)
+(PyInstaller, one job per OS). To build locally for your current platform:
+
+```bash
+pip install -r requirements.txt -r requirements-build.txt
+pyinstaller packaging/moneytracker.spec       # output under dist/
+```
+
+The desktop entry point is [`desktop.py`](desktop.py); regenerate the icon with
+`python packaging/make_icon.py`.
 
 ## Pages
 

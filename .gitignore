@@ -20,6 +20,12 @@ __pycache__/
 .ipynb_checkpoints/
 .pytest_cache/
 
+# ── PyInstaller / packaging output (the committed spec + icons stay) ─
+/build/
+/dist/
+*.AppImage
+*.dmg
+
 # ── Secrets / env ──────────────────────────────────────────────────
 .env
 .env.*

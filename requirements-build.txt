@@ -1,0 +1,7 @@
+# Extra dependencies needed only to *build and run the frozen desktop app*.
+# Regular source runs (`python run_app.py`) need none of these — desktop.py
+# imports pystray/Pillow lazily. Install alongside requirements.txt in CI:
+#     pip install -r requirements.txt -r requirements-build.txt
+pyinstaller>=6.6
+pystray>=0.19
+Pillow>=10.0

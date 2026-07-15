@@ -7,8 +7,19 @@ from dash import Dash, Input, Output, State, clientside_callback, dcc, html, pag
 
 from src.app import theme
 from src.app.data import get_config
+from src.utils.paths import is_frozen, resource_path
 
-_PAGES_DIR = str(Path(__file__).parent / "pages")
+# In a frozen build the source tree lives under PyInstaller's extraction dir, so
+# Dash can't infer the pages/assets folders from ``__file__``; point it at the
+# bundled copies instead. From source both resolve to this package's folders.
+if is_frozen():
+    # Bundled to non-`src/` names so the on-disk copies Dash scans don't shadow
+    # the frozen ``src`` package (see packaging/moneytracker.spec).
+    _PAGES_DIR = str(resource_path("mt_pages"))
+    _ASSETS_DIR = str(resource_path("mt_assets"))
+else:
+    _PAGES_DIR = str(Path(__file__).parent / "pages")
+    _ASSETS_DIR = str(Path(__file__).parent / "assets")
 
 # Applies the saved theme before first paint so dark/light loads without a
 # flash of the wrong background. dcc.Store(storage_type="local") persists
@@ -56,6 +67,7 @@ def create_app() -> Dash:
         __name__,
         use_pages=True,
         pages_folder=_PAGES_DIR,
+        assets_folder=_ASSETS_DIR,
         suppress_callback_exceptions=True,
         title=get_config().get("settings", {}).get("general", {}).get("app_name", "Money Tracker"),
     )
