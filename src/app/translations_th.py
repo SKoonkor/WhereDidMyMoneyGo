@@ -755,6 +755,10 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Compound Interest Calculator": "คำนวณดอกเบี้ยแบบทบต้น",
     "A standalone tool for exploring investment growth.":
         "สำหรับเพื่อสำรวจการเติบโตของการลงทุน",
+    "Plan your path to retirement — project your savings, "
+    "spending, and financial-freedom age.":
+        "วางแผนเส้นทางสู่การเกษียณ — คาดการณ์เงินออม ค่าใช้จ่าย "
+        "และอายุที่มีอิสรภาพทางการเงินของคุณ",
     " Log y-axis": " แกน y แบบลอการิทึม",
     "Simple Compound Interest Calculator": "คำนวณดอกเบี้ยทบต้นอย่างง่าย",
     "Retirement Planning": "วางแผนเกษียณ",
@@ -1231,4 +1235,48 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Account equity over time": "มูลค่าสุทธิของบัญชีตามเวลา",
     "Time": "เวลา",
     "Equity (USD)": "มูลค่าสุทธิ (USD)",
+}
+
+
+# ── Per-page overrides ─────────────────────────────────────────────────────────
+# Layered ON TOP of TRANSLATIONS_TH above. Each key is a page namespace (bound in
+# the page/figure module via ``t = make_t("<namespace>")``); each value is a
+# SPARSE dict — put a string here only when this page needs different Thai wording
+# than the shared base. Anything absent falls through to TRANSLATIONS_TH, then to
+# English. Add entries page by page without touching the shared dict.
+TRANSLATIONS_TH_BY_PAGE: dict[str, dict[str, str]] = {
+    # ── Home ───────────────────────────────────────────────────────────────────
+    "home": {},
+    # ── Money Flow ─────────────────────────────────────────────────────────────
+    "flow": {},
+    # ── Income / Expense ───────────────────────────────────────────────────────
+    "pie": {},
+    # ── Transactions (list + edit) ─────────────────────────────────────────────
+    "transactions": {},
+    # ── Budget ─────────────────────────────────────────────────────────────────
+    "budget": {},
+    # ── Financial Goals ────────────────────────────────────────────────────────
+    "goals": {},
+    # ── Income Tax ─────────────────────────────────────────────────────────────
+    "income_tax": {},
+    # ── Retirement Planning / Compound ─────────────────────────────────────────
+    "compound": {},
+    # ── Investing Simulator ────────────────────────────────────────────────────
+    "invest": {},
+    # ── Paper Trading ──────────────────────────────────────────────────────────
+    "paper": {},
+    # ── Stock Intrinsic Valuation ──────────────────────────────────────────────
+    "valuation": {},
+    # ── Account Settings ───────────────────────────────────────────────────────
+    "settings": {},
+    # ── Backup & Restore ───────────────────────────────────────────────────────
+    "backup": {},
+    # ── Import Data ────────────────────────────────────────────────────────────
+    "import": {},
+    # ── Manage accounts & categories ───────────────────────────────────────────
+    "manage": {},
+    # ── Reconcile Balances ─────────────────────────────────────────────────────
+    "reconcile": {},
+    # ── Remove Transactions ────────────────────────────────────────────────────
+    "remove": {},
 }

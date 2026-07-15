@@ -4,9 +4,11 @@ import dash
 from dash import dcc, html
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.txn_form import build_form
 from src.io import store
+
+t = make_t("transactions")
 
 dash.register_page(__name__, path_template="/transactions/edit/<txn_id>",
                    name="Edit Transaction")

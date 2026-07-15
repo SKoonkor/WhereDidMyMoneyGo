@@ -11,8 +11,10 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.analytics.investment import START_CASH
+
+t = make_t("invest")
 
 _UP, _DOWN = "#2ecc71", "#e74c3c"    # candle/volume up-green, down-red
 

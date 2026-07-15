@@ -7,7 +7,7 @@ ledger with ``make_df``.
 import pandas as pd
 
 from src.analytics.budget import monthly_category_series
-from src.app.figures.budget_trend import build_spending_trend
+from src.app.figures.budget_trend import build_spending_trend, home_window
 from tests.conftest import make_df
 
 
@@ -89,14 +89,79 @@ def test_single_selection_hides_legend():
     assert fig.layout.showlegend is False
 
 
-def test_default_range_spans_five_months():
-    fig = build_spending_trend([_series(_ledger(), "Health", "Gym")], default_months=5)
+def _long_series(label, n_months, value):
+    """A single series spanning `n_months` consecutive months, constant `value`."""
+    start = pd.Period("2020-01", "M")
+    months = [start + i for i in range(n_months)]
+    return {"label": label, "months": months, "values": [value] * n_months}
+
+
+def test_default_range_spans_seven_months():
+    # 8 months of history → the view opens on the last 7 (the new default window).
+    fig = build_spending_trend([_long_series("Health", 8, 500.0)])
     lo, hi = pd.Timestamp(fig.layout.xaxis.range[0]), pd.Timestamp(fig.layout.xaxis.range[1])
-    # Mar→Jul inclusive is ~5 months; padded by ~half a month each side.
-    assert 140 <= (hi - lo).days <= 170
+    # 7 months inclusive is ~6 month-gaps; padded by ~half a month each side.
+    assert 200 <= (hi - lo).days <= 230
+
+
+def test_window_shrinks_to_cap_grouped_bars():
+    # 4 selections × 7 months = 28 bars > 20 → window shrinks to 5 months (20 bars).
+    df = _ledger()
+    sel = [_long_series(f"S{i}", 12, 100.0) for i in range(4)]
+    fig = build_spending_trend(sel, max_bars=20)
+    lo, hi = pd.Timestamp(fig.layout.xaxis.range[0]), pd.Timestamp(fig.layout.xaxis.range[1])
+    # 5 months → ~4 month-gaps (~120 days) + half-month padding each side.
+    assert 130 <= (hi - lo).days <= 160
+
+
+def test_bars_carry_formatted_labels_in_bar_colour():
+    s = {"label": "Big", "months": [pd.Period("2026-05", "M"),
+                                    pd.Period("2026-06", "M"),
+                                    pd.Period("2026-07", "M")],
+         "values": [1500.0, 2_300_000.0, 0.0]}
+    fig = build_spending_trend([s])
+    trace = fig.data[0]
+    assert tuple(trace.text) == ("1.5k", "2.3M", "")   # k / M / blank-on-zero
+    assert trace.textposition == "outside"
+    assert trace.textfont.color == trace.marker.color   # label matches bar colour
+
+
+def test_yaxis_is_locked():
+    fig = build_spending_trend([_series(_ledger(), "Health", "Gym")])
+    assert fig.layout.yaxis.fixedrange is True          # no vertical pan/zoom
+
+
+# ── home_window (the Home-button / opening range) ─────────────────────────────
+
+def _months(n):
+    start = pd.Period("2020-01", "M")
+    return [start + i for i in range(n)]
+
+
+def test_home_window_none_when_empty():
+    assert home_window([], 1) is None
+
+
+def test_home_window_spans_seven_months_single_series():
+    lo, hi = (pd.Timestamp(x) for x in home_window(_months(12), 1))
+    assert 200 <= (hi - lo).days <= 230        # ~7 months + half-month padding
+
+
+def test_home_window_shrinks_for_grouped_bars():
+    # 4 series → 20//4 = 5 months (20 bars), even though 7 are requested.
+    lo, hi = (pd.Timestamp(x) for x in home_window(_months(12), 4))
+    assert 130 <= (hi - lo).days <= 160        # ~5 months
+
+
+def test_home_window_clamped_to_available_history():
+    # Only 3 months exist → window can't exceed them.
+    lo, hi = (pd.Timestamp(x) for x in home_window(_months(3), 1))
+    assert 70 <= (hi - lo).days <= 100         # ~3 months
 
 
 def test_censor_masks_values():
     fig = build_spending_trend([_series(_ledger(), "Health", "Gym")], censor=True)
     assert "*****" in fig.data[0].hovertemplate
     assert fig.layout.yaxis.showticklabels is False
+    # Value labels must not leak through in privacy mode.
+    assert set(fig.data[0].text) == {""}

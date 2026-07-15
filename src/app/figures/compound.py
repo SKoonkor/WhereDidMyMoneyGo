@@ -10,7 +10,9 @@ import numpy as np
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
+
+t = make_t("compound")
 
 # Compounding label → periods per year.
 COMPOUNDING = {"Monthly": 12, "Quarterly": 4, "6 Months": 2, "Annually": 1}

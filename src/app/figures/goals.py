@@ -9,7 +9,9 @@ how many months of required expenses the Emergency Fund portion covers, capped a
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
+
+t = make_t("goals")
 
 MONTHS_CAP = 6
 

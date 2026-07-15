@@ -9,9 +9,11 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.processing.summaries import filter_by_date
 from src.analytics import budget as B
+
+t = make_t("pie")
 
 MAX_SLICES = 12  # 11 named categories + "Other"
 _BUCKET_CAP = 8  # max named slices per bucket (Needs/Wants) before folding to "Other"

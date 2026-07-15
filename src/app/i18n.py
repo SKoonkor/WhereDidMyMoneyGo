@@ -14,7 +14,7 @@ yet in ``translations_th.py`` simply stays English.
 
 from __future__ import annotations
 
-from src.app.translations_th import TRANSLATIONS_TH
+from src.app.translations_th import TRANSLATIONS_TH, TRANSLATIONS_TH_BY_PAGE
 
 SUPPORTED = ("en", "th")
 DEFAULT_LANG = "en"
@@ -35,17 +35,42 @@ def get_lang() -> str:
     return lang if lang in SUPPORTED else DEFAULT_LANG
 
 
-def t(text: str, lang: str | None = None) -> str:
+def t(text: str, lang: str | None = None, namespace: str | None = None) -> str:
     """Translate ``text`` for the given (or current) language.
 
     Returns the Thai string when the effective language is ``"th"`` and a
     translation exists; otherwise returns ``text`` unchanged (English-as-key
     fallback).
+
+    ``namespace`` selects a per-page override layer: when given, a matching entry
+    in ``TRANSLATIONS_TH_BY_PAGE[namespace]`` wins, letting the same English
+    string carry page-specific wording. Anything not overridden falls through to
+    the shared ``TRANSLATIONS_TH`` base, then to English. With ``namespace=None``
+    the behavior is exactly the shared-base lookup.
     """
     if not isinstance(text, str):
         return text  # e.g. a list of Dash children passed as a title — leave as-is
     if lang is None:
         lang = get_lang()
     if lang == "th":
+        if namespace:
+            page = TRANSLATIONS_TH_BY_PAGE.get(namespace)
+            if page is not None and text in page:
+                return page[text]
         return TRANSLATIONS_TH.get(text, text)
     return text
+
+
+def make_t(namespace: str):
+    """Return a translator bound to a page ``namespace``.
+
+    Page and figure modules do ``t = make_t("budget")`` right after their imports;
+    every ``t(...)`` call site then resolves against that page's override layer
+    first (see :func:`t`). Binding at import time — rather than sniffing the
+    request path — is what makes per-page context work inside Dash callbacks,
+    whose request path is the shared ``/_dash-update-component`` endpoint.
+    """
+    def _t(text: str, lang: str | None = None) -> str:
+        return t(text, lang=lang, namespace=namespace)
+
+    return _t

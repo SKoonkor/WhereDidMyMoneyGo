@@ -6,10 +6,12 @@ from dash import dcc, html, callback, ctx, Input, Output
 
 from src.app import theme
 from src.app.components import page_header, money_span, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, default_range, reference_date, currency
 from src.app.figures.pie import build_pie_figure, build_hist_figure
 from src.analytics import budget as B
+
+t = make_t("pie")
 
 dash.register_page(__name__, path="/pie", name="Income / Expense", order=2)
 

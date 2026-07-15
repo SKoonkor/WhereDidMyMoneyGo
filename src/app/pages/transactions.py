@@ -18,9 +18,11 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, money_span
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, month_periods
 from src.io.exporter import export_frame, export_filename
+
+t = make_t("transactions")
 
 dash.register_page(__name__, path="/transactions", name="Transactions", order=6)
 

@@ -5,13 +5,16 @@ from dash import dcc, html, callback, Input, Output, State, no_update, ctx
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, emergency_fund_config, currency
 from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
 from src.analytics.goals import (
+
     load_goals, add_goal, remove_goal, reorder_goals,
     load_selected, save_selected, pool_target, EMERGENCY_FUND)
+
+t = make_t("goals")
 
 dash.register_page(__name__, path="/goals", name="Financial Goals", order=3)
 

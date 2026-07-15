@@ -15,9 +15,11 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, refresh
 from src.io import store
+
+t = make_t("remove")
 
 dash.register_page(__name__, path="/remove", name="Remove Transactions", order=9)
 

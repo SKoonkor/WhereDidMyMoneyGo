@@ -6,8 +6,8 @@ request context (a throwaway Flask app) so the cookie path is covered.
 
 import flask
 
-from src.app.i18n import DEFAULT_LANG, get_lang, t
-from src.app.translations_th import TRANSLATIONS_TH
+from src.app.i18n import DEFAULT_LANG, get_lang, make_t, t
+from src.app.translations_th import TRANSLATIONS_TH, TRANSLATIONS_TH_BY_PAGE
 
 
 # ── t() ─────────────────────────────────────────────────────────────────────────
@@ -61,3 +61,55 @@ def test_t_uses_current_request_language():
         assert t("Budget") == TRANSLATIONS_TH["Budget"]   # lang inferred from cookie
     with app.test_request_context("/", headers={"Cookie": "lang=en"}):
         assert t("Budget") == "Budget"
+
+
+# ── per-page overrides / make_t() ────────────────────────────────────────────────
+
+# "Budget" exists in the shared base; we override it only for the "budget" page
+# so the same English string yields different Thai depending on context.
+_SENTINEL = "งบ-เฉพาะหน้านี้"
+
+
+def _seed_budget_override(monkeypatch):
+    monkeypatch.setitem(TRANSLATIONS_TH_BY_PAGE["budget"], "Budget", _SENTINEL)
+
+
+def test_make_t_override_wins_for_its_namespace(monkeypatch):
+    _seed_budget_override(monkeypatch)
+    tb = make_t("budget")
+    assert tb("Budget", "th") == _SENTINEL
+
+
+def test_make_t_falls_back_to_shared_when_no_override(monkeypatch):
+    _seed_budget_override(monkeypatch)
+    tb = make_t("budget")
+    # not overridden for budget → shared Thai wins
+    assert tb("Money Flow", "th") == TRANSLATIONS_TH["Money Flow"]
+
+
+def test_make_t_falls_back_to_english_when_unknown():
+    tb = make_t("budget")
+    assert tb("No such string here", "th") == "No such string here"
+
+
+def test_make_t_english_is_identity(monkeypatch):
+    _seed_budget_override(monkeypatch)  # override present but must not apply to EN
+    assert make_t("budget")("Budget", "en") == "Budget"
+
+
+def test_global_t_unaffected_by_overrides(monkeypatch):
+    _seed_budget_override(monkeypatch)
+    # namespace=None → shared base only, never a page override
+    assert t("Budget", "th") == TRANSLATIONS_TH["Budget"] != _SENTINEL
+
+
+def test_other_namespace_ignores_another_pages_override(monkeypatch):
+    _seed_budget_override(monkeypatch)
+    assert make_t("pie")("Budget", "th") == TRANSLATIONS_TH["Budget"]
+
+
+def test_by_page_values_are_dicts():
+    assert TRANSLATIONS_TH_BY_PAGE  # non-empty registry of namespaces
+    for ns, overrides in TRANSLATIONS_TH_BY_PAGE.items():
+        assert isinstance(ns, str)
+        assert isinstance(overrides, dict), ns

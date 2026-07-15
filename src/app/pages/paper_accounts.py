@@ -14,8 +14,10 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t, get_lang
+from src.app.i18n import get_lang, make_t
 from src.analytics import paper as P
+
+t = make_t("paper")
 
 register_page(__name__, path="/paper", name="Paper Trading (Live Market Data)",
               order=9)

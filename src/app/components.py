@@ -36,7 +36,8 @@ def home_link():
     return dcc.Link(
         t("⌂ Home"),
         href="/",
-        style={"textDecoration": "none", "whiteSpace": "nowrap", **theme.BUTTON_STYLE},
+        # Same class as the ☰ Menu button so the two match in height across languages.
+        className="menu-btn",
     )
 
 
@@ -97,9 +98,9 @@ _MENU_GROUPS = [
         ("Budget", "/budget"),
         ("Financial Goals", "/goals"),
         ("Income Tax", "/income-tax"),
+        ("Retirement Planning", "/compound"),
     ],
     [
-        ("Compound Interest", "/compound"),
         ("Investing Simulator", "Historical Data", "/invest"),
         ("Paper Trading", "Live Market Data", "/paper"),
         ("Stock Intrinsic Valuation", "/valuation"),

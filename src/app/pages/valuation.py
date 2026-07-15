@@ -12,13 +12,15 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.figures.valuation import (build_valuation_gauge, build_methods_bar,
                                        build_dcf_breakdown, build_scenarios_bar,
                                        build_sensitivity_heatmap)
 from src.io import valuation_data as V
 from src.io.stocks import StockError
 from src.analytics import valuation as VAL
+
+t = make_t("valuation")
 
 dash.register_page(__name__, path="/valuation", name="Stock Intrinsic Valuation",
                    order=10)

@@ -15,7 +15,7 @@ import pandas as pd
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.figures.paper import build_equity_figure
 from src.app.figures.investment import (build_price_figure, build_sector_figure,
                                         cubehelix_colors)
@@ -25,6 +25,8 @@ from src.app.metrics import METRICS as _INV_METRICS, METRIC_TIPS as _INV_TIPS
 from src.io import quotes as Q
 from src.io import stocks as S
 from src.analytics import paper as P
+
+t = make_t("paper")
 
 register_page(__name__, path="/paper/trade",
               name="Paper Trading (Live Market Data) — Trade")

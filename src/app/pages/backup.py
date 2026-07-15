@@ -14,9 +14,11 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_config, refresh
 from src.io import backup, store
+
+t = make_t("backup")
 
 dash.register_page(__name__, path="/backup", name="Backup & Restore")
 

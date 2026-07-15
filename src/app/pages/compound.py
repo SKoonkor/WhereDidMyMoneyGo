@@ -6,7 +6,7 @@ from dash import (dcc, html, callback, clientside_callback, ctx,
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import currency
 from src.app.figures.compound import compute_schedule, build_compound_figure, COMPOUNDING
 from src.app.figures.retirement import build_retirement_figure
@@ -14,7 +14,9 @@ from src.analytics.goals import load_goals, goal_factor, EMERGENCY_FUND
 from src.analytics.retirement import compute_retirement
 from src.analytics.retirement_mc import simulate_retirement_mc
 
-dash.register_page(__name__, path="/compound", name="Compound Interest", order=4)
+t = make_t("compound")
+
+dash.register_page(__name__, path="/compound", name="Retirement Planning", order=4)
 
 DEFAULTS = dict(principal=0, deposit=500, period=120, rate=10, compounding="Annually")
 
@@ -65,10 +67,10 @@ def _mode_bar():
     tool's button uses the filled style; a callback swaps them on click."""
     return html.Div(
         [
-            html.Button(t("Simple Compound Interest Calculator"), id="ci-mode-simple",
-                        n_clicks=0, style=theme.PERIOD_BUTTON_ACTIVE_STYLE),
             html.Button(t("Retirement Planning"), id="ci-mode-retire", n_clicks=0,
-                        style=theme.PERIOD_BUTTON_STYLE),
+                        style=theme.PERIOD_BUTTON_ACTIVE_STYLE),
+            html.Button(t("Simple Compound Interest Calculator"), id="ci-mode-simple",
+                        n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
         ],
         style={"display": "flex", "gap": "10px", "flexWrap": "wrap",
                "marginBottom": "16px"},
@@ -163,6 +165,7 @@ def _simple_view():
             html.Div(id="ci-goal-table"),
         ],
         id="ci-simple-view",
+        style={"display": "none"},
     )
 
 
@@ -373,14 +376,15 @@ def _retire_view():
         style={"display": "flex", "alignItems": "stretch", "marginTop": "20px"},
     )
     return html.Div([plan_card, goals_card, results_graph], id="ci-retire-view",
-                    style={"display": "none"})
+                    style={"display": "block"})
 
 
 def layout(**_):
     return html.Div(
         [
-            page_header("Compound Interest Calculator",
-                        "A standalone tool for exploring investment growth."),
+            page_header("Retirement Planning",
+                        "Plan your path to retirement — project your savings, "
+                        "spending, and financial-freedom age."),
             _mode_bar(),
             _simple_view(),
             _retire_view(),

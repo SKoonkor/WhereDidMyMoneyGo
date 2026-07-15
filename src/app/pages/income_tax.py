@@ -17,13 +17,15 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, currency, tax_config
 from src.analytics.income_tax import (
     spec_for, allowance_defs, income_tax_status, gross_income_for_year,
     tax_paid_for_year, tax_payments_for_year, ledger_years, load_tax, save_tax,
     TH_ALLOWANCES)
 from src.io.tax_report import build_report_html
+
+t = make_t("income_tax")
 
 dash.register_page(__name__, path="/income-tax", name="Income Tax", order=3.5)
 

@@ -21,7 +21,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t, get_lang
+from src.app.i18n import get_lang, make_t
 from src.app.data import (account_names, refresh, refresh_config,
                           emergency_fund_config)
 from src.io import store
@@ -29,6 +29,8 @@ from src.analytics import accounts as A
 from src.analytics import transaction_categories as TC
 from src.analytics import budget as B
 from src.utils.config import save_settings
+
+t = make_t("manage")
 
 dash.register_page(__name__, path="/manage", name="Manage accounts & categories",
                    order=10)

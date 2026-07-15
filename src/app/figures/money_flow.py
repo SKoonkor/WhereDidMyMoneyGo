@@ -19,8 +19,10 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.processing.balances import compute_account_balances
+
+t = make_t("flow")
 
 # Signed contribution of each transaction to the running balance.
 # "Adjustment-In/Out" are reconciliation adjustments (the recorded

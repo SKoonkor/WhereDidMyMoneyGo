@@ -10,7 +10,7 @@ import pandas as pd
 from dash import dcc, html, callback, clientside_callback, Input, Output, State
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.components import (card, theme_toggle, censor_toggle, lang_toggle,
                                 reminder_banner, menu_widget, home_link, money_span)
 from src.app.data import (get_df, default_range, emergency_fund_config, get_config,
@@ -21,6 +21,8 @@ from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
 from src.analytics.goals import load_goals, load_selected, pool_target, EMERGENCY_FUND
 from src.analytics import budget as B
+
+t = make_t("home")
 
 dash.register_page(__name__, path="/", name="Home", order=0)
 

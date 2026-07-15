@@ -20,13 +20,15 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, refresh, account_names
 from src.analytics.accounts import add_account
 from src.analytics.transaction_categories import (load_categories,
                                                   add_category,
                                                   add_subcategory)
 from src.io import importer, store
+
+t = make_t("import")
 
 dash.register_page(__name__, path="/import", name="Import Data")
 

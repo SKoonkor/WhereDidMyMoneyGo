@@ -4,7 +4,9 @@ import numpy as np
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
+
+t = make_t("valuation")
 
 _UNDER = "#2ecc71"   # green: fair > price (undervalued)
 _OVER = "#e74c3c"    # red:   fair < price (overvalued)

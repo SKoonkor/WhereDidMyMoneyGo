@@ -15,7 +15,9 @@ import numpy as np
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
+
+t = make_t("compound")
 
 PLAIN_COLOR = "#e84393"   # matches the Simple calculator's no-factor line
 FREEDOM_COLOR = "#f1c40f"  # gold vertical line for the financial-freedom age

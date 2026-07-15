@@ -9,9 +9,11 @@ over-budget overflow before this runs.
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.figures.pie import _shade, _HIDDEN_COLOR
 from src.analytics.budget import HIDDEN_LABEL
+
+t = make_t("budget")
 
 _REMAINING_LABEL = "Remaining budget"
 _REMAINING_COLOR = "#454e5c"  # dim grey for the unspent-budget slice

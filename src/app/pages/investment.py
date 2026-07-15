@@ -16,7 +16,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.figures.investment import (build_investment_figure, build_stock_figure,
                                          build_sector_figure, cubehelix_colors)
 from src.analytics import investment as G
@@ -99,7 +99,10 @@ def _stats_table(game: dict) -> html.Table:
 
 # Shared metric formatters/spec (also used by the Paper Trading page).
 from src.app.metrics import (METRICS as _METRICS, METRIC_TIPS,  # noqa: E402
+
                              pe as _pe, mpct as _mpct, mnum as _mnum)
+
+t = make_t("invest")
 
 # Hover descriptions: list-header tips + the shared metric-label tips.
 _TIPS = {

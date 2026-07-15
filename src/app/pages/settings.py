@@ -13,11 +13,13 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import (get_config, emergency_fund_config, privacy_config,
                           account_names, refresh_config, tax_config)
 from src.analytics.transaction_categories import load_categories
 from src.utils.config import save_settings
+
+t = make_t("settings")
 
 dash.register_page(__name__, path="/settings", name="Settings", order=8)
 

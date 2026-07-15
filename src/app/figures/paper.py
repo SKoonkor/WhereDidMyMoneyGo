@@ -11,8 +11,10 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.figures.investment import add_cursor_spike
+
+t = make_t("paper")
 
 # Match the Investment Simulator's portfolio palette (blue, orange, purple).
 PORTFOLIO_COLORS = ["#3498db", "#e67e22", "#9b59b6"]

@@ -7,10 +7,12 @@ from dash import dcc, html, callback, Input, Output
 
 from src.app import theme
 from src.app.components import page_header
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, currency
 from src.app.figures.money_flow import build_money_flow_figure
 from src.analytics import forecast as F
+
+t = make_t("flow")
 
 dash.register_page(__name__, path="/flow", name="Money Flow", order=1)
 

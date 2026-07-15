@@ -13,11 +13,13 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, account_names, refresh, currency
 from src.analytics.reconciliation import (tracked_balances, hidden_cost_total,
                                           mark_reconciled, last_reconciled)
 from src.io import store
+
+t = make_t("reconcile")
 
 dash.register_page(__name__, path="/reconcile", name="Reconcile Balances", order=7)
 

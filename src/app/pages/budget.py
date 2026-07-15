@@ -10,17 +10,19 @@ from datetime import date
 
 import dash
 import pandas as pd
-from dash import dcc, html, callback, Input, Output, State, ctx, no_update
+from dash import dcc, html, callback, Input, Output, State, ctx, no_update, Patch
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
-from src.app.i18n import t
+from src.app.i18n import make_t
 from src.app.data import get_df, currency
 from src.app.figures.budget_pie import build_budget_pie
-from src.app.figures.budget_trend import build_spending_trend
+from src.app.figures.budget_trend import build_spending_trend, home_window
 from src.analytics import budget as B
 from src.analytics.transaction_categories import load_categories
+
+t = make_t("budget")
 
 _PIE_CONFIG = {"displayModeBar": False}
 _MONTHS = ["January", "February", "March", "April", "May", "June", "July",
@@ -394,9 +396,15 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
                 [
                     html.Button("✕", id="budget-trend-close", className="trend-close",
                                 n_clicks=0),
+                    # Home: relayout back to the opening (last-7-months) window.
+                    html.Button("⌂", id="budget-trend-home-btn", className="trend-home",
+                                n_clicks=0, title="Home — last 7 months"),
+                    dcc.Store(id="budget-trend-home"),   # [lo, hi] ISO window for Home
+                    # Only horizontal drag-panning; no wheel zoom, no vertical range,
+                    # no built-in modebar (its Reset autoscales — we use our own Home).
                     dcc.Graph(id="budget-trend-graph", style={"height": "300px"},
-                              config={"scrollZoom": True, "displayModeBar": False,
-                                      "displaylogo": False}),
+                              config={"scrollZoom": False, "doubleClick": False,
+                                      "displaylogo": False, "displayModeBar": False}),
                 ],
                 id="budget-view-trend",
                 style={"display": "none", "position": "relative"},
@@ -736,6 +744,7 @@ _DESC_STYLE = {"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}
     Output("budget-view-pies", "style"),
     Output("budget-view-trend", "style"),
     Output("budget-trend-graph", "figure"),
+    Output("budget-trend-home", "data"),
     Input("budget-trend-sel", "data"),
     Input("theme-store", "data"),
     Input("censor-store", "data"),
@@ -745,7 +754,7 @@ def _render_trend(sel, theme_value, censor, _refresh):
     if not sel:
         # No selection → the pies (and the default title) are shown.
         return (t("Spending vs budget"), _DESC_STYLE, _PIES_STYLE,
-                {"display": "none"}, no_update)
+                {"display": "none"}, no_update, no_update)
 
     df = get_df()
     series, labels = [], []
@@ -762,5 +771,23 @@ def _render_trend(sel, theme_value, censor, _refresh):
              if len(labels) == 1 else t("Spending Trend"))
     fig = build_spending_trend(series, currency(), dark=theme.is_dark(theme_value),
                                censor=theme.is_censored(censor))
+    # Stash the opening window so the Home button can relayout back to it after panning.
+    home = home_window(series[0]["months"], len(series))
     return (title, {"display": "none"}, {"display": "none"},
-            {"display": "block", "position": "relative"}, fig)
+            {"display": "block", "position": "relative"}, fig, home)
+
+
+@callback(
+    Output("budget-trend-graph", "figure", allow_duplicate=True),
+    Input("budget-trend-home-btn", "n_clicks"),
+    State("budget-trend-home", "data"),
+    prevent_initial_call=True,
+)
+def _trend_home(n_clicks, window):
+    """Home button → snap the x-axis back to the opening last-7-months window."""
+    if not n_clicks or not window:
+        raise PreventUpdate
+    patched = Patch()
+    patched["layout"]["xaxis"]["range"] = window
+    patched["layout"]["xaxis"]["autorange"] = False
+    return patched
