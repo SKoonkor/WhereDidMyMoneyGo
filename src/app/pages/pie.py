@@ -6,6 +6,7 @@ from dash import dcc, html, callback, ctx, Input, Output
 
 from src.app import theme
 from src.app.components import page_header, money_span, card
+from src.app.i18n import t
 from src.app.data import get_df, default_range, reference_date, currency
 from src.app.figures.pie import build_pie_figure, build_hist_figure
 from src.analytics import budget as B
@@ -18,10 +19,10 @@ _START, _END = default_range(120)
 
 def _subcat_children(title: str, groups: list) -> list:
     """Nested parent→sub rows for one side (Income/Expense)."""
-    out = [html.H4(title, style={"marginTop": 0, "marginBottom": "8px",
-                                 "color": theme.INK})]
+    out = [html.H4(t(title), style={"marginTop": 0, "marginBottom": "8px",
+                                    "color": theme.INK})]
     if not groups:
-        out.append(html.Div("No data", style={"color": theme.MUTED}))
+        out.append(html.Div(t("No data"), style={"color": theme.MUTED}))
         return out
     for cat, tot, subs in groups:
         out.append(html.Div(
@@ -49,9 +50,9 @@ def layout(**_):
                         "Where your money comes from and where it goes."),
             html.Div(
                 [
-                    html.Button("Pie", id="pie-mode-pie", n_clicks=0,
+                    html.Button(t("Pie"), id="pie-mode-pie", n_clicks=0,
                                 style=theme.PERIOD_BUTTON_ACTIVE_STYLE),
-                    html.Button("Histogram", id="pie-mode-hist", n_clicks=0,
+                    html.Button(t("Histogram"), id="pie-mode-hist", n_clicks=0,
                                 style=theme.PERIOD_BUTTON_STYLE),
                 ],
                 style={"display": "flex", "gap": "10px", "flexWrap": "wrap",
@@ -63,10 +64,10 @@ def layout(**_):
                         id="pie-preset",
                         className="sq-radio",
                         options=[
-                            {"label": "  Past 30 days", "value": "30"},
-                            {"label": "  Past 120 days", "value": "120"},
-                            {"label": "  Past year", "value": "365"},
-                            {"label": "  Selected period", "value": "custom"},
+                            {"label": "  " + t("Past 30 days"), "value": "30"},
+                            {"label": "  " + t("Past 120 days"), "value": "120"},
+                            {"label": "  " + t("Past year"), "value": "365"},
+                            {"label": "  " + t("Selected period"), "value": "custom"},
                         ],
                         value="30",
                         inline=True,
@@ -82,13 +83,13 @@ def layout(**_):
                     ),
                     html.Div(
                         [
-                            html.Span("Expense order:", style={"color": theme.MUTED,
+                            html.Span(t("Expense order:"), style={"color": theme.MUTED,
                                                                "marginRight": "8px"}),
                             dcc.RadioItems(
                                 id="pie-expense-order",
                                 className="sq-radio",
-                                options=[{"label": "  By amount", "value": "amount"},
-                                         {"label": "  By Needs/Wants", "value": "bucket"}],
+                                options=[{"label": "  " + t("By amount"), "value": "amount"},
+                                         {"label": "  " + t("By Needs/Wants"), "value": "bucket"}],
                                 value="amount",
                                 inline=True,
                                 labelStyle={"marginRight": "18px", "cursor": "pointer"},
@@ -105,7 +106,7 @@ def layout(**_):
                      id="pie-view-hist", style={"display": "none"}),
             html.Details(
                 [
-                    html.Summary("Sub-categories", className="subcat-summary"),
+                    html.Summary(t("Sub-categories"), className="subcat-summary"),
                     html.Div(
                         [
                             html.Div(id="pie-subcats-income",

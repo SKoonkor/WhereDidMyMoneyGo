@@ -16,6 +16,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
+from src.app.i18n import t
 from src.app.figures.investment import (build_investment_figure, build_stock_figure,
                                          build_sector_figure, cubehelix_colors)
 from src.analytics import investment as G
@@ -42,8 +43,8 @@ def _status_text(game: dict) -> str:
     n = len(game["trading_days"])
     i = game["current_index"]
     d = G.current_date(game).strftime("%d %b %Y")
-    tail = " · CLOSED" if G.is_over(game) else ""
-    return f"Day {i + 1} / {n} — {d}{tail}"
+    tail = t(" · CLOSED") if G.is_over(game) else ""
+    return t("Day {i} / {n} — {date}").format(i=i + 1, n=n, date=d) + tail
 
 
 def _active_options(game: dict) -> list:
@@ -53,17 +54,17 @@ def _active_options(game: dict) -> list:
 
 def _holdings_table(game: dict) -> html.Div:
     h = G.holdings_rows(game, game["active"])
-    header = html.Tr([html.Th("Ticker"), html.Th("Shares"), html.Th("Price"),
-                      html.Th("Value")])
+    header = html.Tr([html.Th(t("Ticker")), html.Th(t("Shares")), html.Th(t("Price")),
+                      html.Th(t("Value"))])
     rows = [html.Tr([html.Td(r["ticker"]), html.Td(f"{r['qty']:,.4f}"),
                      html.Td(_money(r["price"])), html.Td(_money(r["value"]))])
             for r in h["rows"]]
     if not rows:
-        rows = [html.Tr(html.Td("No holdings yet.", colSpan=4,
+        rows = [html.Tr(html.Td(t("No holdings yet."), colSpan=4,
                                 style={"color": theme.MUTED}))]
-    foot = html.Tr([html.Td("Cash", colSpan=3),
+    foot = html.Tr([html.Td(t("Cash"), colSpan=3),
                     html.Td(_money(h["cash"]))], className="invest-foot")
-    total = html.Tr([html.Td("Total value", colSpan=3),
+    total = html.Tr([html.Td(t("Total value"), colSpan=3),
                      html.Td(_money(h["total"]))], className="invest-foot total")
     return html.Table([html.Thead(header), html.Tbody(rows + [foot, total])],
                       className="invest-table")
@@ -86,12 +87,12 @@ def _stats_table(game: dict) -> html.Table:
         return html.Tr(cells)
 
     body = [
-        row("Value", "value", lambda v: _money(v)),
-        row("Today $", "today_d", lambda v: f"{v:+,.2f}"),
-        row("Today %", "today_p", lambda v: f"{v:+.2f}%"),
-        row("Total $", "total_d", lambda v: f"{v:+,.2f}"),
-        row("Total %", "total_p", lambda v: f"{v:+.2f}%"),
-        row("(G−L)/(G+L)", "pf_metric", lambda v: f"{v:+.3f}"),
+        row(t("Value"), "value", lambda v: _money(v)),
+        row(t("Today $"), "today_d", lambda v: f"{v:+,.2f}"),
+        row(t("Today %"), "today_p", lambda v: f"{v:+.2f}%"),
+        row(t("Total $"), "total_d", lambda v: f"{v:+,.2f}"),
+        row(t("Total %"), "total_p", lambda v: f"{v:+.2f}%"),
+        row(t("(G−L)/(G+L)"), "pf_metric", lambda v: f"{v:+.3f}"),
     ]
     return html.Table([html.Thead(head), html.Tbody(body)], className="invest-table")
 
@@ -116,8 +117,8 @@ def _th(label):
     """A header/label cell carrying its hover description when one exists."""
     tip = _TIPS.get(label)
     if not tip:
-        return html.Th(label)
-    return html.Th(label, className="invest-tip", **{"data-tip": tip})
+        return html.Th(t(label))
+    return html.Th(t(label), className="invest-tip", **{"data-tip": t(tip)})
 
 
 def _prices_table(game: dict, selected: str | None = None,
@@ -133,7 +134,7 @@ def _prices_table(game: dict, selected: str | None = None,
         if r["sector"] != current_sector:  # sector group header (clickable, ≠ Unknown)
             current_sector = r["sector"]
             if current_sector == "Unknown":
-                rows.append(html.Tr(html.Td(current_sector, colSpan=6),
+                rows.append(html.Tr(html.Td(t(current_sector), colSpan=6),
                                     className="invest-sector-head"))
             else:
                 hcls = "invest-sector-head invest-sector-click" + (
@@ -164,8 +165,8 @@ def _metric_label_th(label, key, sel_metric):
     """Clickable indicator label — selects the metric to overlay on the chart."""
     tip = _TIPS.get(label)
     cls = "invest-metric invest-tip" + (" selected" if key == sel_metric else "")
-    kw = {"data-tip": tip} if tip else {}
-    return html.Th(label, id={"type": "invest-metric", "metric": key},
+    kw = {"data-tip": t(tip)} if tip else {}
+    return html.Th(t(label), id={"type": "invest-metric", "metric": key},
                    n_clicks=0, className=cls, **kw)
 
 
@@ -196,8 +197,8 @@ def layout(**_):
     today = date.today()
     return html.Div(
         [
-            page_header(["Investing Simulator ",
-                         html.Span("(Historical Data)", className="title-sub")],
+            page_header([t("Investing Simulator "),
+                         html.Span(t("(Historical Data)"), className="title-sub")],
                         "Trade real historical prices day by day. Each portfolio "
                         "starts at $10,000 — compare your strategies against the "
                         "S&P 500."),
@@ -208,7 +209,7 @@ def layout(**_):
             # Setup row (shown when no game is in progress).
             html.Div(
                 [
-                    html.Span("Period:", style={"color": theme.MUTED}),
+                    html.Span(t("Period:"), style={"color": theme.MUTED}),
                     dcc.DatePickerRange(
                         id="invest-dates",
                         start_date=(today - timedelta(days=365)),
@@ -216,7 +217,7 @@ def layout(**_):
                         max_date_allowed=today,
                         display_format="DD/MM/YYYY",
                     ),
-                    html.Button("Start game", id="invest-start", n_clicks=0,
+                    html.Button(t("Start game"), id="invest-start", n_clicks=0,
                                 style=theme.BUTTON_STYLE),
                 ],
                 id="invest-setup-row", className="invest-controls",
@@ -225,9 +226,9 @@ def layout(**_):
             html.Div(
                 [
                     html.Span(id="invest-status", style={"fontWeight": 600}),
-                    html.Button("Next ›", id="invest-next", n_clicks=0,
+                    html.Button(t("Next ›"), id="invest-next", n_clicks=0,
                                 style=theme.BUTTON_STYLE),
-                    html.Button("Restart", id="invest-restart", n_clicks=0,
+                    html.Button(t("Restart"), id="invest-restart", n_clicks=0,
                                 style={**theme.PERIOD_BUTTON_STYLE,
                                        "color": theme.EXPENSE_COLOR,
                                        "borderColor": theme.EXPENSE_COLOR}),
@@ -238,22 +239,22 @@ def layout(**_):
                 [
                     card(
                         [
-                            html.H3("Manage", style={"marginTop": 0}),
+                            html.H3(t("Manage"), style={"marginTop": 0}),
                             dcc.RadioItems(id="invest-active", options=[], value=0,
                                            inline=True,
                                            labelStyle={"marginRight": "14px",
                                                        "cursor": "pointer"}),
                             html.Div(
                                 [
-                                    html.Button("+ Portfolio", id="invest-add-pf",
+                                    html.Button(t("+ Portfolio"), id="invest-add-pf",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                     dcc.Input(id="invest-rename", type="text",
-                                              placeholder="Rename active…",
+                                              placeholder=t("Rename active…"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "flex": "1",
                                                      "minWidth": "120px"}),
-                                    html.Button("Rename", id="invest-rename-btn",
+                                    html.Button(t("Rename"), id="invest-rename-btn",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                 ],
@@ -265,10 +266,10 @@ def layout(**_):
                             html.Div(
                                 [
                                     dcc.Input(id="invest-ticker-add", type="text",
-                                              placeholder="Ticker (e.g. AAPL)",
+                                              placeholder=t("Ticker (e.g. AAPL)"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "flex": "1"}),
-                                    html.Button("Add", id="invest-add-ticker",
+                                    html.Button(t("Add"), id="invest-add-ticker",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                 ],
@@ -278,8 +279,8 @@ def layout(**_):
                             html.Hr(),
                             dcc.RadioItems(
                                 id="invest-trade-mode",
-                                options=[{"label": "  Shares", "value": "shares"},
-                                         {"label": "  $ amount", "value": "dollars"}],
+                                options=[{"label": t("  Shares"), "value": "shares"},
+                                         {"label": t("  $ amount"), "value": "dollars"}],
                                 value="shares", inline=True,
                                 inputStyle={"marginRight": "4px"},
                                 labelStyle={"marginRight": "16px", "cursor": "pointer"},
@@ -287,19 +288,19 @@ def layout(**_):
                             html.Div(
                                 [
                                     dcc.Dropdown(id="invest-trade-ticker", options=[],
-                                                 placeholder="Ticker…",
+                                                 placeholder=t("Ticker…"),
                                                  style={"flex": "1",
                                                         "minWidth": "110px"}),
                                     dcc.Input(id="invest-trade-qty", type="number",
-                                              min=0, step="any", placeholder="Qty / $",
+                                              min=0, step="any", placeholder=t("Qty / $"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0,
                                                      "width": "90px"}),
-                                    html.Button("Buy", id="invest-buy", n_clicks=0,
+                                    html.Button(t("Buy"), id="invest-buy", n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.INCOME_COLOR,
                                                        "borderColor": theme.INCOME_COLOR}),
-                                    html.Button("Sell", id="invest-sell", n_clicks=0,
+                                    html.Button(t("Sell"), id="invest-sell", n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.EXPENSE_COLOR,
                                                        "borderColor": theme.EXPENSE_COLOR}),
@@ -314,7 +315,7 @@ def layout(**_):
                             html.Div(id="invest-holdings",
                                      style={"marginTop": "12px"}),
                             html.Hr(),
-                            html.H4("Stocks", style={"margin": "0 0 8px"}),
+                            html.H4(t("Stocks"), style={"margin": "0 0 8px"}),
                             html.Div(id="invest-prices"),
                         ],
                         style={"flex": "0 0 400px"},
@@ -339,7 +340,7 @@ def layout(**_):
                                             ),
                                             dcc.Checklist(
                                                 id="invest-normalize",
-                                                options=[{"label": " Normalize (% vs start)",
+                                                options=[{"label": t(" Normalize (% vs start)"),
                                                           "value": "norm"}],
                                                 value=[], inline=True,
                                                 labelStyle={"cursor": "pointer"},
@@ -357,7 +358,7 @@ def layout(**_):
                                     html.Div(id="invest-stock-metrics",
                                              style={"marginTop": "10px"}),
                                     html.Div(
-                                        html.Button("Delete stock",
+                                        html.Button(t("Delete stock"),
                                                     id="invest-delete-stock", n_clicks=0,
                                                     style={**theme.PERIOD_BUTTON_STYLE,
                                                            "color": theme.EXPENSE_COLOR,
@@ -377,21 +378,21 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Restart game"),
-                        html.P("Keep your portfolios and tickers and replay from day 1, "
-                               "or clear everything and start over?",
+                        html.H3(t("Restart game")),
+                        html.P(t("Keep your portfolios and tickers and replay from "
+                                 "day 1, or clear everything and start over?"),
                                style={"color": theme.MUTED}),
                         html.Div(
                             [
-                                html.Button("Restart (keep portfolios)",
+                                html.Button(t("Restart (keep portfolios)"),
                                             id="invest-restart-keep", n_clicks=0,
                                             style=theme.BUTTON_STYLE),
-                                html.Button("Restart — clear all",
+                                html.Button(t("Restart — clear all"),
                                             id="invest-restart-all", n_clicks=0,
                                             style={**theme.PERIOD_BUTTON_STYLE,
                                                    "color": theme.EXPENSE_COLOR,
                                                    "borderColor": theme.EXPENSE_COLOR}),
-                                html.Button("Cancel", id="invest-restart-cancel",
+                                html.Button(t("Cancel"), id="invest-restart-cancel",
                                             n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
@@ -405,22 +406,22 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Delete stock"),
-                        html.P(["Remove ", html.Span(id="invest-del-name",
+                        html.H3(t("Delete stock")),
+                        html.P([t("Remove "), html.Span(id="invest-del-name",
                                                      style={"fontWeight": 600}),
-                                " from the list forever, or just for this game?"],
+                                t(" from the list forever, or just for this game?")],
                                style={"color": theme.MUTED}),
                         html.Div(
                             [
-                                html.Button("Delete forever", id="invest-del-forever",
+                                html.Button(t("Delete forever"), id="invest-del-forever",
                                             n_clicks=0,
                                             style={**theme.PERIOD_BUTTON_STYLE,
                                                    "color": theme.EXPENSE_COLOR,
                                                    "borderColor": theme.EXPENSE_COLOR}),
-                                html.Button("Delete this session",
+                                html.Button(t("Delete this session"),
                                             id="invest-del-session", n_clicks=0,
                                             style=theme.BUTTON_STYLE),
-                                html.Button("Cancel", id="invest-del-cancel",
+                                html.Button(t("Cancel"), id="invest-del-cancel",
                                             n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
@@ -448,11 +449,11 @@ def layout(**_):
 )
 def _start(_n, start, end, refresh):
     if not start or not end:
-        return no_update, "Pick a start and close date."
+        return no_update, t("Pick a start and close date.")
     try:
         G.create_game(start, end)
     except (G.GameError, Exception) as exc:  # network/lookup issues included
-        return no_update, f"Could not start: {exc}"
+        return no_update, t("Could not start: {err}").format(err=exc)
     return (refresh or 0) + 1, ""
 
 
@@ -521,7 +522,9 @@ def _delete_modal(_open, _forever, _session, _cancel, selected, refresh):
         if not game or not selected:
             raise PreventUpdate
         if G.is_held(game, selected):
-            return _HIDDEN, no_update, f"Sell your shares of {selected} first.", no_update
+            return (_HIDDEN, no_update,
+                    t("Sell your shares of {ticker} first.").format(ticker=selected),
+                    no_update)
         return {"display": "flex"}, no_update, "", selected
     if trig == "invest-del-cancel":
         return _HIDDEN, no_update, no_update, no_update
@@ -623,7 +626,7 @@ def _trade(_b, _s, ticker, amount, mode, refresh):
         raise PreventUpdate
     side = "buy" if ctx.triggered_id == "invest-buy" else "sell"
     if not ticker:
-        return no_update, "Choose a ticker to trade."
+        return no_update, t("Choose a ticker to trade.")
     try:
         G.record_trade(game, game["active"], ticker, amount, side,
                        mode=mode or "shares")
@@ -637,7 +640,7 @@ def _trade(_b, _s, ticker, amount, mode, refresh):
     Input("invest-trade-mode", "value"),
 )
 def _trade_placeholder(mode):
-    return "$" if mode == "dollars" else "Qty"
+    return "$" if mode == "dollars" else t("Qty")
 
 
 @callback(
@@ -722,7 +725,7 @@ def _render(_refresh, selected, sel_sector, sel_metric, stock_range, normalize,
     main_style = {"display": "flex", "alignItems": "flex-start", "marginTop": "16px"}
     series = {pf["name"]: G.value_series(game, pf) for pf in game["portfolios"]}
     fig = build_investment_figure(series, G.spx_series(game), dark)
-    ticker_opts = [{"label": t, "value": t} for t in game["tickers"]]
+    ticker_opts = [{"label": tk, "value": tk} for tk in game["tickers"]]
     rng = stock_range or "1Y"
     norm = "norm" in (normalize or [])
     start = pd.Timestamp(game["start"])
@@ -735,7 +738,8 @@ def _render(_refresh, selected, sel_sector, sel_metric, stock_range, normalize,
     stock_sel = selected if selected in game["tickers"] else None
     shown = {"display": "block", "marginTop": "28px"}
 
-    ratio_label = _METRIC_LABEL.get(sel_metric)
+    _rl = _METRIC_LABEL.get(sel_metric)
+    ratio_label = t(_rl) if _rl else None
     if sel_sector and sel_sector != "Unknown" and sec_tks:  # sector comparison
         sdict = {t: _norm(G.stock_history(game, t, rng), G.game_start_price(game, t))
                  for t in sec_tks}

@@ -13,6 +13,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
+from src.app.i18n import t
 from src.app.data import (get_config, emergency_fund_config, privacy_config,
                           account_names, refresh_config, tax_config)
 from src.analytics.transaction_categories import load_categories
@@ -48,7 +49,7 @@ def _savings_rows(accounts: list[str]) -> list:
         ]
         if removable:
             children.append(
-                html.Button("− remove account",
+                html.Button(t("− remove account"),
                             id={"type": "set-ef-acct-remove", "index": i}, n_clicks=0,
                             className="nav-btn",
                             style={"color": theme.EXPENSE_COLOR,
@@ -79,48 +80,48 @@ def layout(**_):
 
     general_card = html.Div(
         [
-            html.H2("General", style={"color": theme.INK, "marginTop": 0}),
-            _field("App name",
+            html.H2(t("General"), style={"color": theme.INK, "marginTop": 0}),
+            _field(t("App name"),
                    dcc.Input(id="set-app-name", type="text",
                              value=general.get("app_name", "Money Tracker"),
                              style={**theme.INPUT_STYLE, "marginTop": "4px"})),
-            _field("Base currency",
+            _field(t("Base currency"),
                    dcc.Input(id="set-currency", type="text",
                              value=general.get("base_currency", "THB"),
                              style={**theme.INPUT_STYLE, "marginTop": "4px", "width": "120px",
                                     "marginLeft": "10px"}),
-                   hint="Stamped on new transactions. The display currency across figures "
-                        "updates fully after an app restart."),
+                   hint=t("Stamped on new transactions. The display currency across figures "
+                          "updates fully after an app restart.")),
         ],
         style=theme.CARD_STYLE,
     )
 
     ef_card = html.Div(
         [
-            html.H2("Emergency fund", style={"color": theme.INK, "marginTop": 0}),
-            _field("Monthly required expenses",
+            html.H2(t("Emergency fund"), style={"color": theme.INK, "marginTop": 0}),
+            _field(t("Monthly required expenses"),
                    dcc.Input(id="set-ef-monthly", type="number", min=0,
                              value=ef["monthly_required"], className="no-spin",
                              style={**theme.INPUT_STYLE, "marginTop": "4px", "width": "180px",
                                     "marginLeft": "10px"})),
-            _field("Target months",
+            _field(t("Target months"),
                    dcc.Input(id="set-ef-months", type="number", min=1, max=60, step=1,
                              value=ef["target_months"], className="no-spin",
                              style={**theme.INPUT_STYLE, "marginTop": "4px", "width": "120px",
                                     "marginLeft": "10px"}),
-                   hint="Emergency-fund target = target months × monthly required expenses."),
-            _field("Savings account(s)",
+                   hint=t("Emergency-fund target = target months × monthly required expenses.")),
+            _field(t("Savings account(s)"),
                    html.Div(
                        [
                            dcc.Store(id="set-ef-accounts-store",
                                      data=ef["savings_accounts"]),
                            html.Div(id="set-ef-accounts"),
-                           html.Button("+ savings account", id="set-ef-acct-add",
+                           html.Button(t("+ savings account"), id="set-ef-acct-add",
                                        n_clicks=0, className="nav-btn today",
                                        style={"marginTop": "6px"}),
                        ]),
-                   hint="The Financial Goals savings pool combines the balances of "
-                        "all listed accounts."),
+                   hint=t("The Financial Goals savings pool combines the balances of "
+                          "all listed accounts.")),
         ],
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
@@ -128,25 +129,25 @@ def layout(**_):
     pc = privacy_config()
     privacy_card = html.Div(
         [
-            html.H2("Privacy", style={"color": theme.INK, "marginTop": 0}),
+            html.H2(t("Privacy"), style={"color": theme.INK, "marginTop": 0}),
             _field(
-                "Auto-privacy",
+                t("Auto-privacy"),
                 dcc.Checklist(
                     id="set-privacy-auto",
-                    options=[{"label": " Hide amounts automatically when the home "
-                                       "page is left idle", "value": "on"}],
+                    options=[{"label": " " + t("Hide amounts automatically when the home "
+                                              "page is left idle"), "value": "on"}],
                     value=(["on"] if pc["auto_enabled"] else []),
                     style={"marginTop": "4px", "color": theme.INK, "fontSize": "14px"},
                     inputStyle={"marginRight": "6px"},
                 ),
             ),
             _field(
-                "Idle delay (seconds)",
+                t("Idle delay (seconds)"),
                 dcc.Input(id="set-privacy-seconds", type="number", min=1, max=3600, step=1,
                           value=pc["idle_seconds"], className="no-spin",
                           style={**theme.INPUT_STYLE, "marginTop": "4px", "width": "120px",
                                  "marginLeft": "10px"}),
-                hint="Amounts stay hidden until you click the eye toggle to reveal them.",
+                hint=t("Amounts stay hidden until you click the eye toggle to reveal them."),
             ),
         ],
         style={**theme.CARD_STYLE, "marginTop": "16px"},
@@ -155,21 +156,21 @@ def layout(**_):
     tc = tax_config()
     tax_card = html.Div(
         [
-            html.H2("Tax setting", style={"color": theme.INK, "marginTop": 0}),
-            _field("Tax-payment subcategory",
+            html.H2(t("Tax setting"), style={"color": theme.INK, "marginTop": 0}),
+            _field(t("Tax-payment subcategory"),
                    dcc.Dropdown(id="set-tax-subcat",
                                 options=_subcategory_options(tc["paid_subcategory"]),
                                 value=tc["paid_subcategory"], clearable=False,
                                 style={"marginTop": "4px", "maxWidth": "300px"}),
-                   hint="The Income Tax page sums this expense subcategory over the "
-                        "year as the tax you have already paid."),
+                   hint=t("The Income Tax page sums this expense subcategory over the "
+                          "year as the tax you have already paid.")),
         ],
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
 
     save_row = html.Div(
         [
-            html.Button("Save settings", id="set-save", n_clicks=0, style=theme.BUTTON_STYLE),
+            html.Button(t("Save settings"), id="set-save", n_clicks=0, style=theme.BUTTON_STYLE),
             html.Span(id="set-msg", style={"alignSelf": "center", "fontSize": "14px"}),
         ],
         style={"display": "flex", "gap": "14px", "alignItems": "center", "marginTop": "16px"},
@@ -177,34 +178,34 @@ def layout(**_):
 
     tools_card = html.Div(
         [
-            html.H2("Account tools", style={"color": theme.INK, "marginTop": 0}),
-            html.Div("Transaction data", style={"color": theme.MUTED, "fontSize": "13px",
+            html.H2(t("Account tools"), style={"color": theme.INK, "marginTop": 0}),
+            html.Div(t("Transaction data"), style={"color": theme.MUTED, "fontSize": "13px",
                                                 "marginTop": "6px"}),
             html.Div(
                 [
-                    dcc.Link("⬇ Import", href="/import", className="home-action-btn view",
+                    dcc.Link(t("⬇ Import"), href="/import", className="home-action-btn view",
                              style={"flex": "1", "margin": "8px 0 0"}),
-                    dcc.Link("⬆ Export", href="/transactions", className="home-action-btn view",
+                    dcc.Link(t("⬆ Export"), href="/transactions", className="home-action-btn view",
                              style={"flex": "1", "margin": "8px 0 0"}),
                 ],
                 style={"display": "flex", "gap": "10px"},
             ),
-            dcc.Link("Reconcile balances", href="/reconcile", className="home-action-btn view"),
-            dcc.Link("Manage accounts & categories", href="/manage",
+            dcc.Link(t("Reconcile balances"), href="/reconcile", className="home-action-btn view"),
+            dcc.Link(t("Manage accounts & categories"), href="/manage",
                      className="home-action-btn view"),
-            dcc.Link("Backup & restore", href="/backup", className="home-action-btn view"),
+            dcc.Link(t("Backup & restore"), href="/backup", className="home-action-btn view"),
 
             html.Hr(style={"border": "none", "borderTop": "1px solid var(--border)",
                            "margin": "16px 0 10px"}),
-            html.Button("Remove transactions", id="set-remove-btn", n_clicks=0,
+            html.Button(t("Remove transactions"), id="set-remove-btn", n_clicks=0,
                         style={**theme.BUTTON_STYLE, "background": theme.EXPENSE_COLOR,
                                "color": "#fff", "width": "100%"}),
             dcc.ConfirmDialog(
                 id="set-remove-confirm",
-                message="⚠ Danger Zone\n\nThe next screen lets you permanently "
-                        "delete transactions within a date range you choose. "
-                        "Deletions are backed up first, but cannot be undone from "
-                        "that page.\n\nOpen the Remove Transactions tool?"),
+                message=t("⚠ Danger Zone\n\nThe next screen lets you permanently "
+                          "delete transactions within a date range you choose. "
+                          "Deletions are backed up first, but cannot be undone from "
+                          "that page.\n\nOpen the Remove Transactions tool?")),
             dcc.Location(id="set-remove-nav", refresh="callback-nav"),
         ],
         style=theme.CARD_STYLE,
@@ -269,9 +270,9 @@ def _save(n, app_name, currency, monthly, months, accounts, privacy_auto,
             },
         })
         refresh_config()
-        return "Saved.", ok
+        return t("Saved."), ok
     except Exception as exc:  # surface any write/validation error to the user
-        return f"Could not save: {exc}", err
+        return t("Could not save: {err}").format(err=exc), err
 
 
 @callback(

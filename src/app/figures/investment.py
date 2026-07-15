@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 from src.analytics.investment import START_CASH
 
 _UP, _DOWN = "#2ecc71", "#e74c3c"    # candle/volume up-green, down-red
@@ -52,7 +53,8 @@ def build_investment_figure(port_series: dict, spx, dark: bool = True) -> go.Fig
 
     # Flat starting-stake reference.
     fig.add_hline(y=START_CASH, line=dict(color=ft.muted, width=1, dash="dot"),
-                  annotation_text=f"Start ${START_CASH:,.0f}",
+                  annotation_text=t("Start ${amount}").format(
+                      amount=f"{START_CASH:,.0f}"),
                   annotation_position="bottom left", layer="below")
 
     for i, (name, s) in enumerate(port_series.items()):
@@ -72,9 +74,9 @@ def build_investment_figure(port_series: dict, spx, dark: bool = True) -> go.Fig
     fig.update_layout(
         template=ft.template,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text="Portfolio value over time", x=0.5, xanchor="center",
+        title=dict(text=t("Portfolio value over time"), x=0.5, xanchor="center",
                    y=0.97, yanchor="top"),
-        xaxis_title="Date", yaxis_title="Value (USD)",
+        xaxis_title=t("Date"), yaxis_title=t("Value (USD)"),
         hovermode="x unified", dragmode="pan",
         hoverlabel=dict(bgcolor="rgba(0,0,0,0)"),  # transparent, like the stock chart
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
@@ -92,7 +94,7 @@ def _add_start_marker(fig, ft, game_start, xmin, xmax) -> None:
     fig.add_shape(type="line", xref="x", yref="paper", x0=game_start, x1=game_start,
                   y0=0, y1=1, line=dict(color=ft.muted, width=1, dash="dash"))
     fig.add_annotation(x=game_start, xref="x", yref="paper", y=1.0, yanchor="bottom",
-                       text="Game start", showarrow=False,
+                       text=t("Game start"), showarrow=False,
                        font=dict(color=ft.muted, size=11))
 
 
@@ -103,8 +105,8 @@ def _stock_axis(fig, ft, normalized: bool, title: str, showlegend: bool) -> None
         template=ft.template,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         title=dict(text=title, x=0.5, xanchor="center", y=0.97, yanchor="top"),
-        xaxis_title="Date",
-        yaxis_title="% of start" if normalized else "Price (USD)",
+        xaxis_title=t("Date"),
+        yaxis_title=t("% of start") if normalized else t("Price (USD)"),
         hovermode="x unified", dragmode="pan", showlegend=showlegend,
         hoverlabel=dict(bgcolor="rgba(0,0,0,0)"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
@@ -126,7 +128,7 @@ _INTRADAY_FMT = "%b %-d, %Y, %H:%M"          # category label == unified hover h
 
 def _cat_x(index):
     """Per-bar ordinal category labels for a DatetimeIndex (the hover-header strings)."""
-    return [t.strftime(_INTRADAY_FMT) for t in pd.DatetimeIndex(index)]
+    return [ts.strftime(_INTRADAY_FMT) for ts in pd.DatetimeIndex(index)]
 
 
 def _stack_sessions(fig, indices) -> None:
@@ -146,7 +148,7 @@ def _stack_sessions(fig, indices) -> None:
     if union is None or not len(union):
         return
     union = union.sort_values()
-    cats = [t.strftime(_INTRADAY_FMT) for t in union]
+    cats = [ts.strftime(_INTRADAY_FMT) for ts in union]
     firsts, labels = [], []
     for d, g in pd.Series(union).groupby(union.normalize()):
         firsts.append(g.iloc[0].strftime(_INTRADAY_FMT))
@@ -172,7 +174,8 @@ def build_stock_figure(ticker: str, series, dark: bool = True, game_start=None,
     ))
     if len(series):
         _add_start_marker(fig, ft, game_start, series.index.min(), series.index.max())
-    title = f"{ticker} price" + (" (% of start)" if normalized else "")
+    title = t("{ticker} price").format(ticker=ticker) + (
+        t(" (% of start)") if normalized else "")
     _stock_axis(fig, ft, normalized, title, showlegend=False)
     if gapless_intraday:
         _stack_sessions(fig, [series.index])
@@ -223,7 +226,7 @@ def build_sector_figure(sector: str, series_dict: dict, dark: bool = True,
                               + str(ratio_label) + "</extra>",
             ))
     _add_start_marker(fig, ft, game_start, xmin, xmax)
-    title = f"{sector}" + (" — normalized" if normalized else " — price")
+    title = f"{sector}" + (t(" — normalized") if normalized else t(" — price"))
     _stock_axis(fig, ft, normalized, title, showlegend=True)
     if gapless_intraday:
         _stack_sessions(fig, [s.index for s in series_dict.values()])
@@ -252,7 +255,7 @@ def build_price_figure(ticker: str, df, chart_type: str = "line", dark: bool = T
         pad = (hi - lo) * 0.04 or 1.0
         yrange = [lo - pad, hi + pad]
     if df is None or len(df) == 0:
-        fig.add_annotation(text="No data", x=0.5, y=0.5, xref="paper", yref="paper",
+        fig.add_annotation(text=t("No data"), x=0.5, y=0.5, xref="paper", yref="paper",
                            showarrow=False, font=dict(color=ft.muted))
     else:
         x = _cat_x(df.index) if gapless_intraday else list(df.index)
@@ -278,11 +281,11 @@ def build_price_figure(ticker: str, df, chart_type: str = "line", dark: bool = T
                 line=dict(color="rgba(0,0,0,0)"), zorder=3,
                 customdata=np.stack([df["Open"], df["High"], df["Low"],
                                      df["Close"], vol], axis=-1),
-                hovertemplate=("Open %{customdata[0]:,.2f}<br>"
-                               "High %{customdata[1]:,.2f}<br>"
-                               "Low %{customdata[2]:,.2f}<br>"
-                               "Close %{customdata[3]:,.2f}<br>"
-                               "Volume %{customdata[4]:.3s}<extra></extra>"),
+                hovertemplate=(t("Open") + " %{customdata[0]:,.2f}<br>"
+                               + t("High") + " %{customdata[1]:,.2f}<br>"
+                               + t("Low") + " %{customdata[2]:,.2f}<br>"
+                               + t("Close") + " %{customdata[3]:,.2f}<br>"
+                               + t("Volume") + " %{customdata[4]:.3s}<extra></extra>"),
             ))
         else:
             fig.add_trace(go.Scatter(
@@ -291,25 +294,26 @@ def build_price_figure(ticker: str, df, chart_type: str = "line", dark: bool = T
                 hovertemplate="%{y:,.2f} USD<extra></extra>",
             ))
         fig.add_trace(go.Bar(
-            x=x, y=list(vol), name="Volume", yaxis="y2", showlegend=False,
+            x=x, y=list(vol), name=t("Volume"), yaxis="y2", showlegend=False,
             opacity=0.5, marker=dict(color=[_UP if u else _DOWN for u in up]), zorder=1,
             # Candle mode carries volume in the price hover; skip its own entry/symbol.
             hoverinfo="skip" if chart_type == "candle" else None,
-            hovertemplate=None if chart_type == "candle" else "Vol %{y:,.3s}<extra></extra>",
+            hovertemplate=None if chart_type == "candle"
+                          else t("Vol") + " %{y:,.3s}<extra></extra>",
         ))
 
     fig.update_layout(
         template=ft.template, paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", showlegend=False,
-        title=dict(text=f"{ticker} price", x=0.5, xanchor="center", y=0.98,
-                   yanchor="top"),
+        title=dict(text=t("{ticker} price").format(ticker=ticker), x=0.5,
+                   xanchor="center", y=0.98, yanchor="top"),
         dragmode="pan", hovermode="x unified",
         hoverlabel=dict(bgcolor="rgba(0,0,0,0)"),
         margin=dict(t=40, b=30, l=60, r=20),
         xaxis=dict(rangeslider_visible=False,  # candlestick adds one by default
                    hoverformat=xfmt,           # unified-box header (date / date+time)
                    range=xrange),              # 1D: pinned to the market session
-        yaxis=dict(title="Price (USD)", range=yrange),
+        yaxis=dict(title=t("Price (USD)"), range=yrange),
         # Volume axis: hidden ticks/grid, scaled so bars sit in the bottom ~25%.
         yaxis2=dict(overlaying="y", side="right", showticklabels=False,
                     showgrid=False, zeroline=False, fixedrange=True,

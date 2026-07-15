@@ -9,6 +9,7 @@ how many months of required expenses the Emergency Fund portion covers, capped a
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 
 MONTHS_CAP = 6
 
@@ -33,25 +34,28 @@ def build_goal_gauge(
 
     # Privacy mode collapses the individual goal names to a generic "+ Goals" so
     # onlookers can't tell what you're saving for; non-censored lists them.
+    # Translate fixed labels (e.g. the Emergency Fund); user goal names pass through.
+    labels_tr = [t(lbl) for lbl in selected_labels]
     if censor:
-        base = selected_labels[0] if selected_labels else ""
-        goal_txt = f"{base} + Goals" if len(selected_labels) > 1 else base
+        base = labels_tr[0] if labels_tr else ""
+        goal_txt = f"{base} + {t('Goals')}" if len(labels_tr) > 1 else base
     else:
-        goal_txt = " + ".join(selected_labels)
+        goal_txt = " + ".join(labels_tr)
     # Privacy mode: keep the arc + "% funded", hide all money figures and the
     # months-covered detail (per the design). Non-censored shows number+delta+target.
     target_txt = ("" if censor
-                  else (f"<br>Target: {pooled_target:,.0f} {currency}"
+                  else (f"<br>{t('Target')}: {pooled_target:,.0f} {currency}"
                         if show_target else ""))
-    footer = (f"{pct:.1f}% funded" if censor
-              else f"{pct:.1f}% funded · Emergency Fund covers {months_txt} months")
+    footer = (t("{pct}% funded").format(pct=f"{pct:.1f}") if censor
+              else t("{pct}% funded · Emergency Fund covers {months} months").format(
+                  pct=f"{pct:.1f}", months=months_txt))
 
     fig = go.Figure(go.Indicator(
         mode="gauge" if censor else "gauge+number+delta",
         value=balance,
         delta={"reference": pooled_target, "valueformat": ",.0f"},
         number={"suffix": f" {currency}", "valueformat": ",.0f"},
-        title={"text": f"Savings Pool<br><span style='font-size:0.8em;color:{ft.muted}'>"
+        title={"text": f"{t('Savings Pool')}<br><span style='font-size:0.8em;color:{ft.muted}'>"
                        f"{goal_txt}{target_txt}</span>"},
         gauge={
             "axis": {"range": [0, pooled_target], "visible": not censor},

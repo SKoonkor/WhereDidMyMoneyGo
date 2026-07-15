@@ -20,6 +20,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
+from src.app.i18n import t
 from src.app.data import get_df, refresh, account_names
 from src.analytics.accounts import add_account
 from src.analytics.transaction_categories import (load_categories,
@@ -35,17 +36,21 @@ _MUTED = {"color": theme.MUTED, "fontSize": "13px"}
 _SECTION_TITLE = {"fontSize": "16px", "fontWeight": "600", "margin": "0 0 8px"}
 _HIDDEN = {"display": "none"}
 
-_DATE_FORMAT_OPTIONS = [
-    {"label": "Auto-detect", "value": "auto"},
-    {"label": "DD/MM/YYYY (day first)", "value": "dmy"},
-    {"label": "MM/DD/YYYY (month first)", "value": "mdy"},
-    {"label": "YYYY/MM/DD (year first)", "value": "ymd"},
-    {"label": "YYYY/DD/MM", "value": "ydm"},
-]
-_DECIMAL_FORMAT_OPTIONS = [
-    {"label": "1,234.56  (dot decimal)", "value": "dot"},
-    {"label": "1.234,56  (comma decimal)", "value": "comma"},
-]
+def _date_format_options():
+    return [
+        {"label": t("Auto-detect"), "value": "auto"},
+        {"label": "DD/MM/YYYY " + t("(day first)"), "value": "dmy"},
+        {"label": "MM/DD/YYYY " + t("(month first)"), "value": "mdy"},
+        {"label": "YYYY/MM/DD " + t("(year first)"), "value": "ymd"},
+        {"label": "YYYY/DD/MM", "value": "ydm"},
+    ]
+
+
+def _decimal_format_options():
+    return [
+        {"label": "1,234.56  " + t("(dot decimal)"), "value": "dot"},
+        {"label": "1.234,56  " + t("(comma decimal)"), "value": "comma"},
+    ]
 
 
 def _profile_formats(profile: dict) -> tuple[str, str]:
@@ -60,9 +65,10 @@ def _last_import_hint():
     """Muted line describing the most recent import (for the replace toggle)."""
     m = importer.load_last_import()
     if not m:
-        return "No previous import on record yet."
-    return (f"Last import: {m.get('filename', '—')} · {m.get('count', 0)} row(s)"
-            f" — ticking the box below will remove these before importing.")
+        return t("No previous import on record yet.")
+    return t("Last import: {filename} · {count} row(s) — ticking the box below "
+             "will remove these before importing.").format(
+        filename=m.get('filename', '—'), count=m.get('count', 0))
 
 
 def layout(**_):
@@ -76,11 +82,11 @@ def layout(**_):
 
             # ── step 1: upload ───────────────────────────────────────────
             card([
-                html.Div("1 · Choose a file", style=_SECTION_TITLE),
+                html.Div(t("1 · Choose a file"), style=_SECTION_TITLE),
                 dcc.Upload(
                     id="imp-upload",
-                    children=html.Div(["Drag & drop or ",
-                                       html.A("select a .csv / .xlsx file")]),
+                    children=html.Div([t("Drag & drop or "),
+                                       html.A(t("select a .csv / .xlsx file"))]),
                     style={"border": f"1px dashed {theme.MUTED}",
                            "borderRadius": "8px", "padding": "28px",
                            "textAlign": "center", "cursor": "pointer"},
@@ -93,9 +99,9 @@ def layout(**_):
             # ── step 2: mapping ──────────────────────────────────────────
             html.Div(
                 card([
-                    html.Div("2 · Map columns", style=_SECTION_TITLE),
+                    html.Div(t("2 · Map columns"), style=_SECTION_TITLE),
                     html.Div([
-                        html.Span("Source preset: ", style=_MUTED),
+                        html.Span(t("Source preset: "), style=_MUTED),
                         dcc.Dropdown(id="imp-profile", clearable=False,
                                      style={"width": "280px",
                                             "display": "inline-block",
@@ -103,7 +109,7 @@ def layout(**_):
                     ], style={"marginBottom": "12px"}),
                     html.Div(
                         [html.Div(
-                            [html.Label(f, style=_MUTED),
+                            [html.Label(t(f), style=_MUTED),
                              dcc.Dropdown(id={"role": "imp-map", "field": f},
                                           placeholder="—", clearable=True)],
                             style={"width": "190px"})
@@ -119,22 +125,22 @@ def layout(**_):
                     html.Div(
                         [
                             html.Div(
-                                [html.Label("Date format", style=_MUTED),
+                                [html.Label(t("Date format"), style=_MUTED),
                                  dcc.Dropdown(id="imp-date-format", clearable=False,
-                                              options=_DATE_FORMAT_OPTIONS,
+                                              options=_date_format_options(),
                                               value="auto")],
                                 style={"width": "240px"}),
                             html.Div(
-                                [html.Label("Decimal format", style=_MUTED),
+                                [html.Label(t("Decimal format"), style=_MUTED),
                                  dcc.Dropdown(id="imp-decimal-format", clearable=False,
-                                              options=_DECIMAL_FORMAT_OPTIONS,
+                                              options=_decimal_format_options(),
                                               value="dot")],
                                 style={"width": "240px"}),
                         ],
                         style={"display": "flex", "flexWrap": "wrap", "gap": "10px"},
                     ),
                     html.Div([
-                        html.Button("Preview import", id="imp-preview-btn",
+                        html.Button(t("Preview import"), id="imp-preview-btn",
                                     n_clicks=0, style=theme.BUTTON_STYLE),
                     ], style={"marginTop": "14px"}),
                 ], style={"marginBottom": "16px"}),
@@ -147,17 +153,17 @@ def layout(**_):
                      style={**_MUTED, "marginTop": "12px"}),
             dcc.Checklist(
                 id="imp-replace",
-                options=[{"label": " Replace previous import (remove the last "
-                                   "imported file's transactions first)",
+                options=[{"label": t(" Replace previous import (remove the last "
+                                     "imported file's transactions first)"),
                           "value": "on"}],
                 value=[], style={"margin": "6px 0", **_MUTED},
             ),
             html.Div([
-                html.Button("Import", id="imp-import-btn", n_clicks=0,
+                html.Button(t("Import"), id="imp-import-btn", n_clicks=0,
                             disabled=True, style=theme.BUTTON_STYLE),
-                html.Button("Undo last import", id="imp-undo-btn", n_clicks=0,
+                html.Button(t("Undo last import"), id="imp-undo-btn", n_clicks=0,
                             style={**theme.BUTTON_STYLE, "display": "none"}),
-                dcc.Link("Go to Transactions", href="/transactions",
+                dcc.Link(t("Go to Transactions"), href="/transactions",
                          style={"color": theme.ACCENT, "marginLeft": "12px"}),
             ], style={"display": "flex", "alignItems": "center", "gap": "8px",
                       "margin": "16px 0"}),
@@ -168,7 +174,7 @@ def layout(**_):
             # Enabled only after a successful import (see _import_or_undo).
             html.Div(
                 [
-                    html.Button("Save as profile", id="imp-save-btn", n_clicks=0,
+                    html.Button(t("Save as profile"), id="imp-save-btn", n_clicks=0,
                                 disabled=True, style=theme.BUTTON_STYLE),
                     html.Span(id="imp-save-msg",
                               style={"marginLeft": "10px", **_MUTED}),
@@ -179,25 +185,25 @@ def layout(**_):
                 html.Div(
                     [
                         html.Div(
-                            [html.H3("Save as profile",
+                            [html.H3(t("Save as profile"),
                                      style={"flex": "1", "marginTop": 0}),
                              html.Button("✕", id="imp-save-cancel", n_clicks=0,
                                          className="theme-toggle")],
                             style={"display": "flex", "alignItems": "center",
                                    "gap": "10px"},
                         ),
-                        html.Div("Name this column mapping so you can reuse it on a "
-                                 "future import.", style={**_MUTED,
-                                                          "margin": "4px 0 10px"}),
+                        html.Div(t("Name this column mapping so you can reuse it on "
+                                   "a future import."),
+                                 style={**_MUTED, "margin": "4px 0 10px"}),
                         dcc.Input(id="imp-save-name", type="text",
-                                  placeholder="Profile name…",
+                                  placeholder=t("Profile name…"),
                                   style={**theme.INPUT_STYLE, "marginBottom": 0}),
                         html.Div(id="imp-save-modal-msg",
                                  style={"color": theme.EXPENSE_COLOR,
                                         "fontSize": "13px", "marginTop": "6px",
                                         "minHeight": "16px"}),
                         html.Div(
-                            [html.Button("Save", id="imp-save-modal-save",
+                            [html.Button(t("Save"), id="imp-save-modal-save",
                                          n_clicks=0, style=theme.BUTTON_STYLE)],
                             style={"display": "flex", "justifyContent": "flex-end",
                                    "marginTop": "14px"},
@@ -220,7 +226,7 @@ def _decode(contents: str) -> bytes:
 
 
 def _profile_options():
-    opts = [{"label": "Auto-detect / manual", "value": _GUESS}]
+    opts = [{"label": t("Auto-detect / manual"), "value": _GUESS}]
     opts += [{"label": p["name"], "value": p["name"]} for p in importer.PRESETS]
     opts += [{"label": f"★ {p['name']}", "value": p["name"]}
              for p in importer.load_profiles()]
@@ -290,13 +296,15 @@ def _on_upload(contents, filename):
     try:
         raw = importer.read_table(filename, _decode(contents))
     except Exception as e:  # unreadable file — tell the user, keep going
-        return (no_update, f"Could not read {filename}: {e}",
+        return (no_update, t("Could not read {filename}: {err}").format(
+                    filename=filename, err=e),
                 {"display": "none"}, no_update, no_update)
     headers = [str(c) for c in raw.columns]
     preset = importer.detect_preset(headers)
-    info = (f"{filename} — {len(raw)} rows, {len(headers)} columns. "
-            + (f"Detected: {preset['name']}." if preset
-               else "No known layout detected — check the mapping below."))
+    info = (t("{filename} — {rows} rows, {cols} columns. ").format(
+                filename=filename, rows=len(raw), cols=len(headers))
+            + (t("Detected: {name}.").format(name=preset['name']) if preset
+               else t("No known layout detected — check the mapping below.")))
     return ({"filename": filename, "contents": contents, "headers": headers},
             info, {"display": "block"}, _profile_options(),
             preset["name"] if preset else _GUESS)
@@ -353,32 +361,34 @@ def _preview(n_clicks, file_data, _mapping_values, date_order, decimal, replace_
     suspects = [r for r in rows if r["_dup"] == "suspect"]
     importable = len(rows) - exact
 
-    children = [html.Div("3 · Review", style=_SECTION_TITLE)]
+    children = [html.Div(t("3 · Review"), style=_SECTION_TITLE)]
 
     summary = [html.Li(
-        f"{importable} transaction(s) ready to import "
-        f"({len(rows)} parsed, {exact} already imported — skipped"
-        + (f", {len(suspects)} possible duplicate(s) — see below" if suspects
-           else "") + ")")]
+        t("{importable} transaction(s) ready to import "
+          "({parsed} parsed, {exact} already imported — skipped").format(
+              importable=importable, parsed=len(rows), exact=exact)
+        + (t(", {n} possible duplicate(s) — see below").format(n=len(suspects))
+           if suspects else "") + ")")]
     for reason, cnt in result["issues"].items():
-        summary.append(html.Li(f"{cnt} row(s) skipped: {reason}",
+        summary.append(html.Li(t("{n} row(s) skipped: {reason}").format(
+                                   n=cnt, reason=reason),
                                style={"color": theme.EXPENSE_COLOR}))
     if unknown["categories"]:
         summary.append(html.Li(
-            "New categories will be created: "
+            t("New categories will be created: ")
             + ", ".join(unknown["categories"][:12])
             + ("…" if len(unknown["categories"]) > 12 else "")))
     children.append(html.Ul(summary, style={"margin": "0 0 12px 18px"}))
 
     if unknown["accounts"]:
-        children.append(html.Div("Unknown accounts — create them or map to an "
-                                 "existing account:", style=_MUTED))
+        children.append(html.Div(t("Unknown accounts — create them or map to an "
+                                   "existing account:"), style=_MUTED))
         children.append(html.Div(
             [html.Div(
                 [html.Label(name, style={"fontWeight": "600"}),
                  dcc.Dropdown(
                      id={"role": "imp-acct-map", "name": name},
-                     options=([{"label": f"➕ Create “{name}”",
+                     options=([{"label": t("➕ Create “{name}”").format(name=name),
                                 "value": _CREATE}]
                               + [{"label": f"→ {a}", "value": a}
                                  for a in account_names()]),
@@ -390,9 +400,9 @@ def _preview(n_clicks, file_data, _mapping_values, date_order, decimal, replace_
 
     if suspects:
         children.append(html.Div(
-            f"{len(suspects)} possible duplicate(s) — same day, amount, "
-            "account, and type as an existing entry. Tick any you still want "
-            "to import:", style=_MUTED))
+            t("{n} possible duplicate(s) — same day, amount, account, and type "
+              "as an existing entry. Tick any you still want to import:").format(
+                  n=len(suspects)), style=_MUTED))
         children.append(dcc.Checklist(
             id="imp-suspects",
             options=[{
@@ -411,7 +421,7 @@ def _preview(n_clicks, file_data, _mapping_values, date_order, decimal, replace_
     head = ["Date", "Type", "Amount", "Account", "Category", "Note"]
     sample = rows[:8]
     children.append(html.Table(
-        [html.Thead(html.Tr([html.Th(h, style={"textAlign": "left",
+        [html.Thead(html.Tr([html.Th(t(h), style={"textAlign": "left",
                                                "padding": "2px 12px 2px 0"})
                              for h in head]))] +
         [html.Tbody([html.Tr([
@@ -425,8 +435,8 @@ def _preview(n_clicks, file_data, _mapping_values, date_order, decimal, replace_
         ]) for r in sample])],
         style={"fontSize": "13px", "marginBottom": "8px"}))
     if len(rows) > len(sample):
-        children.append(html.Div(f"… and {len(rows) - len(sample)} more.",
-                                 style=_MUTED))
+        children.append(html.Div(t("… and {n} more.").format(
+                                     n=len(rows) - len(sample)), style=_MUTED))
 
     return card(children), importable == 0
 
@@ -454,7 +464,7 @@ def _confirm_import(n_clicks, file_data, _mapping_values, date_order, decimal,
     try:
         result = _parse_upload(file_data, mapping_states, date_order, decimal, ledger)
     except ValueError as e:
-        return f"Cannot import: {e}", True
+        return t("Cannot import: {err}").format(err=e), True
     keep = set(suspect_sel or [])
     accepted = [r for r in result["rows"]
                 if r["_dup"] != "exact"
@@ -466,14 +476,16 @@ def _confirm_import(n_clicks, file_data, _mapping_values, date_order, decimal,
 
     lines = []
     if del_n:
-        lines.append(f"⚠ REPLACE MODE: {del_n} transaction(s) from the previous "
-                     f"import (\"{manifest.get('filename', '?')}\") will be DELETED "
-                     f"first.")
-    lines.append(f"{n} transaction(s) will be imported from \"{fname}\".")
+        lines.append(t("⚠ REPLACE MODE: {n} transaction(s) from the previous "
+                       "import (\"{filename}\") will be DELETED first.").format(
+                           n=del_n, filename=manifest.get('filename', '?')))
+    lines.append(t("{n} transaction(s) will be imported from \"{filename}\".").format(
+        n=n, filename=fname))
     if skipped:
-        lines.append(f"{skipped} row(s) will be skipped (duplicates / unticked).")
+        lines.append(t("{n} row(s) will be skipped (duplicates / unticked).").format(
+            n=skipped))
     lines.append("")
-    lines.append("A backup is saved before any change. Continue?")
+    lines.append(t("A backup is saved before any change. Continue?"))
     return "\n".join(lines), True
 
 
@@ -508,7 +520,7 @@ def _import_or_undo(_submit, _undo, file_data, _mapping_values, date_order, deci
         importer.clear_last_import()  # restored ledger predates this import
         refresh()
         # Undo reverts the import, so re-lock "Save as profile".
-        return (html.Div("Import undone — the ledger was restored.",
+        return (html.Div(t("Import undone — the ledger was restored."),
                          style={"color": theme.ACCENT}),
                 None, hidden, False, _last_import_hint(), True)
 
@@ -523,7 +535,7 @@ def _import_or_undo(_submit, _undo, file_data, _mapping_values, date_order, deci
                 if r["_dup"] != "exact"
                 and (r["_dup"] != "suspect" or r["_source_row"] in keep_suspects)]
     if not accepted:
-        return (html.Div("Nothing to import.", style=_MUTED),
+        return (html.Div(t("Nothing to import."), style=_MUTED),
                 no_update, no_update, True, no_update, no_update)
 
     # account choices: create new ones, or rename onto existing accounts
@@ -566,16 +578,16 @@ def _import_or_undo(_submit, _undo, file_data, _mapping_values, date_order, deci
     })
     refresh()
     skipped = len(result["rows"]) - len(accepted)
-    replaced_txt = (f" Previous import ({manifest['count']} row(s)) removed."
-                    if replace_ids else "")
+    replaced_txt = (t(" Previous import ({n} row(s)) removed.").format(
+                        n=manifest['count']) if replace_ids else "")
     return (html.Div([
-                html.Div(f"Imported {n} transaction(s)"
-                         + (f" — {skipped} duplicate(s) skipped." if skipped
-                            else ".") + replaced_txt,
+                html.Div(t("Imported {n} transaction(s)").format(n=n)
+                         + (t(" — {n} duplicate(s) skipped.").format(n=skipped)
+                            if skipped else ".") + replaced_txt,
                          style={"color": theme.ACCENT}),
-                html.Div("A backup was taken first (Undo restores the pre-import "
-                         "ledger); the uploaded file was archived under "
-                         "data/backups/.", style=_MUTED),
+                html.Div(t("A backup was taken first (Undo restores the pre-import "
+                           "ledger); the uploaded file was archived under "
+                           "data/backups/."), style=_MUTED),
             ]),
             str(backup) if backup else None,
             shown if backup else hidden,
@@ -623,8 +635,9 @@ def _confirm_save(n, name):
     if not n:
         raise PreventUpdate
     if not (name or "").strip():
-        return "", False, "Give the profile a name first."
-    return f'Save this column mapping as profile "{name.strip()}"?', True, ""
+        return "", False, t("Give the profile a name first.")
+    return t('Save this column mapping as profile "{name}"?').format(
+        name=name.strip()), True, ""
 
 
 @callback(
@@ -645,4 +658,7 @@ def _write_profile(submit_n, name, _mapping_values, date_order, decimal):
     profile = _build_profile(mapping_states, date_order, decimal)
     profile["name"] = name.strip()
     path = importer.save_profile(profile)
-    return _HIDDEN, f'Saved profile "{name.strip()}" → {path.name}', _profile_options()
+    return (_HIDDEN,
+            t('Saved profile "{name}" → {file}').format(
+                name=name.strip(), file=path.name),
+            _profile_options())

@@ -15,6 +15,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
+from src.app.i18n import t
 from src.app.data import get_df, refresh
 from src.io import store
 
@@ -51,14 +52,14 @@ def layout(**_):
                 [
                     dcc.DatePickerRange(
                         id="rm-dates", display_format="DD/MM/YYYY",
-                        start_date_placeholder_text="Start",
-                        end_date_placeholder_text="End",
+                        start_date_placeholder_text=t("Start"),
+                        end_date_placeholder_text=t("End"),
                         # No default dates — the user must choose a period.
                     ),
-                    html.Div(_HINT, id="rm-hint",
+                    html.Div(t(_HINT), id="rm-hint",
                              style={"color": theme.MUTED, "fontSize": "13px",
                                     "marginTop": "10px"}),
-                    html.Button("Delete transactions", id="rm-delete-btn",
+                    html.Button(t("Delete transactions"), id="rm-delete-btn",
                                 n_clicks=0, disabled=True, style=_BTN_OFF),
                     html.Div(id="rm-msg", style={"fontSize": "14px",
                                                  "marginTop": "14px"}),
@@ -82,7 +83,7 @@ def _toggle(start, end):
     """Delete stays disabled until a valid range is chosen."""
     if start and end and start <= end:
         return False, _BTN_ON, ""
-    hint = _REVERSED if (start and end) else _HINT
+    hint = t(_REVERSED) if (start and end) else t(_HINT)
     return True, _BTN_OFF, hint
 
 
@@ -103,14 +104,15 @@ def _confirm(n, start, end):
         raise PreventUpdate
     rng = _period_rows(start, end)
     if rng.empty:
-        return "", False, "No transactions in that period.", muted
+        return "", False, t("No transactions in that period."), muted
     income = rng.loc[rng["Income/Expense"] == "Income", "Amount"].sum()
     expense = rng.loc[rng["Income/Expense"] == "Expense", "Amount"].sum()
-    msg = (f"⚠ Permanently delete {len(rng)} transaction(s) dated {start} to "
-           f"{end}?\n\n"
-           f"Income rows total: {income:,.2f}\n"
-           f"Expense rows total: {expense:,.2f}\n\n"
-           f"A backup is saved first, but this cannot be undone.")
+    msg = (t("⚠ Permanently delete {n} transaction(s) dated {start} to {end}?").format(
+               n=len(rng), start=start, end=end)
+           + "\n\n"
+           + t("Income rows total: {v}").format(v=f"{income:,.2f}") + "\n"
+           + t("Expense rows total: {v}").format(v=f"{expense:,.2f}") + "\n\n"
+           + t("A backup is saved first, but this cannot be undone."))
     return msg, True, "", muted
 
 
@@ -130,7 +132,7 @@ def _do_delete(submit_n, start, end):
     try:
         n, _backup = store.delete_period(start, end)
         refresh()
-        return (f"Removed {n} transaction(s). A backup was saved to data/backups/.",
+        return (t("Removed {n} transaction(s). A backup was saved to data/backups/.").format(n=n),
                 ok)
     except Exception as exc:
-        return f"Could not remove: {exc}", err
+        return t("Could not remove: {err}").format(err=exc), err

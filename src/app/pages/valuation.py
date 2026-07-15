@@ -12,6 +12,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
+from src.app.i18n import t
 from src.app.figures.valuation import (build_valuation_gauge, build_methods_bar,
                                        build_dcf_breakdown, build_scenarios_bar,
                                        build_sensitivity_heatmap)
@@ -30,7 +31,7 @@ _LABEL = {"color": theme.MUTED, "fontSize": "13px"}
 
 
 def _field(label, comp):
-    return html.Div([html.Label(label, style=_LABEL), comp])
+    return html.Div([html.Label(t(label), style=_LABEL), comp])
 
 
 def _assumptions(a: dict) -> dict:
@@ -57,12 +58,12 @@ def layout(**_):
             dcc.Store(id="val-store"),
             html.Div(
                 [
-                    html.Span("Ticker:", style={"color": theme.MUTED}),
-                    dcc.Input(id="val-ticker", type="text", placeholder="e.g. AAPL",
+                    html.Span(t("Ticker:"), style={"color": theme.MUTED}),
+                    dcc.Input(id="val-ticker", type="text", placeholder=t("e.g. AAPL"),
                               debounce=True,
                               style={**theme.INPUT_STYLE, "marginBottom": 0,
                                      "width": "140px", "textTransform": "uppercase"}),
-                    html.Button("Analyze", id="val-analyze", n_clicks=0,
+                    html.Button(t("Analyze"), id="val-analyze", n_clicks=0,
                                 style=theme.BUTTON_STYLE),
                     html.Span(id="val-msg", style={"color": theme.MUTED,
                                                    "fontSize": "13px"}),
@@ -73,7 +74,7 @@ def layout(**_):
                 [
                     card(
                         [
-                            html.H3("Assumptions", style={"marginTop": 0}),
+                            html.H3(t("Assumptions"), style={"marginTop": 0}),
                             html.Div(
                                 [
                                     _field("Cost of equity r_e (%)",
@@ -105,7 +106,7 @@ def layout(**_):
                                 ],
                                 className="val-grid",
                             ),
-                            html.Button("Recalculate", id="val-recalc", n_clicks=0,
+                            html.Button(t("Recalculate"), id="val-recalc", n_clicks=0,
                                         style={**theme.PERIOD_BUTTON_STYLE,
                                                "marginTop": "6px"}),
                             html.Div(id="val-methods", style={"marginTop": "14px"}),
@@ -177,7 +178,8 @@ def _analyze(_n, ticker, erp):
     except StockError as exc:
         return no_update, str(exc), *(no_update,) * 6
     except Exception as exc:  # network etc.
-        return no_update, f"Could not analyze {ticker}: {exc}", *(no_update,) * 6
+        return (no_update, t("Could not analyze {ticker}: {err}").format(
+            ticker=ticker, err=exc), *(no_update,) * 6)
 
     beta = inp.get("beta") or 1.0
     re = VAL.cost_of_equity(rf, beta, (erp or _DEFAULT_ERP) / 100)
@@ -241,15 +243,16 @@ def _extras_block(extras: dict) -> html.Div:
     ig = extras.get("implied_g1")
     if ig is not None:
         lines.append(html.Div(
-            ["Reverse DCF: the market price implies ",
+            [t("Reverse DCF: the market price implies "),
              html.Span(f"~{ig * 100:.1f}%/yr", style={"fontWeight": 700}),
-             " stage-1 FCF growth. Believable for this business?"],
+             t(" stage-1 FCF growth. Believable for this business?")],
             style={"fontSize": "13px", "marginTop": "10px"}))
     tv = extras.get("tv_share")
     if tv is not None and tv > 0.85:
         lines.append(html.Div(
-            f"⚠ {tv * 100:.0f}% of the DCF value sits in the terminal value — "
-            "the number is almost all far-future assumption. Trust it less.",
+            t("⚠ {pct}% of the DCF value sits in the terminal value — the number "
+              "is almost all far-future assumption. Trust it less.").format(
+                  pct=f"{tv * 100:.0f}"),
             className="amt-expense", style={"fontSize": "13px", "marginTop": "6px"}))
     return html.Div(lines)
 
@@ -287,20 +290,21 @@ _CAVEATS = [
 
 
 def _caveats_block() -> html.Details:
-    items = [html.Div([html.Span(t + " — ", style={"fontWeight": 600}), body],
+    items = [html.Div([html.Span(t(title) + " — ", style={"fontWeight": 600}),
+                       t(body)],
                       style={"margin": "6px 0", "fontSize": "12.5px",
                              "color": theme.MUTED, "lineHeight": "1.5"})
-             for t, body in _CAVEATS]
+             for title, body in _CAVEATS]
     return html.Details(
-        [html.Summary("Model caveats — why the numbers differ",
+        [html.Summary(t("Model caveats — why the numbers differ"),
                       style={"cursor": "pointer", "fontWeight": 600,
                              "fontSize": "13px", "marginTop": "12px"}), *items],
     )
 
 
 def _methods_table(results) -> html.Table:
-    header = html.Tr([html.Th("Method"), html.Th("Fair"), html.Th("MoS"),
-                      html.Th("Notes")])
+    header = html.Tr([html.Th(t("Method")), html.Th(t("Fair")), html.Th(t("MoS")),
+                      html.Th(t("Notes"))])
     rows = []
     for r in results:
         fair = f"{r['fair']:,.0f}" if r["fair"] is not None else "n/a"

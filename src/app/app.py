@@ -47,6 +47,16 @@ _INDEX_STRING = """<!DOCTYPE html>
                 }
             } catch (e) {}
             document.documentElement.setAttribute("data-censor", c);
+            // Highlight the active language from the `lang` cookie — the same
+            // source the server uses to render text, so the pill always matches
+            // the page. Falls back to the persisted store, then English.
+            var l = "en";
+            try {
+                var m = document.cookie.match(/(?:^|; )lang=(en|th)/);
+                if (m) { l = m[1]; }
+                else if (JSON.parse(window.localStorage.getItem("lang-store")) === "th") { l = "th"; }
+            } catch (e) {}
+            document.documentElement.setAttribute("data-lang", l);
         })();
         </script>
         {%css%}
@@ -77,6 +87,7 @@ def create_app() -> Dash:
         [
             dcc.Store(id="theme-store", storage_type="local"),
             dcc.Store(id="censor-store", storage_type="local"),
+            dcc.Store(id="lang-store", storage_type="local"),
             page_container,
         ],
         style={"minHeight": "100vh", "fontFamily": theme.FONT_FAMILY},
@@ -113,6 +124,34 @@ def create_app() -> Dash:
         Output("censor-store", "data"),
         Input("censor-toggle", "n_clicks"),
         State("censor-store", "data"),
+    )
+
+    # Language toggle: flip the persisted language (en⇄th), set the DOM attribute
+    # (CSS highlights the active code off data-lang), and on a real click write the
+    # `lang` cookie and reload so the server re-renders every string in the new
+    # language (page layouts/callbacks read the cookie via src/app/i18n.get_lang).
+    clientside_callback(
+        """
+        function (n_clicks, current) {
+            // The `lang` cookie is the single source of truth (the server reads
+            // it too); read the current value from it, not from the store, so a
+            // reload racing the store write can't desync the toggle.
+            var m = document.cookie.match(/(?:^|; )lang=(en|th)/);
+            var lang = m ? m[1] : "en";
+            if (n_clicks) {
+                lang = (lang === "en") ? "th" : "en";
+                document.cookie = "lang=" + lang + ";path=/;max-age=31536000;samesite=lax";
+                document.documentElement.setAttribute("data-lang", lang);
+                window.location.reload();
+                return lang;
+            }
+            document.documentElement.setAttribute("data-lang", lang);
+            return lang;
+        }
+        """,
+        Output("lang-store", "data"),
+        Input("lang-toggle", "n_clicks"),
+        State("lang-store", "data"),
     )
     return app
 

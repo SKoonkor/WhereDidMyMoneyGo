@@ -10,6 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 
 # Compounding label → periods per year.
 COMPOUNDING = {"Monthly": 12, "Quarterly": 4, "6 Months": 2, "Annually": 1}
@@ -171,37 +172,42 @@ def build_compound_figure(sched: dict, currency: str = "THB",
     fig.add_trace(go.Scatter(
         x=m, y=sched["maturity_low"], mode="lines", line=dict(width=0),
         fill="tonexty", fillcolor="rgba(46,204,113,0.18)",
-        name=f"±20% rate ({rate_pct*0.8:.0f}–{rate_pct*1.2:.0f}%)",
+        name=t("±20% rate ({lo}–{hi}%)").format(
+            lo=f"{rate_pct*0.8:.0f}", hi=f"{rate_pct*1.2:.0f}"),
         hoverinfo="skip",
     ))
 
     fig.add_trace(go.Scatter(
-        x=m, y=sched["maturity"], mode="lines", name=f"Maturity ({rate_pct:.0f}%)",
+        x=m, y=sched["maturity"], mode="lines",
+        name=t("Maturity ({pct}%)").format(pct=f"{rate_pct:.0f}"),
         line=dict(color=theme.INCOME_COLOR, width=2.5),
-        hovertemplate="Month %{x}<br>%{y:,.0f} " + currency + "<extra>Maturity</extra>",
+        hovertemplate=t("Month") + " %{x}<br>%{y:,.0f} " + currency
+                      + "<extra>" + t("Maturity") + "</extra>",
     ))
     # Balance after buying each selected goal as it's reached (its actual amount is
     # spent, so these lines dip below the pure maturity). Two variants: buying at the
     # ×factor target, and buying at the plain goal amount (no factor).
     if goals and "maturity_bought" in sched:
         fig.add_trace(go.Scatter(
-            x=m, y=sched["maturity_bought"], mode="lines", name="After buying (×factor)",
+            x=m, y=sched["maturity_bought"], mode="lines",
+            name=t("After buying (×factor)"),
             line=dict(color="#8e44ad", width=2.5),
-            hovertemplate="Month %{x}<br>%{y:,.0f} " + currency
-                          + "<extra>After buying (×factor)</extra>",
+            hovertemplate=t("Month") + " %{x}<br>%{y:,.0f} " + currency
+                          + "<extra>" + t("After buying (×factor)") + "</extra>",
         ))
     if goals and "maturity_bought_plain" in sched:
         fig.add_trace(go.Scatter(
             x=m, y=sched["maturity_bought_plain"], mode="lines",
-            name="After buying (no factor)",
+            name=t("After buying (no factor)"),
             line=dict(color="#e84393", width=2.5),
-            hovertemplate="Month %{x}<br>%{y:,.0f} " + currency
-                          + "<extra>After buying (no factor)</extra>",
+            hovertemplate=t("Month") + " %{x}<br>%{y:,.0f} " + currency
+                          + "<extra>" + t("After buying (no factor)") + "</extra>",
         ))
     fig.add_trace(go.Scatter(
-        x=m, y=sched["principal"], mode="lines", name="Principal",
+        x=m, y=sched["principal"], mode="lines", name=t("Principal"),
         line=dict(color=ft.muted, width=2, dash="dash"),
-        hovertemplate="Month %{x}<br>%{y:,.0f} " + currency + "<extra>Principal</extra>",
+        hovertemplate=t("Month") + " %{x}<br>%{y:,.0f} " + currency
+                      + "<extra>" + t("Principal") + "</extra>",
     ))
 
     # Each goal is drawn at its EFFECTIVE target = amount × xTimes factor.
@@ -210,14 +216,15 @@ def build_compound_figure(sched: dict, currency: str = "THB",
     # Y-axis window: linear shows the set-period band top; log expands to fit the
     # full computed series and any selected goals.
     if logy:
-        y_top = max(sched["maturity_high"][H], *([t for _, t, _ in eff] or [0])) * 1.1
+        y_top = max(sched["maturity_high"][H], *([tg for _, tg, _ in eff] or [0])) * 1.1
         y_floor = max(1.0, sched["maturity"][0], sched["principal"][1] if H >= 1 else 1.0)
         yaxis = dict(type="log", range=[float(np.log10(y_floor)),
                                         float(np.log10(max(y_top, y_floor * 10)))],
-                     title=f"Value ({currency})")
+                     title=t("Value ({currency})").format(currency=currency))
     else:
         y_top = float(sched["maturity_high"][M] * 1.05)
-        yaxis = dict(range=[0, y_top], title=f"Value ({currency})")
+        yaxis = dict(range=[0, y_top],
+                     title=t("Value ({currency})").format(currency=currency))
 
     # Selected goals, smallest effective target first so they stack low→high (the
     # smallest is reached first). Every goal gets a horizontal labeled line (always
@@ -225,8 +232,8 @@ def build_compound_figure(sched: dict, currency: str = "THB",
     # Goals above that window also get a right-arrow label at the top-right; a
     # clientside callback hides each arrow once its line is panned into view.
     ranked = sorted(eff, key=lambda g: g[1])
-    colored = [(nm, t, f, GOAL_PALETTE[i % len(GOAL_PALETTE)])
-               for i, (nm, t, f) in enumerate(ranked)]
+    colored = [(nm, tg, f, GOAL_PALETTE[i % len(GOAL_PALETTE)])
+               for i, (nm, tg, f) in enumerate(ranked)]
     color_by_name = {nm: c for nm, _, _, c in colored}
     for name, target, factor, color in colored:
         label = f"{name} (×{factor:g})" if factor > 1 else name
@@ -249,7 +256,8 @@ def build_compound_figure(sched: dict, currency: str = "THB",
             x=[h["month"] for h in hits],
             y=[h["target"] for h in hits],   # raw value; log axis maps it automatically
             mode="markers", showlegend=False, hoverinfo="text",
-            hovertext=[f"{h['name']} bought · month {h['month']}" for h in hits],
+            hovertext=[t("{name} bought · month {month}").format(
+                name=h['name'], month=h['month']) for h in hits],
             marker=dict(size=11, symbol=symbol,
                         color=[color_by_name.get(h["name"], theme.SAVING_COLOR)
                                for h in hits],
@@ -271,9 +279,9 @@ def build_compound_figure(sched: dict, currency: str = "THB",
     fig.update_layout(
         template=ft.template,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text="Growth over time", x=0.5, xanchor="center",
+        title=dict(text=t("Growth over time"), x=0.5, xanchor="center",
                    y=0.97, yanchor="top"),
-        xaxis=dict(title="Months", range=[0, M], autorange=False),
+        xaxis=dict(title=t("Months"), range=[0, M], autorange=False),
         yaxis=yaxis,
         hovermode="x unified",
         # Theme-aware unified-hover box (default was a bright box with grey text in

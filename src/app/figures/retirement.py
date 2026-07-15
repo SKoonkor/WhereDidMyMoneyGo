@@ -15,6 +15,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 
 PLAIN_COLOR = "#e84393"   # matches the Simple calculator's no-factor line
 FREEDOM_COLOR = "#f1c40f"  # gold vertical line for the financial-freedom age
@@ -54,6 +55,7 @@ def _event_band(fig, ev, color, ages, label, y_paper):
     fig.add_annotation(x=p50, yref="paper", y=y_paper, yanchor="top", xanchor=xa,
                        xshift=xs, showarrow=False, text=f"{label} · {p50:.0f}",
                        font=dict(color=color, size=12))
+    # NB: ``label`` is already translated (or a user goal name) at the call site.
 
 
 def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
@@ -74,10 +76,10 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
 
     def _line(y, name, color, width=2.5, dash=None, hover="Future money"):
         fig.add_trace(go.Scatter(
-            x=ages, y=y, mode="lines", name=name,
+            x=ages, y=y, mode="lines", name=t(name),
             line=dict(color=color, width=width, dash=dash),
-            hovertemplate="Age %{x:.1f}<br>%{y:,.0f} " + currency
-                          + f"<extra>{hover}</extra>",
+            hovertemplate=t("Age") + " %{x:.1f}<br>%{y:,.0f} " + currency
+                          + f"<extra>{t(hover)}</extra>",
         ))
 
     def _markers(series, hits, symbol, color):
@@ -87,7 +89,8 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
             x=[h["age"] for h in hits],
             y=[float(series[int(h["month"])]) for h in hits],
             mode="markers", showlegend=False, hoverinfo="text",
-            hovertext=[f"{h['name']} bought · age {h['age']:.1f}" for h in hits],
+            hovertext=[t("{name} bought · age {age}").format(
+                name=h['name'], age=f"{h['age']:.1f}") for h in hits],
             marker=dict(size=11, symbol=symbol, color=color,
                         line=dict(color="#fff", width=1.5)),
         ))
@@ -147,7 +150,8 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     # Retirement age marker.
     fig.add_vline(x=ret_age, line=dict(color=ft.muted, dash="dot", width=1.5))
     fig.add_annotation(x=ret_age, yref="paper", y=1.0, yanchor="bottom",
-                       showarrow=False, text=f"Retire · {ret_age:g}",
+                       showarrow=False,
+                       text=t("Retire · {age}").format(age=f"{ret_age:g}"),
                        font=dict(color=ft.ink, size=12))
 
     # Savings-running-out marker. Within life expectancy it's a red line at the
@@ -164,13 +168,15 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
         fig.add_annotation(x=float(depletion_age), yref="paper", y=0.92,
                            yanchor="top", xanchor=xanchor, xshift=xshift,
                            showarrow=False,
-                           text=f"Funds depleted · age {depletion_age:.0f}",
+                           text=t("Funds depleted · age {age}").format(
+                               age=f"{depletion_age:.0f}"),
                            font=dict(color=theme.EXPENSE_COLOR, size=12))
     elif mc is None:
         # Funds last through life expectancy — note when they'd eventually deplete.
         # (Skipped in Monte Carlo mode, where the success probability carries this.)
-        txt = (f"Funds depleted · age {late_dep:.0f} →" if late_dep is not None
-               else "Funds depleted · 100+ yr →")
+        txt = (t("Funds depleted · age {age} →").format(age=f"{late_dep:.0f}")
+               if late_dep is not None
+               else t("Funds depleted · 100+ yr →"))
         fig.add_annotation(xref="paper", x=0.995, xanchor="right",
                            yref="paper", y=0.92, yanchor="top", showarrow=False,
                            text=txt, font=dict(color=ft.muted, size=12))
@@ -187,15 +193,16 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                       line=dict(color=FREEDOM_COLOR, dash="dash", width=1.5))
         fig.add_annotation(x=float(freedom_age), yref="paper", y=0.84,
                            yanchor="top", xanchor=fxa, xshift=fxs, showarrow=False,
-                           text=f"Financial freedom · age {freedom_age:.0f}",
+                           text=t("Financial freedom · age {age}").format(
+                               age=f"{freedom_age:.0f}"),
                            font=dict(color=FREEDOM_COLOR, size=12))
 
     # Monte Carlo event spreads: each drawn as a vertical 16–84% band + median line.
     if mc is not None:
         _event_band(fig, mc.get("depletion"), theme.EXPENSE_COLOR, ages,
-                    "Funds depleted", 0.92)
+                    t("Funds depleted"), 0.92)
         _event_band(fig, mc.get("freedom"), FREEDOM_COLOR, ages,
-                    "Financial freedom", 0.84)
+                    t("Financial freedom"), 0.84)
         for ev in (mc.get("goal_events") or []):
             if ev.get("prob", 0) > 0:
                 _event_band(fig, ev, GOAL_COLOR, ages, ev["name"], 0.76)
@@ -208,7 +215,7 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     if logy:
         top_all = max((float(np.max(s)) for s in drawn if s.size), default=1.0) * 1.1
         y_floor = max(1.0, top_all / 1e4)
-        yaxis = dict(type="log", title=f"Value ({currency})",
+        yaxis = dict(type="log", title=t("Value ({currency})").format(currency=currency),
                      range=[float(np.log10(y_floor)),
                             float(np.log10(max(top_all, y_floor * 10)))])
     else:
@@ -218,14 +225,15 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
         else:
             y_top = max((float(np.max(s)) for s in drawn if s.size),
                         default=1.0) * 1.08
-        yaxis = dict(title=f"Value ({currency})", range=[0, y_top or 1.0])
+        yaxis = dict(title=t("Value ({currency})").format(currency=currency),
+                     range=[0, y_top or 1.0])
 
     fig.update_layout(
         template=ft.template,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text="Retirement projection", x=0.5, xanchor="center",
+        title=dict(text=t("Retirement projection"), x=0.5, xanchor="center",
                    y=0.97, yanchor="top"),
-        xaxis=dict(title="Age", range=[float(ages[0]), float(ages[-1])]),
+        xaxis=dict(title=t("Age"), range=[float(ages[0]), float(ages[-1])]),
         yaxis=yaxis,
         hovermode="x unified",
         hoverlabel=dict(bgcolor=ft.anno_bg, bordercolor=ft.grid,

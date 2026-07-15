@@ -9,6 +9,7 @@ over-budget overflow before this runs.
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 from src.app.figures.pie import _shade, _HIDDEN_COLOR
 from src.analytics.budget import HIDDEN_LABEL
 
@@ -21,7 +22,10 @@ def build_budget_pie(pie_items, remaining, total, budget, title,
     ft = theme.fig_theme(dark)
     fig = go.Figure()
 
-    labels = [lbl for lbl, _, _ in pie_items]
+    # Translate fixed labels (Hidden cost / Remaining budget); category names,
+    # not in the dict, pass through unchanged. Colour logic below still keys off
+    # the original pie_items, so translating the display labels is safe.
+    labels = [t(lbl) for lbl, _, _ in pie_items]
     values = [amt for _, amt, _ in pie_items]
     # Needs from a blue ramp, Wants from an orange ramp (so the donut shows a
     # blue arc then an orange arc); Hidden cost slate, Remaining grey.
@@ -38,7 +42,7 @@ def build_budget_pie(pie_items, remaining, total, budget, title,
         else:
             colors.append(oranges[oi]); oi += 1
     if remaining and remaining > 0:
-        labels.append(_REMAINING_LABEL)
+        labels.append(t(_REMAINING_LABEL))
         values.append(remaining)
         colors.append(_REMAINING_COLOR)
 
@@ -47,7 +51,7 @@ def build_budget_pie(pie_items, remaining, total, budget, title,
                         font=dict(size=14, color=ft.ink))]
 
     if not values or budget <= 0:
-        annotations.append(dict(text="No data", x=0.5, y=0.5, xref="paper",
+        annotations.append(dict(text=t("No data"), x=0.5, y=0.5, xref="paper",
                                 yref="paper", showarrow=False, xanchor="center",
                                 yanchor="middle", font=dict(color=ft.muted)))
     else:
@@ -60,11 +64,11 @@ def build_budget_pie(pie_items, remaining, total, budget, title,
             texttemplate="%{label}<br>%{customdata:.0f}%",
             hovertemplate="%{label}: "
                           + ("*****" if censor else "%{value:,.0f} " + currency)
-                          + " (%{customdata:.0f}% of budget)<extra></extra>",
+                          + " (%{customdata:.0f}% " + t("of budget") + ")<extra></extra>",
         ))
         spent_pct = total / budget * 100
         annotations.append(dict(
-            text=f"{spent_pct:.0f}%<br><span style='font-size:0.7em;color:{ft.muted}'>of budget</span>",
+            text=f"{spent_pct:.0f}%<br><span style='font-size:0.7em;color:{ft.muted}'>{t('of budget')}</span>",
             x=0.5, y=0.5, xref="paper", yref="paper", showarrow=False,
             xanchor="center", yanchor="middle", align="center",
             font=dict(size=22, color=(ft.ink if total <= budget else theme.EXPENSE_COLOR)),

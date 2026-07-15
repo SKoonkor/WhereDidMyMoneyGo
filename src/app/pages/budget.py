@@ -15,6 +15,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
+from src.app.i18n import t
 from src.app.data import get_df, currency
 from src.app.figures.budget_pie import build_budget_pie
 from src.app.figures.budget_trend import build_spending_trend
@@ -27,7 +28,7 @@ _MONTHS = ["January", "February", "March", "April", "May", "June", "July",
 
 
 def _month_label(period: pd.Period) -> str:
-    return f"{_MONTHS[period.month - 1]} {period.year}"
+    return f"{t(_MONTHS[period.month - 1])} {period.year}"
 
 dash.register_page(__name__, path="/budget", name="Budget", order=5)
 
@@ -44,19 +45,19 @@ def _settings_card(cfg: dict) -> html.Div:
     pct = cfg.get("percentages", B.DEFAULT_PERCENTAGES)
     return card(
         [
-            html.H3("Settings", style={"marginTop": 0}),
-            html.Label("Income basis", style={"color": theme.MUTED, "fontSize": "13px"}),
+            html.H3(t("Settings"), style={"marginTop": 0}),
+            html.Label(t("Income basis"), style={"color": theme.MUTED, "fontSize": "13px"}),
             dcc.RadioItems(
                 id="budget-mode",
-                options=[{"label": " Fixed monthly amount", "value": "fixed"},
-                         {"label": " Rolling 6-month average", "value": "rolling"}],
+                options=[{"label": " " + t("Fixed monthly amount"), "value": "fixed"},
+                         {"label": " " + t("Rolling 6-month average"), "value": "rolling"}],
                 value=cfg.get("mode", "fixed"),
                 style={"margin": "6px 0 14px"},
                 labelStyle={"display": "inline-block", "marginRight": "18px"},
             ),
             html.Div(
                 [
-                    html.Label("Fixed monthly income", style={"color": theme.MUTED,
+                    html.Label(t("Fixed monthly income"), style={"color": theme.MUTED,
                                                               "fontSize": "13px"}),
                     dcc.Input(id="budget-fixed", type="number",
                               value=cfg.get("fixed_income", 0),
@@ -66,12 +67,12 @@ def _settings_card(cfg: dict) -> html.Div:
                 style={"marginBottom": "10px",
                        "display": "block" if cfg.get("mode") != "rolling" else "none"},
             ),
-            html.Label("Split (%)", style={"color": theme.MUTED, "fontSize": "13px"}),
+            html.Label(t("Split (%)"), style={"color": theme.MUTED, "fontSize": "13px"}),
             html.Div(
                 [
-                    _pct_input("budget-pct-needs", "Needs", pct.get(B.NEEDS, 50)),
-                    _pct_input("budget-pct-wants", "Wants", pct.get(B.WANTS, 30)),
-                    _pct_input("budget-pct-savings", "Savings", pct.get(B.SAVINGS, 20)),
+                    _pct_input("budget-pct-needs", t("Needs"), pct.get(B.NEEDS, 50)),
+                    _pct_input("budget-pct-wants", t("Wants"), pct.get(B.WANTS, 30)),
+                    _pct_input("budget-pct-savings", t("Savings"), pct.get(B.SAVINGS, 20)),
                     html.Span(id="budget-pct-hint", style={"alignSelf": "flex-end",
                                                            "paddingBottom": "10px",
                                                            "fontSize": "13px"}),
@@ -81,7 +82,7 @@ def _settings_card(cfg: dict) -> html.Div:
             ),
             html.Div(
                 [
-                    html.Label("Reset day of month", style={"color": theme.MUTED,
+                    html.Label(t("Reset day of month"), style={"color": theme.MUTED,
                                                             "fontSize": "13px"}),
                     dcc.Input(id="budget-reset-day", type="number", min=1, max=31,
                               value=cfg.get("reset_day", 1),
@@ -92,7 +93,7 @@ def _settings_card(cfg: dict) -> html.Div:
             ),
             html.Div(
                 [
-                    html.Button("Save settings", id="budget-save-settings",
+                    html.Button(t("Save settings"), id="budget-save-settings",
                                 n_clicks=0, style=theme.BUTTON_STYLE),
                     html.Span(id="budget-settings-msg",
                               style={"alignSelf": "center", "fontSize": "14px"}),
@@ -187,7 +188,7 @@ def _column_shell(bucket: str, split, actual: float, list_id: str, pct_id: str,
     return html.Div(
         [
             html.Div(
-                [html.Span(bucket),
+                [html.Span(t(bucket)),
                  html.Span(_bucket_pct_header(actual, split), id=pct_id,
                            className="budget-col-pct")],
                 className="budget-col-head",
@@ -207,17 +208,17 @@ def _assignment_card(cfg: dict) -> html.Div:
         [
             html.Div(
                 [
-                    html.H3("Category buckets", style={"marginTop": 0, "marginBottom": 0}),
+                    html.H3(t("Category buckets"), style={"marginTop": 0, "marginBottom": 0}),
                     html.Span(id="budget-assign-msg",
                               style={"fontSize": "13px", "color": theme.MUTED}),
                 ],
                 style={"display": "flex", "justifyContent": "space-between",
                        "alignItems": "baseline"},
             ),
-            html.P("Drag a category between the buckets (or tap it to flip). "
-                   "The figure is each category's share of the period budget. "
-                   "Changes save automatically; Savings/Debt is whatever income is "
-                   "left after Needs and Wants.",
+            html.P(t("Drag a category between the buckets (or tap it to flip). "
+                     "The figure is each category's share of the period budget. "
+                     "Changes save automatically; Savings/Debt is whatever income is "
+                     "left after Needs and Wants."),
                    style={"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}),
             html.Div(
                 [_column_shell(B.NEEDS, pct.get(B.NEEDS, 50), needs_sum,
@@ -233,10 +234,12 @@ def _assignment_card(cfg: dict) -> html.Div:
 # ── Summary card ─────────────────────────────────────────────────────────────
 
 def _summary_children(summary: dict) -> list:
-    mode_txt = ("fixed" if summary["mode"] != "rolling" else "rolling 6-month average")
+    mode_txt = (t("fixed") if summary["mode"] != "rolling"
+                else t("rolling 6-month average"))
     head = html.P(
-        [f"Period {summary['start'].strftime('%d %b')} – "
-         f"{summary['end'].strftime('%d %b %Y')} · income base ",
+        [t("Period {start} – {end} · income base ").format(
+            start=summary['start'].strftime('%d %b'),
+            end=summary['end'].strftime('%d %b %Y')),
          money_span(f"{_fmt(summary['income'])} {currency()}"),
          f" ({mode_txt})"],
         style={"color": theme.MUTED, "marginTop": 0, "fontSize": "13px"},
@@ -250,22 +253,22 @@ def _summary_children(summary: dict) -> list:
         tone = B.bucket_tone(name, spent, target)
         if name == B.SAVINGS:
             ahead = remaining >= 0
-            e_amt, e_word = (_fmt(remaining), "ahead") if ahead \
-                else (_fmt(-remaining), "short")
+            e_amt, e_word = (_fmt(remaining), t("ahead")) if ahead \
+                else (_fmt(-remaining), t("short"))
             note_cls = "amt-income" if ahead else "amt-expense"
         else:
             over = remaining < 0
-            e_amt, e_word = (_fmt(-remaining), "over") if over \
-                else (_fmt(remaining), "left")
+            e_amt, e_word = (_fmt(-remaining), t("over")) if over \
+                else (_fmt(remaining), t("left"))
             note_cls = "amt-expense" if over else ""
         emphasis = html.Span([money_span(e_amt), f" {e_word}"],
                              style={"fontSize": "18px"})
-        note = [money_span(_fmt(spent)), " of ", money_span(_fmt(target)), " · ",
+        note = [money_span(_fmt(spent)), f" {t('of')} ", money_span(_fmt(target)), " · ",
                 emphasis]
         rows.append(html.Div(
             [
                 html.Div(
-                    [html.Span(name, style={"fontWeight": 600}),
+                    [html.Span(t(name), style={"fontWeight": 600}),
                      html.Span(note, className=note_cls, style={"fontSize": "13px"})],
                     style={"display": "flex", "justifyContent": "space-between",
                            "marginBottom": "5px"},
@@ -282,7 +285,7 @@ def _summary_children(summary: dict) -> list:
 def _summary_card_container() -> html.Div:
     return card(
         [
-            html.H3("This period", style={"marginTop": 0}),
+            html.H3(t("This period"), style={"marginTop": 0}),
             html.Div(id="budget-summary"),
         ],
     )
@@ -295,7 +298,7 @@ def _overflow_list(items: list, budget: float) -> list:
     Empty list when nothing overflowed."""
     if not items:
         return []
-    rows = [html.Div("Over budget — not in pie",
+    rows = [html.Div(t("Over budget — not in pie"),
                      style={"color": theme.MUTED, "fontSize": "12px",
                             "marginBottom": "6px"})]
     for label, amt, bucket in items:
@@ -303,7 +306,7 @@ def _overflow_list(items: list, budget: float) -> list:
         accent = "hidden" if hidden else bucket.lower()  # needs | wants | hidden
         pct = (amt / budget * 100) if budget else 0
         rows.append(html.Div(
-            [html.Span(label, style={"color": theme.MUTED}),
+            [html.Span(t(label), style={"color": theme.MUTED}),
              html.Span([money_span(f"{amt:,.0f}"), f" ({pct:.0f}%)"],
                        style={"fontWeight": 600})],
             className=f"budget-overflow-row {accent}",
@@ -348,7 +351,7 @@ def _month_column(side: str, header, graph_id: str, list_id: str) -> html.Div:
 def _spending_card(prev_options: list, prev_default: str, current_label: str) -> html.Div:
     prev_header = html.Div(
         [
-            html.Span("Previous month", style={"fontWeight": 600,
+            html.Span(t("Previous month"), style={"fontWeight": 600,
                                                "marginRight": "10px"}),
             dcc.Dropdown(id="budget-prev-month", options=prev_options,
                          value=prev_default, clearable=False,
@@ -358,19 +361,20 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
                "marginBottom": "8px", "minHeight": "38px"},
     )
     current_header = html.Div(
-        html.Span(f"This month — {current_label}", style={"fontWeight": 600}),
+        html.Span(t("This month — {label}").format(label=current_label),
+                  style={"fontWeight": 600}),
         style={"display": "flex", "alignItems": "center",
                "marginBottom": "8px", "minHeight": "38px"},
     )
     return html.Div(card(
         [
             dcc.Store(id="budget-trend-sel", data=[]),
-            html.H3("Spending vs budget", id="budget-spending-title",
+            html.H3(t("Spending vs budget"), id="budget-spending-title",
                     style={"marginTop": 0}),
-            html.P("Each slice is the category's share of that month's budget. "
-                   "Needs (blue) fill the budget first, then Wants (orange); "
-                   "anything over budget drops to the list. "
-                   "Click a row below to see its monthly trend.",
+            html.P(t("Each slice is the category's share of that month's budget. "
+                     "Needs (blue) fill the budget first, then Wants (orange); "
+                     "anything over budget drops to the list. "
+                     "Click a row below to see its monthly trend."),
                    id="budget-spending-desc",
                    style={"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}),
             # Two monthly pies — shown until a category/sub-category row is clicked.
@@ -399,17 +403,17 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
             ),
             html.Details(
                 [
-                    html.Summary("Sub-category detail", className="subcat-summary"),
+                    html.Summary(t("Sub-category detail"), className="subcat-summary"),
                     dcc.Store(id="budget-subcat-sort",
                               data={"by": "cur", "dir": "desc"}),
                     html.Div(
                         [
-                            html.Span("Sub-category", className="subcat-name"),
-                            html.Span(["This ", html.Span(id="budget-sort-this-arrow")],
+                            html.Span(t("Sub-category"), className="subcat-name"),
+                            html.Span([t("This "), html.Span(id="budget-sort-this-arrow")],
                                       id="budget-sort-this", n_clicks=0,
                                       className="subcat-col subcat-sortable"),
-                            html.Span("Prev", className="subcat-col"),
-                            html.Span(["Change ",
+                            html.Span(t("Prev"), className="subcat-col"),
+                            html.Span([t("Change "),
                                        html.Span(id="budget-sort-change-arrow")],
                                       id="budget-sort-change", n_clicks=0,
                                       className="subcat-col change subcat-sortable"),
@@ -433,7 +437,7 @@ def _delta_children(delta: float, pct) -> list:
         return [money_span("0")]
     amt = money_span(f"{delta:+,.0f}")
     if pct is None:
-        return [amt, " (new)"]
+        return [amt, f" ({t('new')})"]
     return [amt, f" ({pct:+.0f}%)"]
 
 
@@ -478,7 +482,7 @@ def _subcat_grid_row(name, cur, prev, delta, pct, cls: str,
 
 def _subcat_detail_children(changes: list, sort: dict, selected=None) -> list:
     if not changes:
-        return [html.Div("No expense data for these months.",
+        return [html.Div(t("No expense data for these months."),
                          style={"color": theme.MUTED})]
     by = sort.get("by", "pct")
     reverse = sort.get("dir", "desc") == "desc"
@@ -568,7 +572,7 @@ def _pct_hint(n, w, s):
     total = (n or 0) + (w or 0) + (s or 0)
     if total == 100:
         return f"= {total}% ✓", "amt-income"
-    return f"= {total}% (should be 100)", "amt-expense"
+    return t("= {total}% (should be 100)").format(total=total), "amt-expense"
 
 
 @callback(
@@ -596,7 +600,8 @@ def _save_settings(n_clicks, mode, fixed, n, w, s, reset_day, refresh):
     B.save_budget(cfg)
     total = (n or 0) + (w or 0) + (s or 0)
     style = {"alignSelf": "center", "fontSize": "14px", "color": theme.ACCENT}
-    msg = "Saved." + ("" if total == 100 else f" (note: split is {total}%, not 100%)")
+    msg = t("Saved.") + ("" if total == 100
+                         else t(" (note: split is {total}%, not 100%)").format(total=total))
     return msg, style, (refresh or 0) + 1
 
 
@@ -618,7 +623,7 @@ def _save_assign(assignments, refresh):
                           for cat, bucket in assignments.items()}
     B.save_budget(cfg)
     style = {"fontSize": "13px", "color": theme.ACCENT}
-    return "Saved ✓", style, (refresh or 0) + 1
+    return t("Saved ✓"), style, (refresh or 0) + 1
 
 
 @callback(
@@ -739,7 +744,7 @@ _DESC_STYLE = {"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}
 def _render_trend(sel, theme_value, censor, _refresh):
     if not sel:
         # No selection → the pies (and the default title) are shown.
-        return ("Spending vs budget", _DESC_STYLE, _PIES_STYLE,
+        return (t("Spending vs budget"), _DESC_STYLE, _PIES_STYLE,
                 {"display": "none"}, no_update)
 
     df = get_df()
@@ -753,7 +758,8 @@ def _render_trend(sel, theme_value, censor, _refresh):
         series.append({"label": label, "months": [m for m, _ in ser],
                        "values": [v for _, v in ser]})
 
-    title = f"Spending trend: {labels[0]}" if len(labels) == 1 else "Spending Trend"
+    title = (t("Spending trend: {label}").format(label=labels[0])
+             if len(labels) == 1 else t("Spending Trend"))
     fig = build_spending_trend(series, currency(), dark=theme.is_dark(theme_value),
                                censor=theme.is_censored(censor))
     return (title, {"display": "none"}, {"display": "none"},

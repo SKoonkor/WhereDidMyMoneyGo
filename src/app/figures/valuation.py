@@ -4,6 +4,7 @@ import numpy as np
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 
 _UNDER = "#2ecc71"   # green: fair > price (undervalued)
 _OVER = "#e74c3c"    # red:   fair < price (overvalued)
@@ -18,7 +19,7 @@ def build_valuation_gauge(fair, price, currency="USD", dark=True) -> go.Figure:
     ft = theme.fig_theme(dark)
     fig = go.Figure()
     if not fair or not price:
-        fig.add_annotation(text="No valuation", x=0.5, y=0.5, xref="paper",
+        fig.add_annotation(text=t("No valuation"), x=0.5, y=0.5, xref="paper",
                            yref="paper", showarrow=False, font=dict(color=ft.muted))
     else:
         mos = fair / price - 1.0
@@ -29,9 +30,11 @@ def build_valuation_gauge(fair, price, currency="USD", dark=True) -> go.Figure:
         fig.add_trace(go.Indicator(
             mode="gauge",
             value=mos * 100,
-            title={"text": f"Margin of safety<br><span style='font-size:0.75em;"
-                           f"color:{ft.muted}'>fair {fair:,.0f} vs price {price:,.0f}"
-                           f" {currency}</span>"},
+            title={"text": t("Margin of safety") + "<br><span style='font-size:0.75em;"
+                           f"color:{ft.muted}'>"
+                           + t("fair {fair} vs price {price} {currency}").format(
+                               fair=f"{fair:,.0f}", price=f"{price:,.0f}",
+                               currency=currency) + "</span>"},
             gauge={
                 "axis": {"range": [-60, 60], "ticksuffix": "%"},
                 "bar": {"color": color},
@@ -65,16 +68,17 @@ def build_methods_bar(results, price, currency="USD", dark=True) -> go.Figure:
         ))
         if price:
             fig.add_vline(x=price, line=dict(color=ft.ink, width=1.5, dash="dash"),
-                          annotation_text=f"Price {price:,.0f}",
+                          annotation_text=t("Price {price}").format(
+                              price=f"{price:,.0f}"),
                           annotation_position="top")
     else:
-        fig.add_annotation(text="No values", x=0.5, y=0.5, xref="paper", yref="paper",
+        fig.add_annotation(text=t("No values"), x=0.5, y=0.5, xref="paper", yref="paper",
                            showarrow=False, font=dict(color=ft.muted))
     fig.update_layout(
         template=ft.template, paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", showlegend=False,
-        title=dict(text="Fair value by method", x=0.5, xanchor="center"),
-        xaxis_title=f"Value / share ({currency})",
+        title=dict(text=t("Fair value by method"), x=0.5, xanchor="center"),
+        xaxis_title=t("Value / share ({currency})").format(currency=currency),
         yaxis=dict(autorange="reversed"), dragmode="pan",
         margin=dict(t=50, b=40, l=140, r=40),
     )
@@ -87,7 +91,7 @@ def build_dcf_breakdown(dcf, currency="USD", dark=True) -> go.Figure:
     fig = go.Figure()
     if dcf and dcf.get("pv_by_year"):
         pv = dcf["pv_by_year"]
-        years = [f"Y{t}" for t in range(1, len(pv) + 1)] + ["Terminal"]
+        years = [f"Y{yr}" for yr in range(1, len(pv) + 1)] + [t("Terminal")]
         vals = [p / 1e9 for p in pv] + [dcf["tv_pv"] / 1e9]
         colors = [theme.SAVING_COLOR] * len(pv) + ["#9b59b6"]
         fig.add_trace(go.Bar(
@@ -97,17 +101,19 @@ def build_dcf_breakdown(dcf, currency="USD", dark=True) -> go.Figure:
         tv_share = dcf["tv_pv"] / dcf["ev"] * 100 if dcf["ev"] else 0
         fig.add_annotation(x=0.99, y=0.98, xref="paper", yref="paper",
                            xanchor="right", yanchor="top", showarrow=False,
-                           text=f"Terminal value = {tv_share:.0f}% of EV",
+                           text=t("Terminal value = {pct}% of EV").format(
+                               pct=f"{tv_share:.0f}"),
                            font=dict(color=(_OVER if tv_share > 85 else ft.muted),
                                      size=12))
     else:
-        fig.add_annotation(text="DCF n/a", x=0.5, y=0.5, xref="paper", yref="paper",
+        fig.add_annotation(text=t("DCF n/a"), x=0.5, y=0.5, xref="paper", yref="paper",
                            showarrow=False, font=dict(color=ft.muted))
     fig.update_layout(
         template=ft.template, paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", showlegend=False,
-        title=dict(text="DCF: present value of cash flows", x=0.5, xanchor="center"),
-        yaxis_title=f"PV (billion {currency})", dragmode="pan",
+        title=dict(text=t("DCF: present value of cash flows"), x=0.5, xanchor="center"),
+        yaxis_title=t("PV (billion {currency})").format(currency=currency),
+        dragmode="pan",
         margin=dict(t=50, b=40, l=60, r=20),
     )
     return fig
@@ -120,20 +126,21 @@ def build_scenarios_bar(scen, price, currency="USD", dark=True) -> go.Figure:
     vals = [scen.get(k) for k in order]
     fig = go.Figure()
     fig.add_trace(go.Bar(
-        x=order, y=[v or 0 for v in vals],
+        x=[t(k) for k in order], y=[v or 0 for v in vals],
         marker=dict(color=[_pl_color(v, price) for v in vals]),
         text=[f"{v:,.0f}" if v else "n/a" for v in vals], textposition="outside",
         hovertemplate="%{x}: %{y:,.2f} " + currency + "<extra></extra>",
     ))
     if price:
         fig.add_hline(y=price, line=dict(color=ft.ink, width=1.5, dash="dash"),
-                      annotation_text=f"Price {price:,.0f}",
+                      annotation_text=t("Price {price}").format(price=f"{price:,.0f}"),
                       annotation_position="right")
     fig.update_layout(
         template=ft.template, paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)", showlegend=False,
-        title=dict(text="DCF scenarios", x=0.5, xanchor="center"),
-        yaxis_title=f"Fair value ({currency})", dragmode="pan",
+        title=dict(text=t("DCF scenarios"), x=0.5, xanchor="center"),
+        yaxis_title=t("Fair value ({currency})").format(currency=currency),
+        dragmode="pan",
         margin=dict(t=50, b=30, l=60, r=40),
     )
     return fig
@@ -156,9 +163,9 @@ def build_sensitivity_heatmap(grid, r_vals, gT_vals, price, currency="USD",
     fig.update_layout(
         template=ft.template, paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text="Sensitivity: fair value vs discount rate × terminal growth",
+        title=dict(text=t("Sensitivity: fair value vs discount rate × terminal growth"),
                    x=0.5, xanchor="center"),
-        xaxis_title="Terminal growth g_T", yaxis_title="Discount rate r",
+        xaxis_title=t("Terminal growth g_T"), yaxis_title=t("Discount rate r"),
         margin=dict(t=50, b=40, l=60, r=20),
     )
     return fig

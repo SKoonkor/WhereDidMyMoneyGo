@@ -5,6 +5,7 @@ from __future__ import annotations
 from dash import dcc, html
 
 from src.app import theme
+from src.app.i18n import t
 from src.analytics.reconciliation import is_reminder_due
 
 
@@ -19,12 +20,12 @@ def reminder_banner():
         return html.Div(id="recon-reminder", style={"display": "none"})
     return html.Div(
         [
-            html.Span("⏰ Time to reconcile your accounts — register your real "
-                      "balances to capture untracked spending.",
+            html.Span(t("⏰ Time to reconcile your accounts — register your real "
+                        "balances to capture untracked spending."),
                       style={"flex": "1"}),
-            dcc.Link("Reconcile now", href="/reconcile", className="reminder-cta"),
+            dcc.Link(t("Reconcile now"), href="/reconcile", className="reminder-cta"),
             html.Button("✕", id="recon-reminder-close", n_clicks=0,
-                        className="reminder-close", title="Dismiss"),
+                        className="reminder-close", title=t("Dismiss")),
         ],
         id="recon-reminder", className="reminder-banner",
     )
@@ -33,7 +34,7 @@ def reminder_banner():
 def home_link():
     """A 'home' link styled as a button (placed at the top-right of a header)."""
     return dcc.Link(
-        "⌂ Home",
+        t("⌂ Home"),
         href="/",
         style={"textDecoration": "none", "whiteSpace": "nowrap", **theme.BUTTON_STYLE},
     )
@@ -46,7 +47,7 @@ def theme_toggle():
     the button just relays the click to the theme callback."""
     return html.Button(html.Span(className="tt-knob"),
                        id="theme-toggle", n_clicks=0,
-                       className="theme-switch", title="Toggle light/dark mode")
+                       className="theme-switch", title=t("Toggle light/dark mode"))
 
 
 def censor_toggle():
@@ -56,7 +57,22 @@ def censor_toggle():
     slashed eye under ``data-censor="on"``."""
     return html.Button(html.Span(className="ct-eye"),
                        id="censor-toggle", n_clicks=0,
-                       className="censor-toggle", title="Hide/show amounts")
+                       className="censor-toggle", title=t("Hide/show amounts"))
+
+
+def lang_toggle():
+    """Language toggle — a compact ``EN / TH`` pill (clientside in app.py).
+
+    Both codes are always rendered; CSS highlights the active one off
+    ``data-lang`` (the same trick as ``money_span`` off ``data-censor``), so the
+    callback only has to flip the stored value. Page text is not translated yet —
+    this just persists the choice for the upcoming per-page translation work."""
+    return html.Button(
+        [html.Span("EN", className="lang-en"),
+         html.Span("/", className="lang-sep"),
+         html.Span("TH", className="lang-th")],
+        id="lang-toggle", n_clicks=0,
+        className="lang-switch", title=t("Switch language (EN / TH)"))
 
 
 def money_span(text, className: str = ""):
@@ -97,10 +113,10 @@ _MENU_GROUPS = [
 def _menu_link(entry):
     if len(entry) == 2:
         label, href = entry
-        return dcc.Link(label, href=href)
+        return dcc.Link(t(label), href=href)
     label, sub, href = entry
     sub_cls = "menu-sub" if sub.startswith("(") else "menu-sub menu-sub-line"
-    return dcc.Link([html.Span(label), html.Span(f" {sub}", className=sub_cls)],
+    return dcc.Link([html.Span(t(label)), html.Span(f" {t(sub)}", className=sub_cls)],
                     href=href)
 
 
@@ -113,8 +129,8 @@ def menu_widget():
         items.extend(_menu_link(entry) for entry in group)
     return html.Div(
         [
-            html.Button("☰  Menu", id="menu-toggle", n_clicks=0,
-                        className="menu-btn", title="Menu"),
+            html.Button(t("☰  Menu"), id="menu-toggle", n_clicks=0,
+                        className="menu-btn", title=t("Menu")),
             html.Div(items, id="menu-dropdown", className="menu-dropdown",
                      style={"display": "none"}),
         ],
@@ -141,16 +157,16 @@ def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
     if back:
         back_label, back_href = back
         left.append(dcc.Link(
-            f"‹ {back_label}", href=back_href, className="back-link",
+            f"‹ {t(back_label)}", href=back_href, className="back-link",
             style={"display": "inline-block", "textDecoration": "none",
                    "whiteSpace": "nowrap", "marginBottom": "10px",
                    **theme.BUTTON_STYLE},
         ))
         left.append(html.Br())
-    left.append(html.H1(title, style=theme.H1_STYLE))
+    left.append(html.H1(t(title), style=theme.H1_STYLE))
     if subtitle:
-        left.append(html.P(subtitle, style={"color": theme.MUTED, "marginTop": 0}))
-    right = [theme_toggle(), censor_toggle(), menu_widget()]
+        left.append(html.P(t(subtitle), style={"color": theme.MUTED, "marginTop": 0}))
+    right = [theme_toggle(), censor_toggle(), lang_toggle(), menu_widget()]
     if show_home:
         right.append(home_link())
     return html.Div(

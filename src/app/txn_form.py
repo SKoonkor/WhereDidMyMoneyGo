@@ -15,6 +15,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
+from src.app.i18n import t
 from src.app.data import account_names, refresh
 from src.analytics.accounts import add_account
 from src.analytics.transaction_categories import (load_categories, add_category,
@@ -37,7 +38,7 @@ def _field(label, component, label_id: str | None = None):
 
 def _cat_btn_text(category: str, subcategory: str) -> str:
     if not category:
-        return _PLACEHOLDER
+        return t(_PLACEHOLDER)
     return f"{category} › {subcategory}" if subcategory else category
 
 
@@ -60,57 +61,58 @@ def build_form(mode: str, initial: dict | None = None,
     form_card = html.Div(
         [
             dcc.RadioItems(
-                id="txn-type", options=_TYPES, value=ui_type,
+                id="txn-type",
+                options=[{"label": t(x), "value": x} for x in _TYPES], value=ui_type,
                 className="txn-tabs",
             ),
-            _field("Date", dcc.DatePickerSingle(
+            _field(t("Date"), dcc.DatePickerSingle(
                 id="txn-date",
                 date=(period.date() if period is not None else date.today()),
                 display_format="DD/MM/YYYY",
                 style={"marginBottom": "12px", "display": "block"},
             )),
-            _field("Amount", dcc.Input(
+            _field(t("Amount"), dcc.Input(
                 id="txn-amount", type="number", min=0,
                 value=init.get("amount"), placeholder="0.00",
                 style=theme.INPUT_STYLE,
             )),
             html.Div(
-                _field("Category", html.Button(
+                _field(t("Category"), html.Button(
                     _cat_btn_text(category, subcategory),
                     id="txn-cat-btn", n_clicks=0, className="txn-field-btn",
                 )),
                 id="txn-cat-field",
                 style=_HIDDEN if ui_type == "Transfer" else {},
             ),
-            _field("From" if ui_type == "Transfer" else "Account",
-                   html.Button(init.get("account") or _ACCT_PLACEHOLDER,
+            _field(t("From") if ui_type == "Transfer" else t("Account"),
+                   html.Button(init.get("account") or t(_ACCT_PLACEHOLDER),
                                id="txn-acct-from-btn", n_clicks=0,
                                className="txn-field-btn"),
                    label_id="txn-from-label"),
             html.Div(
-                _field("To", html.Button(init.get("to_account") or _ACCT_PLACEHOLDER,
+                _field(t("To"), html.Button(init.get("to_account") or t(_ACCT_PLACEHOLDER),
                                          id="txn-acct-to-btn", n_clicks=0,
                                          className="txn-field-btn")),
                 id="txn-to-field",
                 style={} if ui_type == "Transfer" else _HIDDEN,
             ),
-            _field("Note", dcc.Input(
+            _field(t("Note"), dcc.Input(
                 id="txn-note", type="text", value=init.get("note", ""),
-                placeholder="Shown on the summary page",
+                placeholder=t("Shown on the summary page"),
                 style=theme.INPUT_STYLE,
             )),
-            _field("Description", dcc.Input(
+            _field(t("Description"), dcc.Input(
                 id="txn-desc", type="text", value=init.get("description", ""),
-                placeholder="Optional details", style=theme.INPUT_STYLE,
+                placeholder=t("Optional details"), style=theme.INPUT_STYLE,
             )),
             html.Div(
                 [
-                    html.Button("Save", id="txn-save", n_clicks=0,
+                    html.Button(t("Save"), id="txn-save", n_clicks=0,
                                 style={**theme.BUTTON_STYLE, "flex": "1"}),
-                    html.Button("Continue", id="txn-continue", n_clicks=0,
+                    html.Button(t("Continue"), id="txn-continue", n_clicks=0,
                                 style={**theme.PERIOD_BUTTON_STYLE,
                                        **(_HIDDEN if is_edit else {})}),
-                    html.Button("Delete", id="txn-delete", n_clicks=0,
+                    html.Button(t("Delete"), id="txn-delete", n_clicks=0,
                                 style={**theme.PERIOD_BUTTON_STYLE,
                                        "color": theme.EXPENSE_COLOR,
                                        "borderColor": theme.EXPENSE_COLOR,
@@ -143,7 +145,7 @@ def build_form(mode: str, initial: dict | None = None,
                             dcc.Input(id=input_id, type="text",
                                       placeholder=input_placeholder,
                                       style={**theme.INPUT_STYLE, "marginBottom": 0}),
-                            html.Button("+ Add", id=add_id, n_clicks=0,
+                            html.Button(t("+ Add"), id=add_id, n_clicks=0,
                                         style=theme.BUTTON_STYLE),
                         ],
                         style={"display": "flex", "gap": "10px", "marginTop": "14px"},
@@ -156,12 +158,12 @@ def build_form(mode: str, initial: dict | None = None,
             **{"data-close": close_id},
         )
 
-    cat_modal = _picker_modal("txn-cat-modal", "Category", "txn-cat-close",
+    cat_modal = _picker_modal("txn-cat-modal", t("Category"), "txn-cat-close",
                               "txn-cat-modal-body", "txn-new-cat",
-                              "New category name", "txn-cat-add-confirm")
-    acct_modal = _picker_modal("txn-acct-modal", "Account", "txn-acct-close",
+                              t("New category name"), "txn-cat-add-confirm")
+    acct_modal = _picker_modal("txn-acct-modal", t("Account"), "txn-acct-close",
                                "txn-acct-modal-body", "txn-new-acct",
-                               "New account name", "txn-acct-add-confirm")
+                               t("New account name"), "txn-acct-add-confirm")
 
     return html.Div(
         [
@@ -177,7 +179,7 @@ def build_form(mode: str, initial: dict | None = None,
             dcc.Store(id="txn-acct-target", data="from"),
             dcc.ConfirmDialog(id="txn-del-confirm"),
             page_header(title, "Recorded straight into your transactions file.",
-                        back=("Transactions", back_href)),
+                        back=("Transactions", back_href)),  # title/subtitle t()'d in page_header
             html.Div(form_card, id="txn-accent",
                      className=f"accent-{ui_type.lower()}"),
             cat_modal,
@@ -198,8 +200,8 @@ def build_form(mode: str, initial: dict | None = None,
 )
 def _type_ui(txn_type):
     if txn_type == "Transfer":
-        return _HIDDEN, {}, "From", "accent-transfer"
-    return {}, _HIDDEN, "Account", f"accent-{txn_type.lower()}"
+        return _HIDDEN, {}, t("From"), "accent-transfer"
+    return {}, _HIDDEN, t("Account"), f"accent-{txn_type.lower()}"
 
 
 # ── Category picker modal ─────────────────────────────────────────────────────
@@ -232,13 +234,15 @@ def _render_pane(pane, cats, txn_type):
     if pane.get("level") == "sub":
         cat = pane.get("category", "")
         subs = tree.get(cat, [])
-        tiles = [html.Button("‹ Back", id={"role": "cat-back", "name": "back"},
+        tiles = [html.Button(t("‹ Back"), id={"role": "cat-back", "name": "back"},
                              n_clicks=0, className="cat-tile parent")]
-        tiles += [html.Button(_NO_SUB, n_clicks=0, className="cat-tile",
+        # Display the "(no subcategory)" label translated, but keep the id/name
+        # sentinel in English so the click handler's comparison stays stable.
+        tiles += [html.Button(t(_NO_SUB), n_clicks=0, className="cat-tile",
                               id={"role": "sub-tile", "name": _NO_SUB})]
         tiles += [html.Button(s, n_clicks=0, className="cat-tile",
                               id={"role": "sub-tile", "name": s}) for s in subs]
-        return tiles, f"New subcategory in {cat}"
+        return tiles, t("New subcategory in {cat}").format(cat=cat)
 
     tiles = []
     for name, subs in tree.items():
@@ -246,7 +250,7 @@ def _render_pane(pane, cats, txn_type):
         cls = "cat-tile parent" if subs else "cat-tile"
         tiles.append(html.Button(label, n_clicks=0, className=cls,
                                  id={"role": "cat-tile", "name": name}))
-    return tiles, "New category name"
+    return tiles, t("New category name")
 
 
 @callback(
@@ -381,27 +385,27 @@ def _add_acct(_n, name):
 def _confirm_delete(n):
     if not n:
         raise PreventUpdate
-    return True, ("Delete this transaction? Transfers remove both linked rows. "
-                  "This cannot be undone (a backup is kept in data/backups).")
+    return True, t("Delete this transaction? Transfers remove both linked rows. "
+                   "This cannot be undone (a backup is kept in data/backups).")
 
 
 # ── Save / Continue / Delete ──────────────────────────────────────────────────
 
 def _validate(txn_type, txn_date, amount, cat, account, to_account):
     if not txn_date:
-        return "Pick a date."
+        return t("Pick a date.")
     if amount is None or float(amount) <= 0:
-        return "Enter an amount greater than zero."
+        return t("Enter an amount greater than zero.")
     if txn_type == "Transfer":
         if not account or not to_account:
-            return "Select both From and To accounts."
+            return t("Select both From and To accounts.")
         if account == to_account:
-            return "From and To must be different accounts."
+            return t("From and To must be different accounts.")
     else:
         if not account:
-            return "Select an account."
+            return t("Select an account.")
         if not (cat or {}).get("category"):
-            return "Select a category."
+            return t("Select a category.")
     return None
 
 
@@ -465,6 +469,6 @@ def _submit(_s, _c, _d, mode, txn_type, txn_date, amount, cat,
     refresh()
 
     if trigger == "txn-continue":
-        return (no_update, "Saved — add another.", ok_style,
-                None, "", "", {"category": "", "subcategory": ""}, _PLACEHOLDER)
+        return (no_update, t("Saved — add another."), ok_style,
+                None, "", "", {"category": "", "subcategory": ""}, t(_PLACEHOLDER))
     return back_to, no_update, no_update, *keep

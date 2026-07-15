@@ -17,6 +17,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
+from src.app.i18n import t
 from src.app.data import get_df, currency, tax_config
 from src.analytics.income_tax import (
     spec_for, allowance_defs, income_tax_status, gross_income_for_year,
@@ -41,7 +42,7 @@ def _field(label, control, hint=None):
 def _allowance_control(defn, saved):
     cid = {"type": "tax-allow", "key": defn["key"]}
     if defn["type"] == "flag":
-        return dcc.Checklist(id=cid, options=[{"label": " Applies", "value": "on"}],
+        return dcc.Checklist(id=cid, options=[{"label": " " + t("Applies"), "value": "on"}],
                              value=(["on"] if saved else []),
                              inputStyle={"marginRight": "6px"},
                              style={"color": theme.INK})
@@ -60,9 +61,9 @@ def _allowance_boxes(saved_allow):
             continue
         boxes.append(html.Div(
             [
-                html.Div(a["label"], className="tax-allow-box-label"),
+                html.Div(t(a["label"]), className="tax-allow-box-label"),
                 _allowance_control(a, saved_allow.get(a["key"])),
-                html.Div(a.get("hint", ""), className="tax-allow-box-hint"),
+                html.Div(t(a.get("hint", "")), className="tax-allow-box-hint"),
                 html.Div(id={"type": "tax-applied", "key": a["key"]},
                          className="tax-applied"),
             ],
@@ -75,11 +76,11 @@ def _personal_field():
     a = next((x for x in allowance_defs() if x["type"] == "fixed"), None)
     if not a:
         return html.Div()
-    return _field(a["label"],
+    return _field(t(a["label"]),
                   html.Div(f"{a['amount']:,.0f} {currency()}",
                            style={"marginTop": "4px", "color": theme.INK,
                                   "fontWeight": 600}),
-                  hint=a.get("hint"))
+                  hint=t(a.get("hint", "")))
 
 
 def _default_year_gross():
@@ -99,31 +100,31 @@ def layout(**_):
 
     input_card = card(
         [
-            html.H3("Your details", style={"marginTop": 0, "color": theme.INK}),
-            _field("Tax year",
+            html.H3(t("Your details"), style={"marginTop": 0, "color": theme.INK}),
+            _field(t("Tax year"),
                    dcc.Dropdown(id="tax-year",
                                 options=[{"label": str(y), "value": y} for y in years],
                                 value=default_year, clearable=False,
                                 style={"marginBottom": "4px"})),
-            _field("Gross annual income",
+            _field(t("Gross annual income"),
                    dcc.Input(id="tax-gross", type="number", min=0, step=0.01,
                              value=gross0, className="no-spin",
                              style={**theme.INPUT_STYLE, "marginTop": "4px",
                                     "width": "200px"}),
-                   hint="Prefilled from your tracked income for the year — "
-                        "edit if some of it isn't taxable."),
+                   hint=t("Prefilled from your tracked income for the year — "
+                          "edit if some of it isn't taxable.")),
             _personal_field(),
             html.Div(
                 [
-                    html.Button("CALCULATE", id="tax-calc", n_clicks=0,
+                    html.Button(t("CALCULATE"), id="tax-calc", n_clicks=0,
                                 style={**theme.BUTTON_STYLE, "flex": "1"}),
-                    html.Button("RESET", id="tax-reset", n_clicks=0,
+                    html.Button(t("RESET"), id="tax-reset", n_clicks=0,
                                 style={**theme.PERIOD_BUTTON_STYLE, "flex": "0 0 auto"}),
                 ],
                 style={"display": "flex", "gap": "10px"},
             ),
             html.Div(id="tax-results", style={"marginTop": "16px"}),
-            html.Button("⬇ Export report", id="tax-export", n_clicks=0,
+            html.Button(t("⬇ Export report"), id="tax-export", n_clicks=0,
                         style={**theme.PERIOD_BUTTON_STYLE, "width": "100%",
                                "marginTop": "12px"}),
             dcc.Download(id="tax-download"),
@@ -134,11 +135,11 @@ def layout(**_):
 
     deductions_card = card(
         [
-            html.H3("Deductions & allowances",
+            html.H3(t("Deductions & allowances"),
                     style={"marginTop": 0, "color": theme.INK}),
-            html.P("Enter what applies to you. Each is capped to its statutory "
-                   "limit — after Calculate, every box shows how much actually "
-                   "counts.",
+            html.P(t("Enter what applies to you. Each is capped to its statutory "
+                     "limit — after Calculate, every box shows how much actually "
+                     "counts."),
                    style={"color": theme.MUTED, "fontSize": "13px", "marginTop": 0}),
             html.Div(_allowance_boxes(saved.get("allowances", {})),
                      id="tax-allow-grid", className="tax-allow-grid"),
@@ -150,7 +151,7 @@ def layout(**_):
         html.Div(
             [html.H3(id="tax-paid-title", style={"color": theme.INK}),
              html.Div(id="tax-paid-list"),
-             html.Button("Close", id="tax-paid-close", n_clicks=0,
+             html.Button(t("Close"), id="tax-paid-close", n_clicks=0,
                          style={**theme.PERIOD_BUTTON_STYLE, "marginTop": "16px"})],
             className="modal-card"),
         id="tax-paid-modal", className="modal-overlay", style={"display": "none"},
@@ -192,10 +193,10 @@ def _paid_row(status, subcat):
     """The 'Tax already paid' row — its amount is a clickable link that opens the
     per-month payments pop-up."""
     cur = currency()
-    label = "Tax already paid" + (f" · {subcat}" if subcat else "")
+    label = t("Tax already paid") + (f" · {subcat}" if subcat else "")
     amount = html.Span(
         f"{status['tax_paid']:,.0f} {cur}", id="tax-paid-open", n_clicks=0,
-        title="See which months you paid tax",
+        title=t("See which months you paid tax"),
         style={"fontWeight": 600, "color": theme.ACCENT, "whiteSpace": "nowrap",
                "cursor": "pointer", "textDecoration": "underline",
                "textDecorationStyle": "dotted", "textUnderlineOffset": "3px"})
@@ -206,7 +207,7 @@ def _paid_row(status, subcat):
 def _payment_rows(payments, cur):
     """Render the pop-up body: one 'DD-MMM-YYYY  X.XX CUR' line per payment."""
     if not payments:
-        return html.Div("No tax payments recorded for this year.",
+        return html.Div(t("No tax payments recorded for this year."),
                         style={"color": theme.MUTED, "fontSize": "13px"})
     line = {"display": "flex", "justifyContent": "space-between", "gap": "16px",
             "padding": "7px 0", "borderBottom": "1px solid var(--border-soft)",
@@ -218,7 +219,7 @@ def _payment_rows(payments, cur):
              for p in payments]
     total = sum(p["amount"] for p in payments)
     items.append(html.Div(
-        [html.Span("Total", style={"color": theme.INK}),
+        [html.Span(t("Total"), style={"color": theme.INK}),
          html.Span(f"{total:,.2f} {cur}", style={"color": theme.INK})],
         style={**line, "borderBottom": "none", "fontWeight": 700,
                "marginTop": "2px"}))
@@ -229,22 +230,22 @@ def _results_block(status, subcat):
     cur = currency()
     money = lambda v: f"{v:,.0f} {cur}"
     rows = [
-        _result_row("Gross income", money(status["gross"])),
-        _result_row("− Employment expense", money(status["expense_deduction"])),
-        _result_row("− Allowances", money(status["allowance_total"])),
-        _result_row("Net taxable income", money(status["net_taxable"])),
-        _result_row("Tax due", money(status["tax_due"]), strong=True),
-        _result_row("Effective rate", f"{status['effective_rate']*100:.2f}%"),
-        _result_row("Marginal rate", f"{status['marginal_rate']*100:.0f}%"),
+        _result_row(t("Gross income"), money(status["gross"])),
+        _result_row(t("− Employment expense"), money(status["expense_deduction"])),
+        _result_row(t("− Allowances"), money(status["allowance_total"])),
+        _result_row(t("Net taxable income"), money(status["net_taxable"])),
+        _result_row(t("Tax due"), money(status["tax_due"]), strong=True),
+        _result_row(t("Effective rate"), f"{status['effective_rate']*100:.2f}%"),
+        _result_row(t("Marginal rate"), f"{status['marginal_rate']*100:.0f}%"),
         _paid_row(status, subcat),
     ]
     rem = status["remaining"]
     if rem > 0:
-        word, color = "Still to pay", theme.EXPENSE_COLOR
+        word, color = t("Still to pay"), theme.EXPENSE_COLOR
     elif rem < 0:
-        word, color = "Refund", theme.INCOME_COLOR
+        word, color = t("Refund"), theme.INCOME_COLOR
     else:
-        word, color = "Settled", theme.MUTED
+        word, color = t("Settled"), theme.MUTED
     rows.append(html.Div(
         [html.Span(word, style={"color": theme.MUTED}),
          html.Span(money(abs(rem)),
@@ -273,11 +274,11 @@ def _breakdown_card(status):
 
     rows = status.get("bracket_rows") or []
     if rows:
-        head = html.Tr([html.Th("Band", style={**_TH_STYLE, "textAlign": "left"}),
-                        html.Th("Income in band",
+        head = html.Tr([html.Th(t("Band"), style={**_TH_STYLE, "textAlign": "left"}),
+                        html.Th(t("Income in band"),
                                 style={**_TH_STYLE, "textAlign": "right"}),
-                        html.Th("Rate", style={**_TH_STYLE, "textAlign": "right"}),
-                        html.Th("Tax", style={**_TH_STYLE, "textAlign": "right"})])
+                        html.Th(t("Rate"), style={**_TH_STYLE, "textAlign": "right"}),
+                        html.Th(t("Tax"), style={**_TH_STYLE, "textAlign": "right"})])
         body = []
         for r in rows:
             body.append(html.Tr([
@@ -294,11 +295,11 @@ def _breakdown_card(status):
         bracket_tbl = html.Table([html.Thead(head), html.Tbody(body)],
                                  style={"width": "100%", "borderCollapse": "collapse"})
     else:
-        bracket_tbl = html.Div("No taxable income — no tax due.",
+        bracket_tbl = html.Div(t("No taxable income — no tax due."),
                                style={"color": theme.MUTED, "fontSize": "13px"})
 
     return card(
-        [html.H3("Tax by bracket", style={"marginTop": 0, "color": theme.INK}),
+        [html.H3(t("Tax by bracket"), style={"marginTop": 0, "color": theme.INK}),
          bracket_tbl],
         style={"marginTop": "20px"},
     )
@@ -354,7 +355,7 @@ def _calculate(_n, year, gross, allow_values, allow_ids):
     # tax-applied output group sorts by the same key, so the lists line up.
     applied_by_key = {b["key"]: b["amount"]
                       for b in status["allowance_breakdown"]}
-    applied = [(f"Counts: {applied_by_key.get(cid['key'], 0):,.0f} {cur}"
+    applied = [(t("Counts: {v}").format(v=f"{applied_by_key.get(cid['key'], 0):,.0f} {cur}")
                 if applied_by_key.get(cid["key"], 0) else "")
                for cid in (allow_ids or [])]
 
@@ -427,7 +428,7 @@ def _open_paid_modal(_n, payload):
     cur = payload.get("currency") or currency()
     year = payload.get("year")
     subcat = payload.get("subcat")
-    title = f"Tax paid — {year}" + (f" · {subcat}" if subcat else "")
+    title = t("Tax paid — {year}").format(year=year) + (f" · {subcat}" if subcat else "")
     return ({"display": "flex"},
             _payment_rows(payload.get("payments") or [], cur), title)
 

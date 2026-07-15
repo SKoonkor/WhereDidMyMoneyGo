@@ -13,6 +13,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
+from src.app.i18n import t
 from src.app.data import get_df, account_names, refresh, currency
 from src.analytics.reconciliation import (tracked_balances, hidden_cost_total,
                                           mark_reconciled, last_reconciled)
@@ -44,10 +45,10 @@ def layout(**_):
 
     header = html.Div(
         [
-            html.Div("Account", style=_NAME_CELL),
-            html.Div("Tracked", style=_CELL),
-            html.Div(f"Actual ({currency()})", style={**_CELL, "flex": "1.2"}),
-            html.Div("Discrepancy", style=_CELL),
+            html.Div(t("Account"), style=_NAME_CELL),
+            html.Div(t("Tracked"), style=_CELL),
+            html.Div(f"{t('Actual')} ({currency()})", style={**_CELL, "flex": "1.2"}),
+            html.Div(t("Discrepancy"), style=_CELL),
         ],
         style=_HEADER_STYLE,
     )
@@ -78,7 +79,7 @@ def layout(**_):
 
     total_row = html.Div(
         [
-            html.Div("Total discrepancy to record", style={"flex": "1", "fontWeight": 600}),
+            html.Div(t("Total discrepancy to record"), style={"flex": "1", "fontWeight": 600}),
             html.Div(_diff_text(0.0), id="recon-total",
                      style={**_CELL, "fontWeight": 600, "fontSize": "16px"}),
         ],
@@ -87,7 +88,7 @@ def layout(**_):
     )
 
     last = last_reconciled()
-    last_txt = last.strftime("%d %b %Y") if last else "never"
+    last_txt = last.strftime("%d %b %Y") if last else t("never")
     hidden = hidden_cost_total(df)
 
     return html.Div(
@@ -98,16 +99,16 @@ def layout(**_):
                         back=("Settings", "/settings")),
             card(
                 [
-                    html.P("Enter balances as the app shows them — liabilities like "
-                           "Credit Card are negative. Accounts you leave unchanged "
-                           "record nothing.",
+                    html.P(t("Enter balances as the app shows them — liabilities like "
+                             "Credit Card are negative. Accounts you leave unchanged "
+                             "record nothing."),
                            style={"color": theme.MUTED, "marginTop": 0, "fontSize": "13px"}),
                     header,
                     *rows,
                     total_row,
                     html.Div(
                         [
-                            html.Button("Apply reconciliation", id="recon-save",
+                            html.Button(t("Apply reconciliation"), id="recon-save",
                                         n_clicks=0, style=theme.BUTTON_STYLE),
                             html.Div(id="recon-msg",
                                      style={"fontSize": "14px", "alignSelf": "center"}),
@@ -121,7 +122,7 @@ def layout(**_):
             card(
                 [
                     html.Div(
-                        [html.Span("Recorded hidden cost (untracked)",
+                        [html.Span(t("Recorded hidden cost (untracked)"),
                                    style={"color": theme.MUTED}),
                          html.Span(money_span(f"{hidden:+,.2f} {currency()}"),
                                    className=("amt-income" if hidden > 0
@@ -130,7 +131,7 @@ def layout(**_):
                         style=theme.RESULT_ROW_STYLE,
                     ),
                     html.Div(
-                        [html.Span("Last reconciled", style={"color": theme.MUTED}),
+                        [html.Span(t("Last reconciled"), style={"color": theme.MUTED}),
                          html.Span(last_txt, style={"fontWeight": 600})],
                         style={**theme.RESULT_ROW_STYLE, "borderBottom": "none"},
                     ),
@@ -183,9 +184,9 @@ def _apply(n_clicks, actuals):
 
     ok_style = {"fontSize": "14px", "alignSelf": "center", "color": theme.ACCENT}
     if written == 0:
-        msg = "No discrepancies — nothing to record."
+        msg = t("No discrepancies — nothing to record.")
     else:
-        msg = f"Recorded {written} balance adjustment{'s' if written != 1 else ''}."
+        msg = t("Recorded {n} balance adjustment(s).").format(n=written)
     # Reset inputs to the new tracked balances (= entered actuals) so the live
     # callback redraws every discrepancy as 0.
     new_tracked = tracked_balances(get_df(), account_names())

@@ -21,6 +21,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
+from src.app.i18n import t, get_lang
 from src.app.data import (account_names, refresh, refresh_config,
                           emergency_fund_config)
 from src.io import store
@@ -60,6 +61,13 @@ def _initial_draft() -> dict:
     }
 
 
+def _uses(n: int) -> str:
+    """'N uses' — English keeps proper singular/plural; Thai has no plural."""
+    if get_lang() == "th":
+        return t("{n} uses").format(n=n)
+    return f"{n} use{'s' if n != 1 else ''}"
+
+
 def _find(entries: list, _id: str):
     for i, e in enumerate(entries):
         if e["id"] == _id:
@@ -92,32 +100,39 @@ def _summarize(draft: dict) -> tuple[list, list]:
     acct, cat = [], []
     for a in draft["accounts"]:
         if a["deleted"]:
-            acct.append(f'"{a["id"]}" deleted')
+            acct.append(t('"{name}" deleted').format(name=a["id"]))
         elif a["name"] != a["id"]:
-            acct.append(f'"{a["id"]}" renamed to → "{a["name"]}"')
+            acct.append(t('"{old}" renamed to → "{new}"').format(
+                old=a["id"], new=a["name"]))
     for c in draft["income"]:
         if c["deleted"]:
-            cat.append(f'income category "{c["id"]}" deleted')
+            cat.append(t('income category "{name}" deleted').format(name=c["id"]))
         elif c["name"] != c["id"]:
-            cat.append(f'income category "{c["id"]}" renamed to → "{c["name"]}"')
+            cat.append(t('income category "{old}" renamed to → "{new}"').format(
+                old=c["id"], new=c["name"]))
     for e in draft["expense"]:
         if e["deleted"]:
-            cat.append(f'category "{e["id"]}" deleted')
+            cat.append(t('category "{name}" deleted').format(name=e["id"]))
             continue
         if e["name"] != e["id"]:
-            cat.append(f'category "{e["id"]}" renamed to → "{e["name"]}"')
+            cat.append(t('category "{old}" renamed to → "{new}"').format(
+                old=e["id"], new=e["name"]))
         for s in e["subs"]:
             if s.get("new"):
                 if not s["deleted"]:
-                    cat.append(f'sub "{s["name"]}" added to "{e["name"]}"')
+                    cat.append(t('sub "{sub}" added to "{cat}"').format(
+                        sub=s["name"], cat=e["name"]))
                 continue
             if s["deleted"]:
-                cat.append(f'sub "{s["osub"]}" deleted from "{s["ocat"]}"')
+                cat.append(t('sub "{sub}" deleted from "{cat}"').format(
+                    sub=s["osub"], cat=s["ocat"]))
                 continue
             if s["ocat"] != e["id"]:
-                cat.append(f'sub "{s["name"]}" moved from "{s["ocat"]}" → "{e["name"]}"')
+                cat.append(t('sub "{sub}" moved from "{old}" → "{new}"').format(
+                    sub=s["name"], old=s["ocat"], new=e["name"]))
             if s["osub"] != s["name"]:
-                cat.append(f'sub "{s["osub"]}" renamed to → "{s["name"]}"')
+                cat.append(t('sub "{old}" renamed to → "{new}"').format(
+                    old=s["osub"], new=s["name"]))
     return acct, cat
 
 
@@ -199,20 +214,19 @@ def _account_cards(draft: dict) -> list:
     for i, e in enumerate(draft["accounts"]):
         used = usage.get(e["id"], 0)
         name = html.Div(e["name"], className="manage-card-name")
-        count = html.Div(f"{used} use{'s' if used != 1 else ''}",
-                         className="manage-count")
+        count = html.Div(_uses(used), className="manage-count")
         if e["deleted"]:
             btns = html.Div(
-                html.Button("✕ Undo delete", id={"type": "acct-del", "index": i},
+                html.Button(t("✕ Undo delete"), id={"type": "acct-del", "index": i},
                             n_clicks=0, style=_UNDO_BTN),
                 className="manage-card-btns")
             cards.append(html.Div([name, count, btns, _x()],
                                   className="manage-card deleted"))
         else:
             btns = html.Div(
-                [html.Button("Rename", id={"type": "acct-rename", "index": i},
+                [html.Button(t("Rename"), id={"type": "acct-rename", "index": i},
                              n_clicks=0, style=_SMALL_BTN),
-                 html.Button("Delete", id={"type": "acct-del", "index": i},
+                 html.Button(t("Delete"), id={"type": "acct-del", "index": i},
                              n_clicks=0, style=_DEL_BTN)],
                 className="manage-card-btns")
             cards.append(html.Div([name, count, btns], className="manage-card"))
@@ -255,34 +269,35 @@ def _expense_board(draft: dict) -> list:
 
 def _subcat_detail(draft: dict, selected: str | None) -> list:
     if not draft or not selected or "|" not in selected:
-        return [html.P("Tap a category to rename it, delete it, or edit its "
-                       "subcategories.", style={"color": theme.MUTED})]
+        return [html.P(t("Tap a category to rename it, delete it, or edit its "
+                         "subcategories."), style={"color": theme.MUTED})]
     kind, _id = selected.split("|", 1)
     _, entry = _find(draft.get(kind, []), _id)
     if entry is None:
-        return [html.P("Tap a category to manage it.", style={"color": theme.MUTED})]
+        return [html.P(t("Tap a category to manage it."),
+                       style={"color": theme.MUTED})]
     usage = store.category_usage(kind).get(entry["id"], 0)
-    kind_label = "Income" if kind == "income" else "Spending"
+    kind_label = t("Income") if kind == "income" else t("Spending")
     header = html.Div(
         [html.H3(entry["name"], style={"margin": 0, "color": theme.INK}),
-         html.Span(f"{kind_label} · {usage} use{'s' if usage != 1 else ''}",
+         html.Span(f"{kind_label} · {_uses(usage)}",
                    style={"color": theme.MUTED, "fontSize": "13px"})],
         style={"display": "flex", "gap": "12px", "alignItems": "baseline"})
 
     if entry["deleted"]:
         return [header,
-                html.Div("Marked for deletion — will be removed on Save.",
+                html.Div(t("Marked for deletion — will be removed on Save."),
                          style={"color": theme.EXPENSE_COLOR, "fontSize": "13px",
                                 "margin": "8px 0"}),
-                html.Button("✕ Undo delete category", id="manage-cat-del-btn",
+                html.Button(t("✕ Undo delete category"), id="manage-cat-del-btn",
                             n_clicks=0, style=_UNDO_BTN)]
 
     rename_row = html.Div(
         [dcc.Input(id="manage-catname", type="text", value=entry["name"],
                    style={**theme.INPUT_STYLE, "marginBottom": 0, "maxWidth": "220px"}),
-         html.Button("Rename category", id="manage-cat-rename-btn", n_clicks=0,
+         html.Button(t("Rename category"), id="manage-cat-rename-btn", n_clicks=0,
                      style=_SMALL_BTN),
-         html.Button("Delete category", id="manage-cat-del-btn", n_clicks=0,
+         html.Button(t("Delete category"), id="manage-cat-del-btn", n_clicks=0,
                      style=_DEL_BTN)],
         style={"display": "flex", "gap": "8px", "alignItems": "center",
                "margin": "10px 0"})
@@ -297,7 +312,7 @@ def _subcat_detail(draft: dict, selected: str | None) -> list:
                 [html.Span(s["name"], className="manage-name",
                            style={"textDecoration": "line-through",
                                   "color": theme.MUTED}),
-                 html.Button("✕ Undo", id={"type": "subcat-del", "index": j},
+                 html.Button(t("✕ Undo"), id={"type": "subcat-del", "index": j},
                              n_clicks=0, style=_UNDO_BTN)],
                 className="manage-row"))
             continue
@@ -306,24 +321,25 @@ def _subcat_detail(draft: dict, selected: str | None) -> list:
             [dcc.Input(id={"type": "subcat-input", "index": j}, type="text",
                        value=s["name"], style={**theme.INPUT_STYLE, "marginBottom": 0,
                                                "maxWidth": "200px"}),
-             html.Span(f"{sn} use{'s' if sn != 1 else ''}", className="manage-count"),
-             html.Button("Rename", id={"type": "subcat-rename", "index": j},
+             html.Span(_uses(sn), className="manage-count"),
+             html.Button(t("Rename"), id={"type": "subcat-rename", "index": j},
                          n_clicks=0, style=_SMALL_BTN),
-             html.Button("Delete", id={"type": "subcat-del", "index": j},
+             html.Button(t("Delete"), id={"type": "subcat-del", "index": j},
                          n_clicks=0, style=_DEL_BTN)],
             className="manage-row"))
     add_row = html.Div(
-        [dcc.Input(id="manage-subcat-new", type="text", placeholder="New subcategory",
+        [dcc.Input(id="manage-subcat-new", type="text", placeholder=t("New subcategory"),
                    style={**theme.INPUT_STYLE, "marginBottom": 0, "maxWidth": "200px"}),
-         html.Button("+ Add subcategory", id="manage-subcat-add", n_clicks=0,
+         html.Button(t("+ Add subcategory"), id="manage-subcat-add", n_clicks=0,
                      style=_SMALL_BTN)],
         style={"display": "flex", "gap": "8px", "alignItems": "center",
                "marginTop": "8px"})
     return [header, rename_row,
-            html.Div("Subcategories", style={"color": theme.MUTED, "fontSize": "13px",
-                                             "marginTop": "6px"}),
-            html.Div(sub_rows or [html.P("None yet.", style={"color": theme.MUTED,
-                                                             "fontSize": "13px"})]),
+            html.Div(t("Subcategories"), style={"color": theme.MUTED,
+                                                "fontSize": "13px",
+                                                "marginTop": "6px"}),
+            html.Div(sub_rows or [html.P(t("None yet."), style={"color": theme.MUTED,
+                                                                "fontSize": "13px"})]),
             add_row]
 
 
@@ -331,9 +347,10 @@ def _subcat_detail(draft: dict, selected: str | None) -> list:
 
 def _section_header(title: str, toggle_id: str) -> html.Div:
     return html.Div(
-        [html.H2(title, style={"margin": 0, "color": theme.INK}),
+        [html.H2(t(title), style={"margin": 0, "color": theme.INK}),
          html.Span("▾", id=f"{toggle_id}-icon", className="manage-toggle-icon")],
-        id=toggle_id, n_clicks=0, className="manage-header", title="Expand / collapse")
+        id=toggle_id, n_clicks=0, className="manage-header",
+        title=t("Expand / collapse"))
 
 
 def layout(**_):
@@ -342,8 +359,8 @@ def layout(**_):
     accounts_card = card([
         _section_header("Accounts", "manage-accounts-toggle"),
         html.Div(
-            [html.P("Rename an account (updates every transaction, including "
-                    "transfers) or delete one you no longer use.",
+            [html.P(t("Rename an account (updates every transaction, including "
+                      "transfers) or delete one you no longer use."),
                     style={"color": theme.MUTED, "fontSize": "13px", "marginTop": "4px"}),
              html.Div(_account_cards(draft), id="manage-accounts",
                       className="manage-cardlist"),
@@ -354,11 +371,12 @@ def layout(**_):
     categories_card = card([
         _section_header("Categories", "manage-categories-toggle"),
         html.Div(
-            [html.Div("Income", style={**_LABEL, "marginTop": "4px"}),
+            [html.Div(t("Income"), style={**_LABEL, "marginTop": "4px"}),
              html.Div(_income_cards(draft), id="manage-income-cats",
                       className="manage-cardlist"),
-             html.Div([html.Span("Spending", style=_LABEL),
-                       html.Span(" — drag a subcategory to another category to move it",
+             html.Div([html.Span(t("Spending"), style=_LABEL),
+                       html.Span(t(" — drag a subcategory to another category to "
+                                   "move it"),
                                  style={"fontSize": "13px", "color": theme.MUTED})],
                       style={"marginTop": "14px"}),
              html.Div(_expense_board(draft), id="manage-cat-cols",
@@ -371,7 +389,7 @@ def layout(**_):
     ], style={"marginTop": "16px"})
 
     save_row = html.Div(
-        [html.Button("Save settings", id="manage-save-btn", n_clicks=0,
+        [html.Button(t("Save settings"), id="manage-save-btn", n_clicks=0,
                      style=theme.BUTTON_STYLE),
          html.Span(id="manage-save-msg", style={"alignSelf": "center",
                                                 "fontSize": "14px"})],
@@ -380,13 +398,13 @@ def layout(**_):
 
     rename_modal = html.Div(
         html.Div(
-            [html.H3("Rename account", style={"color": theme.INK}),
+            [html.H3(t("Rename account"), style={"color": theme.INK}),
              dcc.Input(id="manage-acct-name", type="text",
                        style={**theme.INPUT_STYLE, "width": "100%"}),
              html.Div(
-                 [html.Button("Cancel", id="manage-acct-cancel", n_clicks=0,
+                 [html.Button(t("Cancel"), id="manage-acct-cancel", n_clicks=0,
                               style=theme.PERIOD_BUTTON_STYLE),
-                  html.Button("Save", id="manage-acct-save", n_clicks=0,
+                  html.Button(t("Save"), id="manage-acct-save", n_clicks=0,
                               style=theme.BUTTON_STYLE)],
                  style={"display": "flex", "gap": "10px", "justifyContent": "flex-end",
                         "marginTop": "14px"})],
@@ -395,12 +413,12 @@ def layout(**_):
 
     save_modal = html.Div(
         html.Div(
-            [html.H3("Review changes", style={"color": theme.INK}),
+            [html.H3(t("Review changes"), style={"color": theme.INK}),
              html.Div(id="manage-save-summary"),
              html.Div(
-                 [html.Button("Cancel", id="manage-cancel-btn", n_clicks=0,
+                 [html.Button(t("Cancel"), id="manage-cancel-btn", n_clicks=0,
                               style=theme.PERIOD_BUTTON_STYLE),
-                  html.Button("Apply changes", id="manage-apply-btn", n_clicks=0,
+                  html.Button(t("Apply changes"), id="manage-apply-btn", n_clicks=0,
                               style=theme.BUTTON_STYLE)],
                  style={"display": "flex", "gap": "10px", "justifyContent": "flex-end",
                         "marginTop": "16px"})],
@@ -537,9 +555,10 @@ def _stage_rename_account(_n, new, idx, draft):
     others = {a["name"] for k, a in enumerate(draft["accounts"])
               if k != idx and not a["deleted"]}
     if new in others:
-        return no_update, f"An account named '{new}' already exists.", _ERR, no_update
+        return (no_update, t("An account named '{name}' already exists.").format(
+            name=new), _ERR, no_update)
     entry["name"] = new
-    return draft, f"Staged rename → '{new}'.", _OK, _HIDDEN
+    return draft, t("Staged rename → '{name}'.").format(name=new), _OK, _HIDDEN
 
 
 @callback(
@@ -559,12 +578,13 @@ def _toggle_delete_account(_clicks, draft):
     if not entry["deleted"]:
         used = store.account_usage().get(entry["id"], 0)
         if used:
-            return (no_update, f"'{entry['name']}' is used by {used} transaction(s) — "
-                    f"rename it or reassign those first.", _ERR)
+            return (no_update, t("'{name}' is used by {n} transaction(s) — rename "
+                    "it or reassign those first.").format(
+                        name=entry['name'], n=used), _ERR)
         entry["deleted"] = True
-        return draft, f"Staged delete of '{entry['name']}'.", _OK
+        return draft, t("Staged delete of '{name}'.").format(name=entry['name']), _OK
     entry["deleted"] = False
-    return draft, f"Restored '{entry['name']}'.", _OK
+    return draft, t("Restored '{name}'.").format(name=entry['name']), _OK
 
 
 # ── categories: rename / delete (staged) ─────────────────────────────────────
@@ -593,9 +613,10 @@ def _stage_rename_category(_n, new, selected, draft):
     others = {e["name"] for k, e in enumerate(draft[kind])
               if k != idx and not e["deleted"]}
     if new in others:
-        return no_update, f"A category named '{new}' already exists.", _ERR
+        return no_update, t("A category named '{name}' already exists.").format(
+            name=new), _ERR
     entry["name"] = new
-    return draft, f"Staged rename → '{new}'.", _OK
+    return draft, t("Staged rename → '{name}'.").format(name=new), _OK
 
 
 @callback(
@@ -620,12 +641,13 @@ def _toggle_delete_category(_n, selected, draft):
     if not entry["deleted"]:
         used = store.category_usage(kind).get(entry["id"], 0)
         if used:
-            return (no_update, f"'{entry['name']}' is used by {used} transaction(s) — "
-                    f"rename or reassign those first.", _ERR)
+            return (no_update, t("'{name}' is used by {n} transaction(s) — rename "
+                    "or reassign those first.").format(
+                        name=entry['name'], n=used), _ERR)
         entry["deleted"] = True
-        return draft, f"Staged delete of '{entry['name']}'.", _OK
+        return draft, t("Staged delete of '{name}'.").format(name=entry['name']), _OK
     entry["deleted"] = False
-    return draft, f"Restored '{entry['name']}'.", _OK
+    return draft, t("Restored '{name}'.").format(name=entry['name']), _OK
 
 
 # ── subcategories: add / rename / delete (staged) ────────────────────────────
@@ -654,10 +676,10 @@ def _stage_add_subcategory(_n, name, selected, draft):
     if entry is None:
         raise PreventUpdate
     if name in {s["name"] for s in entry["subs"] if not s["deleted"]}:
-        return no_update, f"'{name}' already exists.", _ERR
+        return no_update, t("'{name}' already exists.").format(name=name), _ERR
     entry["subs"].append({"ocat": None, "osub": None, "name": name,
                           "deleted": False, "new": True})
-    return draft, f"Staged new subcategory '{name}'.", _OK
+    return draft, t("Staged new subcategory '{name}'.").format(name=name), _OK
 
 
 @callback(
@@ -689,9 +711,9 @@ def _stage_rename_subcategory(_clicks, values, ids, selected, draft):
         raise PreventUpdate
     if new in {s["name"] for k, s in enumerate(entry["subs"])
                if k != j and not s["deleted"]}:
-        return no_update, f"'{new}' already exists.", _ERR
+        return no_update, t("'{name}' already exists.").format(name=new), _ERR
     sub["name"] = new
-    return draft, f"Staged rename → '{new}'.", _OK
+    return draft, t("Staged rename → '{name}'.").format(name=new), _OK
 
 
 @callback(
@@ -719,12 +741,13 @@ def _toggle_delete_subcategory(_clicks, selected, draft):
         if not sub.get("new"):
             used = store.subcategory_usage("expense", sub["ocat"]).get(sub["osub"], 0)
             if used:
-                return (no_update, f"'{sub['name']}' is used by {used} transaction(s) — "
-                        f"rename or reassign those first.", _ERR)
+                return (no_update, t("'{name}' is used by {n} transaction(s) — "
+                        "rename or reassign those first.").format(
+                            name=sub['name'], n=used), _ERR)
         sub["deleted"] = True
-        return draft, f"Staged delete of '{sub['name']}'.", _OK
+        return draft, t("Staged delete of '{name}'.").format(name=sub['name']), _OK
     sub["deleted"] = False
-    return draft, f"Restored '{sub['name']}'.", _OK
+    return draft, t("Restored '{name}'.").format(name=sub['name']), _OK
 
 
 # ── subcategory drag-move (staged) ───────────────────────────────────────────
@@ -753,9 +776,11 @@ def _stage_submove(move, draft):
     if pos is None:
         raise PreventUpdate
     if sub_name in {s["name"] for s in dst["subs"] if not s["deleted"]}:
-        return no_update, f"'{dst['name']}' already has a '{sub_name}'.", _ERR
+        return no_update, t("'{cat}' already has a '{sub}'.").format(
+            cat=dst['name'], sub=sub_name), _ERR
     dst["subs"].append(src["subs"].pop(pos))
-    return draft, f"Moved '{sub_name}' → {dst['name']}.", _OK
+    return draft, t("Moved '{sub}' → {cat}.").format(
+        sub=sub_name, cat=dst['name']), _OK
 
 
 # ── save settings → summary modal → apply ────────────────────────────────────
@@ -779,12 +804,13 @@ def _summary_block(title: str, lines: list) -> html.Div:
 def _open_save(_n, draft):
     acct, cat = _summarize(draft)
     if not acct and not cat:
-        return _HIDDEN, no_update, "No changes to apply.", {**_OK, "color": theme.MUTED}
+        return (_HIDDEN, no_update, t("No changes to apply."),
+                {**_OK, "color": theme.MUTED})
     body = []
     if acct:
-        body.append(_summary_block("Account changes:", acct))
+        body.append(_summary_block(t("Account changes:"), acct))
     if cat:
-        body.append(_summary_block("Category changes:", cat))
+        body.append(_summary_block(t("Category changes:"), cat))
     return {}, body, "", _OK
 
 
@@ -810,5 +836,5 @@ def _apply_save(_n, draft):
     try:
         _apply_draft(draft)
     except Exception as exc:  # surface any write error, keep the draft
-        return no_update, no_update, f"Could not apply: {exc}", _ERR
-    return _initial_draft(), _HIDDEN, "Changes applied.", _OK
+        return no_update, no_update, t("Could not apply: {err}").format(err=exc), _ERR
+    return _initial_draft(), _HIDDEN, t("Changes applied."), _OK

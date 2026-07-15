@@ -11,6 +11,7 @@ from __future__ import annotations
 import plotly.graph_objects as go
 
 from src.app import theme
+from src.app.i18n import t
 from src.app.figures.investment import add_cursor_spike
 
 # Match the Investment Simulator's portfolio palette (blue, orange, purple).
@@ -37,7 +38,8 @@ def build_equity_figure(port_series: dict, spx, principal: dict | None = None,
         if p is not None and len(p):
             fig.add_trace(go.Scatter(
                 x=list(p.index), y=list(p.values), mode="lines",
-                name=f"{name} principal", showlegend=False, hoverinfo="skip",
+                name=t("{name} principal").format(name=name), showlegend=False,
+                hoverinfo="skip",
                 line=dict(color=_faint(color), width=1.5, dash="dot",
                           shape="hv"),
             ))
@@ -59,9 +61,9 @@ def build_equity_figure(port_series: dict, spx, principal: dict | None = None,
     fig.update_layout(
         template=ft.template,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text="Account equity over time", x=0.5, xanchor="center",
+        title=dict(text=t("Account equity over time"), x=0.5, xanchor="center",
                    y=0.97, yanchor="top"),
-        xaxis_title="Time", yaxis_title="Equity (USD)",
+        xaxis_title=t("Time"), yaxis_title=t("Equity (USD)"),
         hovermode="x unified", dragmode="pan",
         hoverlabel=dict(bgcolor="rgba(0,0,0,0)"),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),

@@ -18,6 +18,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, money_span
+from src.app.i18n import t
 from src.app.data import get_df, month_periods
 from src.io.exporter import export_frame, export_filename
 
@@ -64,16 +65,16 @@ def layout(month=None, **_):
                     html.Button("‹", id="txn-prev", n_clicks=0, className="nav-btn"),
                     html.Button(id="txn-month-label", n_clicks=0, className="month-label"),
                     html.Button("›", id="txn-next", n_clicks=0, className="nav-btn"),
-                    html.Button("Today", id="txn-today", n_clicks=0, className="nav-btn today"),
+                    html.Button(t("Today"), id="txn-today", n_clicks=0, className="nav-btn today"),
                     html.Div(
                         [
                             dcc.Dropdown(id="txn-pick-month", clearable=False,
-                                         options=[{"label": m, "value": i + 1}
+                                         options=[{"label": t(m), "value": i + 1}
                                                   for i, m in enumerate(_MONTHS)],
                                          style={"width": "150px"}),
                             dcc.Dropdown(id="txn-pick-year", clearable=False,
                                          options=years, style={"width": "110px"}),
-                            html.Button("Go", id="txn-pick-go", n_clicks=0,
+                            html.Button(t("Go"), id="txn-pick-go", n_clicks=0,
                                         style=theme.BUTTON_STYLE),
                         ],
                         id="txn-month-picker",
@@ -83,18 +84,18 @@ def layout(month=None, **_):
                         [
                             html.Div(
                                 [
-                                    html.Button("⬆ Export", id="txn-export", n_clicks=0,
+                                    html.Button(t("⬆ Export"), id="txn-export", n_clicks=0,
                                                 className="nav-btn today",
-                                                title="Download your transactions"),
+                                                title=t("Download your transactions")),
                                     html.Div(
                                         [
-                                            html.Button("This month · CSV", id="txn-exp-csv-month",
+                                            html.Button(t("This month · CSV"), id="txn-exp-csv-month",
                                                         n_clicks=0, style=theme.BUTTON_STYLE),
-                                            html.Button("This month · Excel", id="txn-exp-xlsx-month",
+                                            html.Button(t("This month · Excel"), id="txn-exp-xlsx-month",
                                                         n_clicks=0, style=theme.BUTTON_STYLE),
-                                            html.Button("Everything · CSV", id="txn-exp-csv-all",
+                                            html.Button(t("Everything · CSV"), id="txn-exp-csv-all",
                                                         n_clicks=0, style=theme.BUTTON_STYLE),
-                                            html.Button("Everything · Excel", id="txn-exp-xlsx-all",
+                                            html.Button(t("Everything · Excel"), id="txn-exp-xlsx-all",
                                                         n_clicks=0, style=theme.BUTTON_STYLE),
                                         ],
                                         id="txn-export-menu",
@@ -103,9 +104,9 @@ def layout(month=None, **_):
                                 ],
                                 style={"position": "relative"},
                             ),
-                            dcc.Link("⚙ Account Settings", href="/settings",
+                            dcc.Link(t("⚙ Account Settings"), href="/settings",
                                      className="nav-btn today",
-                                     title="Import, reconcile, backup & app settings",
+                                     title=t("Import, reconcile, backup & app settings"),
                                      style={"textDecoration": "none"}),
                         ],
                         style={"marginLeft": "auto", "display": "flex", "gap": "12px",
@@ -116,10 +117,10 @@ def layout(month=None, **_):
                 className="txn-month-nav",
             ),
             html.Div(id="txn-summary-strip", className="txn-summary-strip"),
-            html.Div("Loading transactions…", id="txn-loading",
+            html.Div(t("Loading transactions…"), id="txn-loading",
                      className="txn-loading", style={"display": "none"}),
             html.Div(id="txn-list", className="txn-list"),
-            dcc.Link("+ Add", id="txn-fab", href="/transactions/add",
+            dcc.Link(t("+ Add"), id="txn-fab", href="/transactions/add",
                      className="txn-fab"),
         ],
         style=theme.PAGE_STYLE,
@@ -264,26 +265,26 @@ def _amount_class(txn_type: str) -> str:
 
 
 def _row(row):
-    t = row["Income/Expense"]
+    tx = row["Income/Expense"]
     # Balance adjustments are reconciliation artifacts — show them as a neutral,
     # non-clickable info row (managed from the Reconcile page, not the editor).
-    if t in _ADJUSTMENT_TYPES:
-        sign = "+" if t == "Adjustment-In" else "−"
+    if tx in _ADJUSTMENT_TYPES:
+        sign = "+" if tx == "Adjustment-In" else "−"
         return html.Div(
             [
-                html.Div([html.Div("Hidden cost"), html.Div("untracked")],
+                html.Div([html.Div(t("Hidden cost")), html.Div(t("untracked"))],
                          className="txn-cat"),
-                html.Div(["Balance adjustment",
+                html.Div([t("Balance adjustment"),
                           html.Span(row["Account"], className="txn-account")],
                          className="txn-note"),
                 money_span(f"{sign}{row['Amount']:,.2f}",
-                           className=f"txn-amount {_amount_class(t)}"),
+                           className=f"txn-amount {_amount_class(tx)}"),
             ],
             className="txn-row txn-row-static",
         )
-    if t in ("Transfer-Out", "Transfer-In"):
-        cat_lines = ["Transfer"]
-        if t == "Transfer-Out":
+    if tx in ("Transfer-Out", "Transfer-In"):
+        cat_lines = [t("Transfer")]
+        if tx == "Transfer-Out":
             account_txt = f"{row['Account']} → {row['Category']}"
         else:
             account_txt = f"{row['Category']} → {row['Account']}"
@@ -299,7 +300,7 @@ def _row(row):
                       html.Span(account_txt, className="txn-account")],
                      className="txn-note"),
             money_span(f"{row['Amount']:,.2f}",
-                       className=f"txn-amount {_amount_class(t)}"),
+                       className=f"txn-amount {_amount_class(tx)}"),
         ],
         href=f"/transactions/edit/{row['Id']}",
         className="txn-row",
@@ -326,7 +327,7 @@ def _summary_item(label: str, value: float, css: str) -> html.Div:
 def _render(month):
     hide = {"display": "none"}  # the month's list is ready — clear the loading note
     period = pd.Period(month, freq="M")
-    label = f"{_MONTHS[period.month - 1]} {period.year}"
+    label = f"{t(_MONTHS[period.month - 1])} {period.year}"
     # Carry the viewed month so a generic "+ Add" returns here afterwards.
     fab_href = f"/transactions/add?month={month}"
 
@@ -337,13 +338,13 @@ def _render(month):
     income = month_df.loc[month_df["Income/Expense"] == "Income", "Amount"].sum()
     expense = month_df.loc[month_df["Income/Expense"] == "Expense", "Amount"].sum()
     strip = [
-        _summary_item("Income", income, "amt-income"),
-        _summary_item("Expense", expense, "amt-expense"),
-        _summary_item("Total", income - expense, ""),
+        _summary_item(t("Income"), income, "amt-income"),
+        _summary_item(t("Expense"), expense, "amt-expense"),
+        _summary_item(t("Total"), income - expense, ""),
     ]
 
     if month_df.empty:
-        empty = html.P("No transactions this month.",
+        empty = html.P(t("No transactions this month."),
                        style={"color": theme.MUTED, "padding": "24px 4px"})
         return label, strip, empty, period.month, period.year, fab_href, hide
 
@@ -361,11 +362,11 @@ def _render(month):
                 dcc.Link(
                     [
                         html.Span(f"{day.day:02d}", className="day-num"),
-                        html.Span(weekday, className=badge_cls),
+                        html.Span(t(weekday), className=badge_cls),
                     ],
                     href=f"/transactions/add?date={day.strftime('%Y-%m-%d')}",
                     className="day-link",
-                    title="Add a transaction on this day",
+                    title=t("Add a transaction on this day"),
                 ),
                 html.Div(
                     [money_span(f"{day_income:,.2f}", className="amt-income"),

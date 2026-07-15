@@ -15,6 +15,7 @@ import pandas as pd
 
 from src.app import theme
 from src.app.components import page_header, card
+from src.app.i18n import t
 from src.app.figures.paper import build_equity_figure
 from src.app.figures.investment import (build_price_figure, build_sector_figure,
                                         cubehelix_colors)
@@ -64,11 +65,12 @@ def _pl_class(v: float) -> str:
 def _status_text(state: dict) -> list:
     s = P.summary(state, state["active"])
     return [
-        html.Span(f"Equity ${_money(s['value'])}", style={"fontWeight": 700}),
-        html.Span(f"  ·  Today ", style={"color": theme.MUTED}),
+        html.Span(t("Equity ${amount}").format(amount=_money(s['value'])),
+                  style={"fontWeight": 700}),
+        html.Span(t("  ·  Today "), style={"color": theme.MUTED}),
         html.Span(f"{s['day_d']:+,.2f} ({s['day_p']:+.2f}%)",
                   className=_pl_class(s["day_d"])),
-        html.Span(f"  ·  Total ", style={"color": theme.MUTED}),
+        html.Span(t("  ·  Total "), style={"color": theme.MUTED}),
         html.Span(f"{s['total_d']:+,.2f} ({s['total_p']:+.2f}%)",
                   className=_pl_class(s["total_d"])),
     ]
@@ -95,8 +97,8 @@ _TIPS = {
 def _tip_th(label) -> html.Th:
     tip = _TIPS.get(label)
     if not tip:
-        return html.Th(label)
-    return html.Th(label, className="invest-tip", **{"data-tip": tip})
+        return html.Th(t(label))
+    return html.Th(t(label), className="invest-tip", **{"data-tip": t(tip)})
 
 
 def _stats_table(state: dict) -> html.Table:
@@ -115,6 +117,7 @@ def _stats_table(state: dict) -> html.Table:
         return html.Tr(cells)
 
     body = [
+        # Labels stay English here; _tip_th() translates them (and their tips).
         row("Equity", "value", lambda v: _money(v)),
         row("Buying power", "cash", lambda v: _money(v)),
         row("Today $", "day_d", lambda v: f"{v:+,.2f}"),
@@ -152,7 +155,7 @@ def _holdings_table(state: dict, selected: str | None = None,
     rows_data = P.positions_rows(state, state["active"])   # already value-desc
 
     def _pos_tr(r) -> html.Tr:
-        short = " (short)" if r["qty"] < 0 else ""
+        short = t(" (short)") if r["qty"] < 0 else ""
         bar = html.Span(className="pos-bar",
                         style={"background": _sector_color(r.get("sector"))})
         cells = [
@@ -174,14 +177,14 @@ def _holdings_table(state: dict, selected: str | None = None,
 
     body, legend = [], None
     if not rows_data:
-        body = [html.Tr(html.Td("No open positions.", colSpan=6,
+        body = [html.Tr(html.Td(t("No open positions."), colSpan=6,
                                 style={"color": theme.MUTED}))]
     elif sort_mode == "sector":
         groups: dict[str, list] = {}
         for r in rows_data:
             groups.setdefault(r.get("sector") or "Unknown", []).append(r)
         for sec in sorted(groups, key=lambda s: -sum(abs(x["value"]) for x in groups[s])):
-            body.append(html.Tr(html.Td(sec, colSpan=6),
+            body.append(html.Tr(html.Td(t(sec), colSpan=6),
                                  className="invest-sector-head"))
             body.extend(_pos_tr(r) for r in groups[sec])   # value-desc preserved
     else:                                                  # by amount + color legend
@@ -192,14 +195,14 @@ def _holdings_table(state: dict, selected: str | None = None,
             totals[sec] = totals.get(sec, 0.0) + abs(r["value"])
         legend = html.Div(
             [html.Span([html.Span(className="pos-legend-dot",
-                                  style={"background": _sector_color(s)}), s])
+                                  style={"background": _sector_color(s)}), t(s)])
              for s in sorted(totals, key=lambda s: -totals[s])],
             className="pos-legend")
 
     pf = state["portfolios"][state["active"]]
-    foot = html.Tr([html.Td("Cash", colSpan=4),
+    foot = html.Tr([html.Td(t("Cash"), colSpan=4),
                     html.Td(_money(pf["cash"]), colSpan=2)], className="invest-foot")
-    total = html.Tr([html.Td("Equity", colSpan=4),
+    total = html.Tr([html.Td(t("Equity"), colSpan=4),
                      html.Td(_money(P.equity(pf)), colSpan=2)],
                     className="invest-foot total")
     table = html.Table([html.Thead(header_row()), html.Tbody(body + [foot, total])],
@@ -208,7 +211,7 @@ def _holdings_table(state: dict, selected: str | None = None,
 
 
 def header_row() -> html.Tr:
-    return html.Tr([html.Th(l) for l in
+    return html.Tr([html.Th(t(l)) for l in
                     ("Position", "Qty", "Avg", "Price", "Value", "P/L")])
 
 
@@ -216,9 +219,10 @@ def _orders_table(state: dict) -> html.Div | None:
     pf = state["portfolios"][state["active"]]
     orders = P.open_orders(pf)
     if not orders:
-        return html.Div("No pending orders.", style={"color": theme.MUTED,
+        return html.Div(t("No pending orders."), style={"color": theme.MUTED,
                                                       "fontSize": "13px"})
-    header = html.Tr([html.Th(l) for l in ("Order", "Type", "Trigger", "")])
+    header = html.Tr([html.Th(t(l) if l else "")
+                      for l in ("Order", "Type", "Trigger", "")])
     rows = []
     for o in orders:
         meta = {k: o[k] for k in
@@ -234,7 +238,7 @@ def _orders_table(state: dict) -> html.Div | None:
             html.Td(trig),
             html.Td(html.Button("✕", id={"type": "paper-cancel", "oid": o["id"]},
                                 n_clicks=0, className="paper-cancel-btn",
-                                title="Cancel order")),
+                                title=t("Cancel order"))),
         ]))
     return html.Table([html.Thead(header), html.Tbody(rows)], className="invest-table")
 
@@ -246,16 +250,17 @@ def _watch_table(state: dict, selected: str | None,
     the watchlist only (holdings untouched)."""
     rows_data = P.watch_rows(state)
     if not rows_data:
-        return html.Div("Add tickers to watch live quotes.",
+        return html.Div(t("Add tickers to watch live quotes."),
                         style={"color": theme.MUTED, "fontSize": "13px"})
-    header = html.Tr([html.Th(l) for l in ("Ticker", "Last", "Chg", "Chg %", "")])
+    header = html.Tr([html.Th(t(l) if l else "")
+                      for l in ("Ticker", "Last", "Chg", "Chg %", "")])
     rows = []
     current_sector = None
     for r in rows_data:
         if r["sector"] != current_sector:        # sector group header
             current_sector = r["sector"]
             if current_sector == "Unknown":
-                rows.append(html.Tr(html.Td(current_sector, colSpan=5),
+                rows.append(html.Tr(html.Td(t(current_sector), colSpan=5),
                                     className="invest-sector-head"))
             else:
                 hcls = "invest-sector-head invest-sector-click" + (
@@ -274,7 +279,7 @@ def _watch_table(state: dict, selected: str | None,
             html.Td(html.Button("✕", id={"type": "paper-unwatch",
                                          "ticker": r["ticker"]}, n_clicks=0,
                                 className="paper-cancel-btn",
-                                title="Remove from watchlist (holdings unaffected)")),
+                                title=t("Remove from watchlist (holdings unaffected)"))),
         ], id={"type": "paper-watch-row", "ticker": r["ticker"]}, n_clicks=0,
             className=cls))
     return html.Table([html.Thead(header), html.Tbody(rows)], className="invest-table")
@@ -290,8 +295,8 @@ def _fmt_metric(fmt, m):
 def _metric_th(label) -> html.Th:
     tip = _INV_TIPS.get(label)
     if not tip:
-        return html.Th(label)
-    return html.Th(label, className="invest-tip", **{"data-tip": tip})
+        return html.Th(t(label))
+    return html.Th(t(label), className="invest-tip", **{"data-tip": t(tip)})
 
 
 def _stock_metrics_table(ticker: str, price: float) -> html.Table:
@@ -320,13 +325,14 @@ def _sector_metrics_table(tickers: list, colors: list, marks: dict) -> html.Tabl
 def _trades_table(state: dict, limit: int | None = 10) -> html.Div:
     rows_data = P.trade_history(state, state["active"], limit=limit)
     if not rows_data:
-        return html.Div("No transactions yet.",
+        return html.Div(t("No transactions yet."),
                         style={"color": theme.MUTED, "fontSize": "13px"})
-    header = html.Tr([html.Th(l) for l in ("When", "Action", "Qty", "Price", "Value")])
+    header = html.Tr([html.Th(t(l))
+                      for l in ("When", "Action", "Qty", "Price", "Value")])
     rows = []
     for r in rows_data:
         when = (r["t"] or "")[5:16].replace("T", " ")   # MM-DD HH:MM
-        side = r["side"].capitalize()
+        side = t(r["side"].capitalize())
         qty = f"{r['qty']:g}" if r["qty"] is not None else "—"
         price = _money(r["price"]) if r["price"] is not None else "—"
         rows.append(html.Tr([
@@ -343,14 +349,14 @@ def _trades_table(state: dict, limit: int | None = 10) -> html.Div:
 def _chain_table(underlying: str, expiry: str, right: str,
                  sel_strike) -> html.Div:
     if not (underlying and expiry):
-        return html.Div("Load an option chain to pick a contract.",
+        return html.Div(t("Load an option chain to pick a contract."),
                         style={"color": theme.MUTED})
     try:
         chain = Q.option_chain(underlying, expiry)
     except S.StockError as exc:
         return html.Div(str(exc), style={"color": theme.EXPENSE_COLOR})
     side = chain["calls"] if right == "call" else chain["puts"]
-    header = html.Tr([html.Th(l) for l in
+    header = html.Tr([html.Th(t(l)) for l in
                       ("Strike", "Bid", "Ask", "Last", "IV", "Vol", "OI")])
     rows = []
     for r in side:
@@ -414,18 +420,19 @@ def _confirm_body(pend: dict) -> html.Div:
     """Human-readable summary of the pending transaction for the confirm popup."""
     kind = pend["kind"]
     if kind == "cash":
-        verb = "Deposit" if pend["op"] == "deposit" else "Withdraw"
-        prep = "into" if pend["op"] == "deposit" else "from"
+        verb = t("Deposit") if pend["op"] == "deposit" else t("Withdraw")
+        prep = t("into") if pend["op"] == "deposit" else t("from")
         return html.Div([html.Span(f"{verb} "), _bold(f"${pend['amount']:,.2f}"),
                          html.Span(f" {prep} {pend['pf_name']}.")])
     # trade
-    action = "Sell / Short" if pend.get("is_short") else pend["action"].capitalize()
+    action = t("Sell / Short") if pend.get("is_short") else t(pend["action"].capitalize())
     mult = pend["mult"]
     price, est, ap = pend["price"], pend["est"], ("~" if pend["approx"] else "")
-    unit = "contract" if pend["is_option"] else "share"
+    unit = t("contract") if pend["is_option"] else t("share")
     head = html.Div([html.Span(f"{action} "),
                      _bold(f"{pend['qty']:g} {pend['label']}"),
-                     html.Span(f"  (×{mult} per contract)" if mult != 1 else "")])
+                     html.Span(t("  (×{mult} per contract)").format(mult=mult)
+                               if mult != 1 else "")])
     lines = [head]
     # Company name under the qty/ticker line, in the same muted style as "per share".
     name = P.company_name(pend.get("symbol", ""))
@@ -433,20 +440,23 @@ def _confirm_body(pend: dict) -> html.Div:
         lines.append(html.Div(name, style={"color": theme.MUTED, "fontSize": "13px"}))
     if pend["otype"] == "market":
         lines.append(html.Div(
-            f"@ {ap}${price:,.2f} per {unit}" if price else "at the current price",
+            t("@ {ap}${price} per {unit}").format(
+                ap=ap, price=f"{price:,.2f}", unit=unit) if price
+            else t("at the current price"),
             style={"color": theme.MUTED, "fontSize": "13px"}))
-        amt_label = "Estimated cost" if pend["action"] == "buy" else "Estimated proceeds"
+        amt_label = t("Estimated cost") if pend["action"] == "buy" else t("Estimated proceeds")
         if est is not None:
             lines.append(html.Div([html.Span(f"{amt_label}: "),
                                    _bold(f"{ap}${est:,.2f}")]))
     else:
-        trig = (f"limit ${price:,.2f}" if pend["otype"] == "limit"
-                else f"stop ${price:,.2f}" if pend["otype"] == "stop"
-                else "trailing stop")
-        lines.append(html.Div(f"{pend['otype'].capitalize()} order — {trig}",
+        trig = (t("limit ${price}").format(price=f"{price:,.2f}") if pend["otype"] == "limit"
+                else t("stop ${price}").format(price=f"{price:,.2f}") if pend["otype"] == "stop"
+                else t("trailing stop"))
+        lines.append(html.Div(t("{otype} order — {trig}").format(
+                                  otype=t(pend['otype'].capitalize()), trig=trig),
                               style={"color": theme.MUTED, "fontSize": "13px"}))
         if est is not None:
-            lines.append(html.Div([html.Span("Est. amount when filled: "),
+            lines.append(html.Div([html.Span(t("Est. amount when filled: ")),
                                    _bold(f"${est:,.2f}")]))
     return html.Div(lines)
 
@@ -455,9 +465,9 @@ def _help_entry(name: str, definition: str, example: str) -> html.Div:
     """One order-type block in the help modal: name, definition, example scenario."""
     return html.Div(
         [
-            html.Div(name, style={"fontWeight": 700, "marginBottom": "2px"}),
-            html.Div(definition, style={"fontSize": "13px"}),
-            html.Div(["Example: ", html.Em(example)],
+            html.Div(t(name), style={"fontWeight": 700, "marginBottom": "2px"}),
+            html.Div(t(definition), style={"fontSize": "13px"}),
+            html.Div([t("Example: "), html.Em(t(example))],
                      style={"fontSize": "12.5px", "color": theme.MUTED,
                             "marginTop": "2px"}),
         ],
@@ -468,7 +478,7 @@ def _help_entry(name: str, definition: str, example: str) -> html.Div:
 # ── Layout ────────────────────────────────────────────────────────────────────
 
 def _labelled(label, comp):
-    return html.Div([html.Span(label, style={"color": theme.MUTED,
+    return html.Div([html.Span(t(label), style={"color": theme.MUTED,
                                              "fontSize": "13px",
                                              "marginRight": "6px"}), comp])
 
@@ -480,8 +490,8 @@ def layout(**_):
         return html.Div(dcc.Location(id="paper-redirect", href="/paper", refresh=True))
     return html.Div(
         [
-            page_header(["Paper Trading ",
-                         html.Span("(Live Market Data)", className="title-sub"),
+            page_header([t("Paper Trading "),
+                         html.Span(t("(Live Market Data)"), className="title-sub"),
                          f" — {state['name']}"],
                         "Live virtual trading — real (15-min delayed) quotes, "
                         "market/limit/stop orders, short selling and options.",
@@ -498,7 +508,7 @@ def layout(**_):
             html.Div(
                 [
                     html.Span(id="paper-status"),
-                    html.Span("● LIVE", id="paper-live-badge", className="paper-live"),
+                    html.Span(t("● LIVE"), id="paper-live-badge", className="paper-live"),
                     html.Span(id="paper-clock", className="paper-clock"),
                     dcc.Interval(id="paper-clock-tick", interval=1000, n_intervals=0),
                 ],
@@ -509,25 +519,25 @@ def layout(**_):
                     # ── Left card: manage + order ticket ─────────────────────
                     card(
                         [
-                            html.H3("Manage", style={"marginTop": 0}),
+                            html.H3(t("Manage"), style={"marginTop": 0}),
                             dcc.RadioItems(id="paper-active", options=[], value=0,
                                            inline=True,
                                            labelStyle={"marginRight": "14px",
                                                        "cursor": "pointer"}),
                             html.Div(
                                 [
-                                    html.Button("+ Portfolio", id="paper-add-pf",
+                                    html.Button(t("+ Portfolio"), id="paper-add-pf",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                     dcc.Input(id="paper-rename", type="text",
-                                              placeholder="Rename active…",
+                                              placeholder=t("Rename active…"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "flex": "1",
                                                      "minWidth": "100px"}),
-                                    html.Button("Rename", id="paper-rename-btn",
+                                    html.Button(t("Rename"), id="paper-rename-btn",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
-                                    html.Button("Delete", id="paper-delete-pf-btn",
+                                    html.Button(t("Delete"), id="paper-delete-pf-btn",
                                                 n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.EXPENSE_COLOR,
@@ -536,19 +546,19 @@ def layout(**_):
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
                             html.Hr(),
-                            html.H4("Capital", style={"margin": "0 0 8px"}),
+                            html.H4(t("Capital"), style={"margin": "0 0 8px"}),
                             html.Div(
                                 [
                                     dcc.Input(id="paper-cash-amt", type="number", min=0,
-                                              step="any", placeholder="$ amount",
+                                              step="any", placeholder=t("$ amount"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "width": "110px"}),
-                                    html.Button("Deposit", id="paper-deposit-btn",
+                                    html.Button(t("Deposit"), id="paper-deposit-btn",
                                                 n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.INCOME_COLOR,
                                                        "borderColor": theme.INCOME_COLOR}),
-                                    html.Button("Withdraw", id="paper-withdraw-btn",
+                                    html.Button(t("Withdraw"), id="paper-withdraw-btn",
                                                 n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.EXPENSE_COLOR,
@@ -557,12 +567,12 @@ def layout(**_):
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
                             html.Hr(),
-                            html.H4("Order ticket", style={"margin": "0 0 8px"}),
+                            html.H4(t("Order ticket"), style={"margin": "0 0 8px"}),
                             dcc.RadioItems(
                                 id="paper-asset",
-                                options=[{"label": "  Stock/ETF", "value": "stock"},
-                                         {"label": "  Crypto", "value": "crypto"},
-                                         {"label": "  Option", "value": "option"}],
+                                options=[{"label": t("  Stock/ETF"), "value": "stock"},
+                                         {"label": t("  Crypto"), "value": "crypto"},
+                                         {"label": t("  Option"), "value": "option"}],
                                 value="stock", inline=True,
                                 inputStyle={"marginRight": "4px"},
                                 labelStyle={"marginRight": "12px", "cursor": "pointer"},
@@ -570,11 +580,11 @@ def layout(**_):
                             html.Div(
                                 [
                                     dcc.Input(id="paper-symbol", type="text",
-                                              placeholder="Symbol (e.g. AAPL, BTC-USD)",
+                                              placeholder=t("Symbol (e.g. AAPL, BTC-USD)"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "flex": "1",
                                                      "minWidth": "150px"}),
-                                    html.Button("Load chain", id="paper-load-chain",
+                                    html.Button(t("Load chain"), id="paper-load-chain",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                 ],
@@ -588,8 +598,8 @@ def layout(**_):
                                         style={"minWidth": "150px"})),
                                     dcc.RadioItems(
                                         id="paper-right",
-                                        options=[{"label": "  Call", "value": "call"},
-                                                 {"label": "  Put", "value": "put"}],
+                                        options=[{"label": t("  Call"), "value": "call"},
+                                                 {"label": t("  Put"), "value": "put"}],
                                         value="call", inline=True,
                                         inputStyle={"marginRight": "4px"},
                                         labelStyle={"marginRight": "10px",
@@ -605,17 +615,17 @@ def layout(**_):
                                 [
                                     dcc.RadioItems(
                                         id="paper-otype",
-                                        options=[{"label": "  Market", "value": "market"},
-                                                 {"label": "  Limit", "value": "limit"},
-                                                 {"label": "  Stop", "value": "stop"},
-                                                 {"label": "  Trailing", "value": "trailing"}],
+                                        options=[{"label": t("  Market"), "value": "market"},
+                                                 {"label": t("  Limit"), "value": "limit"},
+                                                 {"label": t("  Stop"), "value": "stop"},
+                                                 {"label": t("  Trailing"), "value": "trailing"}],
                                         value="market", inline=True,
                                         inputStyle={"marginRight": "4px"},
                                         labelStyle={"marginRight": "12px",
                                                     "cursor": "pointer"}),
                                     html.Button("?", id="paper-otype-help", n_clicks=0,
                                                 className="paper-help-btn",
-                                                title="What do these order types mean?"),
+                                                title=t("What do these order types mean?")),
                                 ],
                                 style={"marginTop": "10px", "display": "flex",
                                        "alignItems": "center", "gap": "6px",
@@ -624,17 +634,17 @@ def layout(**_):
                             html.Div(
                                 [
                                     dcc.Input(id="paper-limit", type="number",
-                                              placeholder="Limit $", min=0, step="any",
+                                              placeholder=t("Limit $"), min=0, step="any",
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "width": "110px",
                                                      "display": "none"}),
                                     dcc.Input(id="paper-stop", type="number",
-                                              placeholder="Stop $", min=0, step="any",
+                                              placeholder=t("Stop $"), min=0, step="any",
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "width": "110px",
                                                      "display": "none"}),
                                     dcc.Input(id="paper-trail", type="number",
-                                              placeholder="Trail %", min=0, step="any",
+                                              placeholder=t("Trail %"), min=0, step="any",
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "width": "110px",
                                                      "display": "none"}),
@@ -643,8 +653,8 @@ def layout(**_):
                             ),
                             dcc.RadioItems(
                                 id="paper-mode",
-                                options=[{"label": "  Shares/Contracts", "value": "shares"},
-                                         {"label": "  $ amount", "value": "dollars"}],
+                                options=[{"label": t("  Shares/Contracts"), "value": "shares"},
+                                         {"label": t("  $ amount"), "value": "dollars"}],
                                 value="shares", inline=True,
                                 inputStyle={"marginRight": "4px"},
                                 labelStyle={"marginRight": "12px", "cursor": "pointer"},
@@ -653,19 +663,19 @@ def layout(**_):
                             html.Div(
                                 [
                                     dcc.Input(id="paper-qty", type="number", min=0,
-                                              step="any", placeholder="Qty / $",
+                                              step="any", placeholder=t("Qty / $"),
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "width": "100px"}),
-                                    html.Button("Buy", id="paper-buy", n_clicks=0,
+                                    html.Button(t("Buy"), id="paper-buy", n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.INCOME_COLOR,
                                                        "borderColor": theme.INCOME_COLOR}),
-                                    html.Button("Sell / Short", id="paper-sell",
+                                    html.Button(t("Sell / Short"), id="paper-sell",
                                                 n_clicks=0,
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.EXPENSE_COLOR,
                                                        "borderColor": theme.EXPENSE_COLOR}),
-                                    html.Button("+ Watch", id="paper-add-watch",
+                                    html.Button(t("+ Watch"), id="paper-add-watch",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                 ],
@@ -675,16 +685,16 @@ def layout(**_):
                                      style={"fontSize": "13px", "marginTop": "8px",
                                             "minHeight": "18px"}),
                             html.Hr(),
-                            html.H4("Pending orders", style={"margin": "0 0 8px"}),
+                            html.H4(t("Pending orders"), style={"margin": "0 0 8px"}),
                             html.Div(id="paper-orders"),
                             html.Hr(),
-                            html.H4("Watchlist", style={"margin": "0 0 8px"}),
+                            html.H4(t("Watchlist"), style={"margin": "0 0 8px"}),
                             html.Div(id="paper-watch"),
                             html.Hr(),
                             html.Div(
                                 [
-                                    html.H4("Trade history", style={"margin": 0}),
-                                    html.Button("View all", id="paper-history-open",
+                                    html.H4(t("Trade history"), style={"margin": 0}),
+                                    html.Button(t("View all"), id="paper-history-open",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
                                 ],
@@ -705,12 +715,12 @@ def layout(**_):
                                 [
                                     html.Div(
                                         [
-                                            html.H4("Positions", style={"margin": 0}),
+                                            html.H4(t("Positions"), style={"margin": 0}),
                                             dcc.RadioItems(
                                                 id="paper-pos-sort",
-                                                options=[{"label": "Amount",
+                                                options=[{"label": t("Amount"),
                                                           "value": "amount"},
-                                                         {"label": "Sector",
+                                                         {"label": t("Sector"),
                                                           "value": "sector"}],
                                                 value="amount", inline=True,
                                                 className="invest-range",
@@ -735,7 +745,7 @@ def layout(**_):
                                              style={"marginTop": "12px"}),
                                     html.Div(
                                         [
-                                            html.H4("Option chain",
+                                            html.H4(t("Option chain"),
                                                     style={"margin": "0 0 8px"}),
                                             html.Div(id="paper-chain"),
                                         ],
@@ -763,9 +773,9 @@ def layout(**_):
                                                                 dcc.RadioItems(
                                                                     id="paper-chart-type",
                                                                     options=[
-                                                                        {"label": "Line",
+                                                                        {"label": t("Line"),
                                                                          "value": "line"},
-                                                                        {"label": "Candle",
+                                                                        {"label": t("Candle"),
                                                                          "value": "candle"}],
                                                                     value="candle",
                                                                     inline=True,
@@ -777,11 +787,11 @@ def layout(**_):
                                                             html.Button(
                                                                 "⛶", id="paper-fs-enter",
                                                                 className="paper-fs-btn invest-tip",
-                                                                **{"data-tip": "Full Screen"}),
+                                                                **{"data-tip": t("Full Screen")}),
                                                             html.Button(
                                                                 "✕", id="paper-fs-exit",
                                                                 className="paper-fs-btn paper-fs-exit invest-tip",
-                                                                **{"data-tip": "Exit Full Screen"}),
+                                                                **{"data-tip": t("Exit Full Screen")}),
                                                         ],
                                                         style={"display": "flex",
                                                                "alignItems": "center",
@@ -816,14 +826,14 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Confirm transaction"),
+                        html.H3(t("Confirm transaction")),
                         html.Div(id="paper-confirm-body",
                                  style={"margin": "8px 0 4px", "lineHeight": "1.7"}),
                         html.Div(
                             [
-                                html.Button("Confirm", id="paper-confirm-yes",
+                                html.Button(t("Confirm"), id="paper-confirm-yes",
                                             n_clicks=0, style=theme.BUTTON_STYLE),
-                                html.Button("Cancel", id="paper-confirm-no",
+                                html.Button(t("Cancel"), id="paper-confirm-no",
                                             n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
@@ -837,17 +847,17 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Confirm delete"),
+                        html.H3(t("Confirm delete")),
                         html.Div(id="paper-delete-body",
                                  style={"margin": "8px 0 4px", "lineHeight": "1.7"}),
                         html.Div(
                             [
-                                html.Button("Delete", id="paper-delete-yes",
+                                html.Button(t("Delete"), id="paper-delete-yes",
                                             n_clicks=0,
                                             style={**theme.BUTTON_STYLE,
                                                    "background": theme.EXPENSE_COLOR,
                                                    "borderColor": theme.EXPENSE_COLOR}),
-                                html.Button("Cancel", id="paper-delete-no",
+                                html.Button(t("Cancel"), id="paper-delete-no",
                                             n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
@@ -861,7 +871,7 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Order types explained"),
+                        html.H3(t("Order types explained")),
                         _help_entry(
                             "Market",
                             "Executes immediately at the current market price.",
@@ -891,13 +901,13 @@ def layout(**_):
                             "price runs to $350, so the stop rides up to $315 "
                             "(350 − 10%). If the price then falls 10% from its peak, "
                             "you sell — profit locked in, upside left open."),
-                        html.P("Note: pending orders here are checked against "
-                               "~15-min-delayed quotes on each refresh tick, so fills "
-                               "can lag the exact trigger moment.",
+                        html.P(t("Note: pending orders here are checked against "
+                                 "~15-min-delayed quotes on each refresh tick, so "
+                                 "fills can lag the exact trigger moment."),
                                style={"color": theme.MUTED, "fontSize": "12px",
                                       "marginTop": "10px"}),
                         html.Div(
-                            html.Button("Close", id="paper-help-close", n_clicks=0,
+                            html.Button(t("Close"), id="paper-help-close", n_clicks=0,
                                         style=theme.BUTTON_STYLE),
                             className="invest-modal-actions",
                         ),
@@ -910,11 +920,11 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Trade history — all transactions"),
+                        html.H3(t("Trade history — all transactions")),
                         html.Div(id="paper-history-full",
                                  className="paper-history-scroll"),
                         html.Div(
-                            html.Button("Hide trade history",
+                            html.Button(t("Hide trade history"),
                                         id="paper-history-close", n_clicks=0,
                                         style=theme.BUTTON_STYLE),
                             className="invest-modal-actions",
@@ -1011,7 +1021,7 @@ def _confirm(_yes, _no, pend, refresh):
         if pend["kind"] == "cash":
             fn = P.deposit if pend["op"] == "deposit" else P.withdraw
             fn(state, state["active"], pend["amount"])
-            verb = "Deposited" if pend["op"] == "deposit" else "Withdrew"
+            verb = t("Deposited") if pend["op"] == "deposit" else t("Withdrew")
             msg = f"{verb} {pend['amount']:,.2f}"
         else:                                    # trade
             msg = P.place_order(state, pend["spec"])
@@ -1120,9 +1130,9 @@ def _watch_click(row_clicks, unwatch_clicks, pos_clicks, current, asset):
                     if '"paper-unwatch"' in t["prop_id"] and t["value"]), None)
     if unwatch:                                  # open delete confirmation
         pend = {"kind": "watch", "ticker": unwatch, "was_selected": current == unwatch}
-        body = html.Div([html.Span("Remove "), _bold(unwatch),
-                         html.Span(" from your watchlist? Your holdings are not "
-                                   "affected.")])
+        body = html.Div([html.Span(t("Remove ")), _bold(unwatch),
+                         html.Span(t(" from your watchlist? Your holdings are not "
+                                     "affected."))])
         return no_update, no_update, {"display": "flex"}, body, pend, no_update
     tk = ctx.triggered_id["ticker"]
     # Toggle stock selection; a stock selection clears any sector comparison. On a fresh
@@ -1146,12 +1156,12 @@ def _delete_pf_prompt(_n):
     if not state:
         raise PreventUpdate
     if len(state["portfolios"]) <= 1:
-        return no_update, no_update, no_update, "Can't delete the only portfolio."
+        return no_update, no_update, no_update, t("Can't delete the only portfolio.")
     pf = state["portfolios"][state["active"]]
     pend = {"kind": "portfolio", "idx": state["active"], "name": pf["name"]}
-    body = html.Div([html.Span("Delete portfolio "), _bold(pf["name"]),
-                     html.Span(" and all its holdings & history? "),
-                     html.Span("This cannot be undone.",
+    body = html.Div([html.Span(t("Delete portfolio ")), _bold(pf["name"]),
+                     html.Span(t(" and all its holdings & history? ")),
+                     html.Span(t("This cannot be undone."),
                                style={"color": theme.EXPENSE_COLOR})])
     return {"display": "flex"}, body, pend, ""
 
@@ -1177,11 +1187,11 @@ def _delete_confirm(_yes, _no, pend, refresh):
     try:
         if pend["kind"] == "watch":
             P.remove_watch(state, pend["ticker"])
-            msg = f"Removed {pend['ticker']} from watchlist"
+            msg = t("Removed {ticker} from watchlist").format(ticker=pend['ticker'])
             sel = None if pend.get("was_selected") else no_update
         else:                                    # portfolio
             P.delete_portfolio(state, pend["idx"])
-            msg = f"Deleted portfolio {pend['name']}"
+            msg = t("Deleted portfolio {name}").format(name=pend['name'])
             sel = no_update
     except P.TradeError as exc:
         return _HIDDEN, no_update, str(exc), None, no_update
@@ -1230,10 +1240,11 @@ def _history_toggle(_open, _close):
 def _load_chain(_n, symbol):
     symbol = (symbol or "").strip().upper()
     if not symbol:
-        return no_update, no_update, no_update, "Enter an underlying symbol first."
+        return no_update, no_update, no_update, t("Enter an underlying symbol first.")
     exps = Q.option_expirations(symbol)
     if not exps:
-        return no_update, [], None, f"No listed options for {symbol}."
+        return (no_update, [], None,
+                t("No listed options for {symbol}.").format(symbol=symbol))
     opts = [{"label": e, "value": e} for e in exps]
     return symbol, opts, exps[0], ""
 
@@ -1407,8 +1418,9 @@ def _render(_refresh, selected, sel_sector, asset, opt_under, expiry, right, str
         chain_wrap = {"marginTop": "20px", "display": "block"}
         chain = _chain_table(opt_under, expiry, right, strike)
         price = Q.option_price(opt_under, expiry, right, strike) if strike else None
-        label = (f"Contract: {opt_under} {expiry} "
-                 f"{'C' if right == 'call' else 'P'}{float(strike):g}"
+        label = (t("Contract: {under} {expiry} {cp}{strike}").format(
+                     under=opt_under, expiry=expiry,
+                     cp=('C' if right == 'call' else 'P'), strike=f"{float(strike):g}")
                  + (f" @ ${price:,.2f}" if price else "")) if strike else ""
     else:
         chain_wrap, chain, label = _HIDDEN, None, ""
@@ -1474,8 +1486,8 @@ def _render(_refresh, selected, sel_sector, asset, opt_under, expiry, right, str
     _lock_static(fig)          # paper-graph (equity)
     _lock_static(stock_fig)    # paper-stock-graph (sector / single stock)
     chart_type_options = [
-        {"label": "Line", "value": "line"},
-        {"label": "Candle", "value": "candle", "disabled": rng in _NO_CANDLE},
+        {"label": t("Line"), "value": "line"},
+        {"label": t("Candle"), "value": "candle", "disabled": rng in _NO_CANDLE},
     ]
 
     return (

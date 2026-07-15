@@ -4,6 +4,7 @@ import dash
 from dash import dcc, html
 
 from src.app import theme
+from src.app.i18n import t
 from src.app.txn_form import build_form
 from src.io import store
 
@@ -16,9 +17,9 @@ def layout(txn_id=None, **_):
     if txn is None:
         return html.Div(
             [
-                html.H1("Transaction not found", style=theme.H1_STYLE),
-                html.P("It may have been deleted.", style={"color": theme.MUTED}),
-                dcc.Link("‹ Back to transactions", href="/transactions",
+                html.H1(t("Transaction not found"), style=theme.H1_STYLE),
+                html.P(t("It may have been deleted."), style={"color": theme.MUTED}),
+                dcc.Link(t("‹ Back to transactions"), href="/transactions",
                          style={"color": theme.ACCENT}),
             ],
             style=theme.PAGE_STYLE,
@@ -26,10 +27,10 @@ def layout(txn_id=None, **_):
     if txn.get("ui_type") == "Adjustment":
         return html.Div(
             [
-                html.H1("Balance adjustment", style=theme.H1_STYLE),
-                html.P("This is a reconciliation entry (hidden cost). Manage your "
-                       "balances from the Reconcile page.", style={"color": theme.MUTED}),
-                dcc.Link("Go to Reconcile Balances", href="/reconcile",
+                html.H1(t("Balance adjustment"), style=theme.H1_STYLE),
+                html.P(t("This is a reconciliation entry (hidden cost). Manage your "
+                         "balances from the Reconcile page."), style={"color": theme.MUTED}),
+                dcc.Link(t("Go to Reconcile Balances"), href="/reconcile",
                          style={"color": theme.ACCENT}),
             ],
             style=theme.PAGE_STYLE,

@@ -31,7 +31,11 @@ ACCOUNT_COLORS = {
 # Fallback palette for any account not listed above.
 FALLBACK_PALETTE = ["#34495e", "#7f8c8d", "#d35400", "#8e44ad", "#16a085"]
 
-FONT_FAMILY = "Helvetica Neue, Helvetica, Arial, sans-serif"
+# Latin faces first, then widely-available system Thai faces (macOS Thonburi/
+# Sukhumvit, Windows Leelawadee UI, Linux Noto Sans Thai/Sarabun) so Thai text
+# renders cleanly wherever the app runs.
+FONT_FAMILY = ('Helvetica Neue, Helvetica, Arial, "Sarabun", "Leelawadee UI", '
+               '"Sukhumvit Set", Thonburi, "Noto Sans Thai", sans-serif')
 
 
 def account_color(account: str, index: int = 0) -> str:

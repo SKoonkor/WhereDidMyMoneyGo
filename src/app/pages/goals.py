@@ -5,6 +5,7 @@ from dash import dcc, html, callback, Input, Output, State, no_update, ctx
 
 from src.app import theme
 from src.app.components import page_header, card, money_span
+from src.app.i18n import t
 from src.app.data import get_df, emergency_fund_config, currency
 from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
@@ -70,41 +71,41 @@ def layout(**_):
                 [
                     card(
                         [
-                            html.H3("Goals", style={"marginTop": 0, "color": theme.INK}),
-                            html.P("Drag to reorder · click to add to the pool.",
+                            html.H3(t("Goals"), style={"marginTop": 0, "color": theme.INK}),
+                            html.P(t("Drag to reorder · click to add to the pool."),
                                    style={"color": theme.MUTED, "fontSize": "13px",
                                           "marginTop": 0}),
                             html.Div(_goal_rows(goals, selected), id="goals-list",
                                      className="goals-list"),
 
                             html.Hr(),
-                            html.H4("Add a goal", style={"color": theme.MUTED,
+                            html.H4(t("Add a goal"), style={"color": theme.MUTED,
                                                          "marginBottom": "8px"}),
-                            dcc.Input(id="goal-name", type="text", placeholder="Goal name",
+                            dcc.Input(id="goal-name", type="text", placeholder=t("Goal name"),
                                       style=theme.INPUT_STYLE),
                             dcc.Input(id="goal-amount", type="number",
-                                      placeholder=f"Target ({currency()})",
+                                      placeholder=f"{t('Target')} ({currency()})",
                                       style=theme.INPUT_STYLE),
                             dcc.Input(id="goal-factor", type="number", min=1, step=1,
                                       value=1,
-                                      placeholder="Importance ×factor (default 1)",
+                                      placeholder=t("Importance ×factor (default 1)"),
                                       style=theme.INPUT_STYLE),
-                            html.Div("Multiplies this goal's target before it counts "
-                                     "as reached (the pool needs the highest of your "
-                                     "ticked goals).",
+                            html.Div(t("Multiplies this goal's target before it counts "
+                                       "as reached (the pool needs the highest of your "
+                                       "ticked goals)."),
                                      style={"color": theme.MUTED, "fontSize": "12px",
                                             "marginBottom": "8px"}),
-                            html.Button("+ Add goal", id="goal-add", n_clicks=0,
+                            html.Button(t("+ Add goal"), id="goal-add", n_clicks=0,
                                         style={**theme.BUTTON_STYLE, "width": "100%"}),
 
                             html.Hr(),
-                            html.H4("Delete a goal", style={"color": theme.MUTED,
+                            html.H4(t("Delete a goal"), style={"color": theme.MUTED,
                                                             "marginBottom": "8px"}),
                             dcc.Dropdown(id="goal-del-select",
                                          options=_other_goals(goals),
-                                         placeholder="Select a goal…",
+                                         placeholder=t("Select a goal…"),
                                          style={"marginBottom": "10px"}),
-                            html.Button("Delete goal", id="goal-del-btn", n_clicks=0,
+                            html.Button(t("Delete goal"), id="goal-del-btn", n_clicks=0,
                                         style={**theme.PERIOD_BUTTON_STYLE, "width": "100%",
                                                "color": theme.EXPENSE_COLOR,
                                                "borderColor": theme.EXPENSE_COLOR}),
@@ -146,13 +147,13 @@ def _mutate_goals(_add_clicks, _del_submit, name, amount, factor, del_name):
     trigger = ctx.triggered_id
     if trigger == "goal-add":
         if not name or amount is None:
-            return (no_update, "Enter both a name and a target amount.",
+            return (no_update, t("Enter both a name and a target amount."),
                     no_update, no_update, no_update)
         goals = add_goal(name, amount, factor or 1)
-        return goals, f"Added '{name.strip()}'.", "", None, 1
+        return goals, t("Added '{name}'.").format(name=name.strip()), "", None, 1
     if trigger == "goal-del-confirm" and del_name:
         goals = remove_goal(del_name)
-        return goals, f"Deleted '{del_name}'.", no_update, no_update, no_update
+        return goals, t("Deleted '{name}'.").format(name=del_name), no_update, no_update, no_update
     return no_update, no_update, no_update, no_update, no_update
 
 
@@ -166,7 +167,7 @@ def _mutate_goals(_add_clicks, _del_submit, name, amount, factor, del_name):
 def _confirm_delete(_n, del_name):
     if not del_name:
         return False, ""
-    return True, f"Delete the goal '{del_name}'? This cannot be undone."
+    return True, t("Delete the goal '{name}'? This cannot be undone.").format(name=del_name)
 
 
 @callback(

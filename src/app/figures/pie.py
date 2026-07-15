@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.app import theme
+from src.app.i18n import t
 from src.processing.summaries import filter_by_date
 from src.analytics import budget as B
 
@@ -29,7 +30,7 @@ def _category_breakdown(df: pd.DataFrame, txn_type: str) -> pd.DataFrame:
     if len(grouped) > MAX_SLICES:
         top = grouped.iloc[: MAX_SLICES - 1].copy()
         other = pd.DataFrame(
-            {"Category": ["Other"], "Amount": [grouped.iloc[MAX_SLICES - 1:]["Amount"].sum()]}
+            {"Category": [t("Other")], "Amount": [grouped.iloc[MAX_SLICES - 1:]["Amount"].sum()]}
         )
         grouped = pd.concat([top, other], ignore_index=True)
     return grouped
@@ -48,7 +49,7 @@ def _expense_bucket_breakdown(df: pd.DataFrame, assignments: dict) -> pd.DataFra
                 if B.bucket_for(c, assignments) == bucket]
         if len(cats) > _BUCKET_CAP:
             other_amt = sum(a for _, a in cats[_BUCKET_CAP - 1:])
-            cats = cats[: _BUCKET_CAP - 1] + [("Other", other_amt)]
+            cats = cats[: _BUCKET_CAP - 1] + [(t("Other"), other_amt)]
         rows += [{"Category": c, "Amount": a, "bucket": bucket} for c, a in cats]
     return pd.DataFrame(rows)
 
@@ -109,18 +110,18 @@ def build_pie_figure(df: pd.DataFrame, start: str, end: str,
         n_wants = int((frame["bucket"] == B.WANTS).sum()) if bucket and not frame.empty else 0
         if has_hidden:
             frame = pd.concat([frame, pd.DataFrame(
-                {"Category": ["Hidden cost (untracked)"], "Amount": [hidden]})],
+                {"Category": [t("Hidden cost (untracked)")], "Amount": [hidden]})],
                 ignore_index=True)
         total = frame["Amount"].sum() if not frame.empty else 0
         # Column title above the donut. xanchor must be explicit: with the
         # default "auto", Plotly left/right-anchors annotations in the outer
         # thirds of the paper, shifting them off the donut center.
-        annotations.append(dict(text=f"<b>{title}</b>", x=cx, y=1.07,
+        annotations.append(dict(text=f"<b>{t(title)}</b>", x=cx, y=1.07,
                                 xref="paper", yref="paper", showarrow=False,
                                 xanchor="center",
                                 font=dict(size=15, color=ft.ink)))
         if frame.empty:
-            annotations.append(dict(text="No data", x=cx, y=0.5, xref="paper",
+            annotations.append(dict(text=t("No data"), x=cx, y=0.5, xref="paper",
                                     yref="paper", showarrow=False,
                                     xanchor="center", yanchor="middle",
                                     font=dict(color=ft.muted)))
@@ -178,10 +179,10 @@ def build_pie_figure(df: pd.DataFrame, start: str, end: str,
         blue, orange = _shade(1, "Blues")[0], _shade(1, "Oranges")[0]
         for name, tot, color, x in ((B.WANTS, wants_total, orange, 0.66),
                                     (B.NEEDS, needs_total, blue, 0.88)):
-            text = (f"<span style='color:{color}'><b>{name}</b></span>"
+            text = (f"<span style='color:{color}'><b>{t(name)}</b></span>"
                     f"<br><span style='font-size:7px'> </span>"  # gap below header
-                    f"<br>{_pct(tot, exp_total)} of expense"
-                    f"<br>({_pct(tot, income_total)} of income)")
+                    f"<br>{_pct(tot, exp_total)} {t('of expense')}"
+                    f"<br>({_pct(tot, income_total)} {t('of income')})")
             annotations.append(dict(text=text, x=x, y=-0.04, xref="paper",
                                     yref="paper", showarrow=False, xanchor="center",
                                     yanchor="top", align="center",
@@ -219,7 +220,8 @@ def build_hist_figure(df: pd.DataFrame, start: str, end: str,
     income_hidden = data.loc[data["Income/Expense"] == "Adjustment-In", "Amount"].sum()
     expense_hidden = data.loc[data["Income/Expense"] == "Adjustment-Out", "Amount"].sum()
 
-    fig = make_subplots(rows=1, cols=2, subplot_titles=("Income", "Expense"),
+    inc_title, exp_title = t("Income"), t("Expense")
+    fig = make_subplots(rows=1, cols=2, subplot_titles=(inc_title, exp_title),
                         horizontal_spacing=0.12)
     specs = [
         dict(frame=income, palette="Greens", col=1, cx=0.21, hidden=income_hidden,
@@ -235,10 +237,10 @@ def build_hist_figure(df: pd.DataFrame, start: str, end: str,
         n_wants = int((frame["bucket"] == B.WANTS).sum()) if bucket and not frame.empty else 0
         if has_hidden:
             frame = pd.concat([frame, pd.DataFrame(
-                {"Category": ["Hidden cost (untracked)"], "Amount": [hidden]})],
+                {"Category": [t("Hidden cost (untracked)")], "Amount": [hidden]})],
                 ignore_index=True)
         if frame.empty:
-            fig.add_annotation(text="No data", x=cx, y=0.5, xref="paper", yref="paper",
+            fig.add_annotation(text=t("No data"), x=cx, y=0.5, xref="paper", yref="paper",
                                showarrow=False, xanchor="center", yanchor="middle",
                                font=dict(color=ft.muted))
             continue
@@ -271,7 +273,7 @@ def build_hist_figure(df: pd.DataFrame, start: str, end: str,
                      gridcolor=ft.grid, zeroline=False)
     # Restyle the make_subplots column titles to bold theme ink (matching the pies).
     for ann in fig.layout.annotations:
-        if ann.text in ("Income", "Expense"):
+        if ann.text in (inc_title, exp_title):
             ann.text = f"<b>{ann.text}</b>"
             ann.font = dict(size=15, color=ft.ink)
     return fig

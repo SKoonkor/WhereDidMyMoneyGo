@@ -14,6 +14,7 @@ from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header, card
+from src.app.i18n import t, get_lang
 from src.analytics import paper as P
 
 register_page(__name__, path="/paper", name="Paper Trading (Live Market Data)",
@@ -35,6 +36,14 @@ def _date(iso: str) -> str:
     return (iso or "")[:10]
 
 
+def _created_line(date: str, positions: int) -> str:
+    """'Created DATE · N open position(s)' — English keeps proper plural; Thai none."""
+    if get_lang() == "th":
+        return t("Created {date} · {n} open positions").format(date=date, n=positions)
+    return (f"Created {date} · {positions} open position"
+            f"{'' if positions == 1 else 's'}")
+
+
 # ── Render helpers ────────────────────────────────────────────────────────────
 
 def _account_card(a: dict) -> html.Div:
@@ -47,15 +56,15 @@ def _account_card(a: dict) -> html.Div:
                 html.Span(f"  {pl:+,.2f} ({a['pl_pct']:+.2f}%)",
                           className=_pl_class(pl), style={"fontSize": "13px"}),
             ]),
-            html.Div(f"Created {_date(a['created'])} · {a['positions']} open position"
-                     f"{'' if a['positions'] == 1 else 's'}",
+            html.Div(_created_line(_date(a['created']), a['positions']),
                      style={"color": theme.MUTED, "fontSize": "12px"}),
         ],
         id={"type": "paper-acct-open", "id": a["id"]}, n_clicks=0,
         className="paper-acct-open",
     )
     delete = html.Button("🗑", id={"type": "paper-acct-del", "id": a["id"]},
-                         n_clicks=0, className="paper-acct-del", title="Delete account")
+                         n_clicks=0, className="paper-acct-del",
+                         title=t("Delete account"))
     cls = "paper-acct-card" + (" selected" if a.get("selected") else "")
     return html.Div([stats, delete], className=cls)
 
@@ -63,7 +72,7 @@ def _account_card(a: dict) -> html.Div:
 def _accounts_list() -> html.Div:
     accounts = P.list_accounts()
     if not accounts:
-        return html.Div("No accounts yet — create one below to start trading.",
+        return html.Div(t("No accounts yet — create one below to start trading."),
                         style={"color": theme.MUTED, "padding": "8px 0"})
     return html.Div([_account_card(a) for a in accounts], className="paper-acct-grid")
 
@@ -78,17 +87,17 @@ def _deleted_list() -> html.Div | None:
             [
                 html.Div([
                     html.Span(b["name"], style={"fontWeight": 600}),
-                    html.Span(f"  created {_date(b['created'])}",
+                    html.Span(t("  created {date}").format(date=_date(b['created'])),
                               style={"color": theme.MUTED, "fontSize": "12px"}),
                 ]),
-                html.Button("Restore", id={"type": "paper-acct-restore",
+                html.Button(t("Restore"), id={"type": "paper-acct-restore",
                                            "file": b["file"]}, n_clicks=0,
                             style=theme.PERIOD_BUTTON_STYLE),
             ],
             className="paper-acct-deleted-row",
         ))
     return card(
-        [html.H4("Recently deleted", style={"margin": "0 0 8px"}), *rows],
+        [html.H4(t("Recently deleted"), style={"margin": "0 0 8px"}), *rows],
         style={"marginTop": "20px"},
     )
 
@@ -98,8 +107,8 @@ def _deleted_list() -> html.Div | None:
 def layout(**_):
     return html.Div(
         [
-            page_header(["Paper Trading ",
-                         html.Span("(Live Market Data)", className="title-sub")],
+            page_header([t("Paper Trading "),
+                         html.Span(t("(Live Market Data)"), className="title-sub")],
                         "Your practice accounts. Pick one to start trading, or "
                         "create a new account below."),
             dcc.Location(id="paper-acct-nav", refresh=True),
@@ -109,18 +118,18 @@ def layout(**_):
             html.Div(id="paper-acct-list", style={"marginTop": "8px"}),
             card(
                 [
-                    html.H4("New account", style={"margin": "0 0 10px"}),
+                    html.H4(t("New account"), style={"margin": "0 0 10px"}),
                     html.Div(
                         [
                             dcc.Input(id="paper-acct-name", type="text",
-                                      placeholder="Account name (e.g. Growth)",
+                                      placeholder=t("Account name (e.g. Growth)"),
                                       style={**theme.INPUT_STYLE, "marginBottom": 0,
                                              "flex": "1", "minWidth": "160px"}),
                             dcc.Input(id="paper-acct-cash", type="number", min=0,
-                                      step=1000, placeholder="Starting $ (optional)",
+                                      step=1000, placeholder=t("Starting $ (optional)"),
                                       style={**theme.INPUT_STYLE, "marginBottom": 0,
                                              "width": "170px"}),
-                            html.Button("Create account", id="paper-acct-create",
+                            html.Button(t("Create account"), id="paper-acct-create",
                                         n_clicks=0, style=theme.BUTTON_STYLE),
                         ],
                         style=_FLEX,
@@ -136,18 +145,19 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Delete account"),
-                        html.P(["Delete ", html.Span(id="paper-del-name",
+                        html.H3(t("Delete account")),
+                        html.P([t("Delete "), html.Span(id="paper-del-name",
                                                      style={"fontWeight": 600}),
-                                "? It moves to Recently deleted and can be restored."],
+                                t("? It moves to Recently deleted and can be "
+                                  "restored.")],
                                style={"color": theme.MUTED}),
                         html.Div(
                             [
-                                html.Button("Delete", id="paper-del-yes", n_clicks=0,
+                                html.Button(t("Delete"), id="paper-del-yes", n_clicks=0,
                                             style={**theme.PERIOD_BUTTON_STYLE,
                                                    "color": theme.EXPENSE_COLOR,
                                                    "borderColor": theme.EXPENSE_COLOR}),
-                                html.Button("Cancel", id="paper-del-no", n_clicks=0,
+                                html.Button(t("Cancel"), id="paper-del-no", n_clicks=0,
                                             style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
@@ -161,14 +171,14 @@ def layout(**_):
             html.Div(
                 html.Div(
                     [
-                        html.H3("Confirm new account"),
+                        html.H3(t("Confirm new account")),
                         html.Div(id="paper-acct-confirm-body",
                                  style={"margin": "8px 0 4px", "lineHeight": "1.7"}),
                         html.Div(
                             [
-                                html.Button("Confirm", id="paper-acct-confirm-yes",
+                                html.Button(t("Confirm"), id="paper-acct-confirm-yes",
                                             n_clicks=0, style=theme.BUTTON_STYLE),
-                                html.Button("Cancel", id="paper-acct-confirm-no",
+                                html.Button(t("Cancel"), id="paper-acct-confirm-no",
                                             n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
@@ -220,14 +230,14 @@ def _create(_n, name, cash, refresh):
     amount = _to_float(cash)
     if amount and amount > 0:                     # guard money injection with a popup
         if not (name or "").strip():
-            return no_update, "Enter an account name.", no_update, no_update, \
+            return no_update, t("Enter an account name."), no_update, no_update, \
                 no_update, no_update, no_update
-        body = html.Div([html.Span("Create account "),
+        body = html.Div([html.Span(t("Create account ")),
                          html.Span(f"“{name.strip()}”",
                                    style={"fontWeight": 700}),
-                         html.Span(" with "),
+                         html.Span(t(" with ")),
                          html.Span(f"${amount:,.2f}", style={"fontWeight": 700}),
-                         html.Span(" starting cash.")])
+                         html.Span(t(" starting cash."))])
         return no_update, "", no_update, no_update, {"display": "flex"}, body, \
             {"name": name, "cash": amount}
     try:                                          # $0 → create straight away
@@ -283,7 +293,8 @@ def _del_open(clicks):
     if not any(clicks or []):
         raise PreventUpdate
     acct_id = ctx.triggered_id["id"]
-    name = next((a["name"] for a in P.list_accounts() if a["id"] == acct_id), "this account")
+    name = next((a["name"] for a in P.list_accounts() if a["id"] == acct_id),
+                t("this account"))
     return {"display": "flex"}, acct_id, name
 
 

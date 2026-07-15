@@ -7,6 +7,7 @@ from dash import dcc, html, callback, Input, Output
 
 from src.app import theme
 from src.app.components import page_header
+from src.app.i18n import t
 from src.app.data import get_df, currency
 from src.app.figures.money_flow import build_money_flow_figure
 from src.analytics import forecast as F
@@ -29,7 +30,7 @@ def _trained_text(model: dict) -> str:
     if not ts:
         return ""
     try:
-        return "Model trained " + datetime.fromisoformat(ts).strftime("%d %b %Y %H:%M")
+        return t("Model trained ") + datetime.fromisoformat(ts).strftime("%d %b %Y %H:%M")
     except ValueError:
         return ""
 
@@ -45,16 +46,16 @@ def layout(**_):
             ),
             html.Div(
                 [
-                    html.Span("Forecast:", style={"color": theme.MUTED,
+                    html.Span(t("Forecast:"), style={"color": theme.MUTED,
                                                   "marginRight": "8px"}),
                     dcc.RadioItems(
                         id="flow-horizon",
-                        options=[{"label": f"  {lbl}", "value": v} for lbl, v in _HORIZONS],
+                        options=[{"label": f"  {t(lbl)}", "value": v} for lbl, v in _HORIZONS],
                         value="30", inline=True,
                         inputStyle={"marginRight": "4px"},
                         labelStyle={"marginRight": "16px", "cursor": "pointer"},
                     ),
-                    html.Button("Retrain model", id="flow-retrain", n_clicks=0,
+                    html.Button(t("Retrain model"), id="flow-retrain", n_clicks=0,
                                 style={**theme.PERIOD_BUTTON_STYLE, "marginLeft": "auto"}),
                     html.Span(id="flow-trained",
                               style={"color": theme.MUTED, "fontSize": "13px",
@@ -65,8 +66,8 @@ def layout(**_):
             dcc.Store(id="flow-forecast-refresh", data=0),
             dcc.ConfirmDialog(
                 id="flow-retrain-confirm",
-                message="Retrain the forecast model on all your current "
-                        "transactions? This replaces the saved model.",
+                message=t("Retrain the forecast model on all your current "
+                          "transactions? This replaces the saved model."),
             ),
             dcc.Graph(id="flow-graph", style={"height": "640px"},
                       config=_GRAPH_CONFIG),

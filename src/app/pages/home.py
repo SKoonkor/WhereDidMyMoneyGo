@@ -10,8 +10,9 @@ import pandas as pd
 from dash import dcc, html, callback, clientside_callback, Input, Output, State
 
 from src.app import theme
-from src.app.components import (card, theme_toggle, censor_toggle, reminder_banner,
-                                menu_widget, home_link, money_span)
+from src.app.i18n import t
+from src.app.components import (card, theme_toggle, censor_toggle, lang_toggle,
+                                reminder_banner, menu_widget, home_link, money_span)
 from src.app.data import (get_df, default_range, emergency_fund_config, get_config,
                           privacy_config, currency)
 from src.app.figures.money_flow import build_money_flow_figure
@@ -44,19 +45,19 @@ def _budget_section(df) -> html.Div:
         v = s["buckets"][name]
         if name == B.SAVINGS:
             ahead = v["remaining"] >= 0
-            amt, word = f"{abs(v['remaining']):,.0f}", "ahead" if ahead else "short"
+            amt, word = f"{abs(v['remaining']):,.0f}", t("ahead") if ahead else t("short")
             cls = "amt-income" if ahead else "amt-expense"
         else:
             over = v["remaining"] < 0
             amt = f"{-v['remaining']:,.0f}" if over else f"{v['remaining']:,.0f}"
-            word = "over" if over else "left"
+            word = t("over") if over else t("left")
             cls = "amt-expense" if over else "amt-income"
         tone = B.bucket_tone(name, v["spent"], v["target"])
         width = min(100, max(0, (v["spent"] / v["target"] * 100) if v["target"] else 0))
         rows.append(html.Div(
             [
                 html.Div(
-                    [html.Span(name, style={"color": theme.MUTED}),
+                    [html.Span(t(name), style={"color": theme.MUTED}),
                      html.Span([money_span(amt), f" {word}"], className=cls,
                                style={"fontWeight": 600})],
                     style={"display": "flex", "justifyContent": "space-between",
@@ -70,15 +71,15 @@ def _budget_section(df) -> html.Div:
             style={"padding": "6px 0", "borderBottom": "1px solid var(--border-soft)"},
         ))
     rows.append(html.Div(
-        [html.Span("Resets", style={"color": theme.MUTED}),
+        [html.Span(t("Resets"), style={"color": theme.MUTED}),
          html.Span(s["end"].strftime("%d %b"), style={"fontWeight": 600})],
         style={**theme.RESULT_ROW_STYLE, "borderBottom": "none", "marginBottom": "8px"},
     ))
     return html.Div(
         [
-            html.H2("Budget", style={"color": theme.INK, "marginTop": 0}),
+            html.H2(t("Budget"), style={"color": theme.INK, "marginTop": 0}),
             *rows,
-            dcc.Link("Open Budget", href="/budget", className="home-action-btn view"),
+            dcc.Link(t("Open Budget"), href="/budget", className="home-action-btn view"),
         ],
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
@@ -113,10 +114,10 @@ def _last_txn_block(df) -> html.Div:
     a left-flushed label; line 2 spans the width — an outlined type chip + note on
     the left, the compact amount + currency on the right; line 3 is the weekday +
     timestamp. All three lines share the same muted, small styling."""
-    label = html.Div("Last Item Recorded", style={"textAlign": "left", **_MUTED_LINE})
+    label = html.Div(t("Last Item Recorded"), style={"textAlign": "left", **_MUTED_LINE})
     if df.empty or not df["Period"].notna().any():
         return html.Div(
-            [label, html.Div("None yet", style={"textAlign": "center", **_MUTED_LINE})],
+            [label, html.Div(t("None yet"), style={"textAlign": "center", **_MUTED_LINE})],
             style={"margin": "8px 0"},
         )
 
@@ -129,7 +130,7 @@ def _last_txn_block(df) -> html.Div:
 
     left = []
     if abbr:
-        left.append(html.Span(abbr, style=_BADGE_STYLE))
+        left.append(html.Span(t(abbr), style=_BADGE_STYLE))
     if note:
         left.append(html.Span(note, style={"marginLeft": "6px" if abbr else 0,
                                             "whiteSpace": "nowrap"}))
@@ -154,11 +155,11 @@ def layout(**_):
     df_now = get_df()
     transactions_section = html.Div(
         [
-            html.H2("Transactions", style={"color": theme.INK, "marginTop": 0}),
+            html.H2(t("Transactions"), style={"color": theme.INK, "marginTop": 0}),
             _last_txn_block(df_now),
             html.Div(
                 [
-                    dcc.Link("View Transactions", href="/transactions",
+                    dcc.Link(t("View Transactions"), href="/transactions",
                              className="home-action-btn view",
                              style={"flex": "1", "margin": 0}),
                     dcc.Link("＋", href="/transactions/add",
@@ -174,7 +175,7 @@ def layout(**_):
     budget_section = _budget_section(df_now)
 
     account_settings_section = html.Div(
-        dcc.Link("Account Settings", href="/settings",
+        dcc.Link(t("Account Settings"), href="/settings",
                  className="home-action-btn view", style={"margin": 0}),
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
@@ -215,11 +216,11 @@ def layout(**_):
                             html.H1(get_config().get("settings", {}).get("general", {})
                                     .get("app_name", "Money Tracker"),
                                     style={**theme.H1_STYLE, "fontSize": "32px"}),
-                            html.P("A snapshot of your last 30 days. Click any chart to explore.",
+                            html.P(t("A snapshot of your last 30 days. Click any chart to explore."),
                                    style={"color": theme.MUTED}),
                         ]
                     ),
-                    html.Div([theme_toggle(), censor_toggle(), menu_widget(), home_link()],
+                    html.Div([theme_toggle(), censor_toggle(), lang_toggle(), menu_widget(), home_link()],
                              style={"display": "flex", "gap": "10px",
                                     "alignItems": "center"}),
                 ],
