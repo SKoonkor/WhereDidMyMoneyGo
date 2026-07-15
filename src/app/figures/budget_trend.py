@@ -6,6 +6,8 @@ render as grouped bars on one shared, pannable time axis (colour per selection).
 Dash-free — the page precomputes each series so this stays unit-testable.
 """
 
+from __future__ import annotations
+
 import pandas as pd
 import plotly.graph_objects as go
 
