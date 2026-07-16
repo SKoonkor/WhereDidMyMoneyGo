@@ -58,6 +58,9 @@ TYPE_SYNONYMS = {
     "adjustment-in": "Adjustment-In", "income balance": "Adjustment-In",
     "adjustment-out": "Adjustment-Out", "expense balance": "Adjustment-Out",
     "saving": "Saving",
+    # Thai (เหมียวจด/MeowJot and other Thai apps)
+    "รายรับ": "Income", "รายจ่าย": "Expense",
+    "โอนเข้า": "Transfer-In", "โอนออก": "Transfer-Out",
 }
 
 _TRANSFER_TYPES = ("Transfer-In", "Transfer-Out")
@@ -98,21 +101,38 @@ PRESETS = [
                          Description="Memo"),
         "options": {"date_order": "auto", "decimal": "dot"},
     },
+    {
+        # Verified against the official sample: meowjot.com/example/Export_sample.csv
+        # (D/M/YYYY Buddhist Era dates, signed amounts, รายรับ/รายจ่าย types,
+        # "-" as the empty-cell placeholder). เวลา/แท็ก/ช่องทางจ่าย/ธนาคารผู้รับ
+        # have no ledger equivalent and stay unmapped.
+        "name": "เหมียวจด (MeowJot)",
+        "fingerprint": {"วันที่", "ประเภท", "หมวดหมู่", "จำนวน"},
+        "columns": _cols(Date="วันที่", Type="ประเภท", Amount="จำนวน",
+                         Account="จ่ายจาก", Category="หมวดหมู่",
+                         Note="โน๊ต", Description="ผู้รับ"),
+        "options": {"date_order": "dmy", "decimal": "dot"},
+    },
 ]
 
-# header-name → target-field guesses for unknown files
+# header-name → target-field guesses for unknown files (English + Thai)
 _HEADER_GUESSES = {
-    "Date": ["date", "period", "transaction date", "posted", "time", "datetime"],
-    "Type": ["type", "income/expense", "transaction type", "direction"],
-    "Amount": ["amount", "value", "sum"],
+    "Date": ["date", "period", "transaction date", "posted", "time", "datetime",
+             "วันที่"],
+    "Type": ["type", "income/expense", "transaction type", "direction",
+             "ประเภท"],
+    "Amount": ["amount", "value", "sum", "จำนวน", "จำนวนเงิน"],
     "Inflow": ["inflow", "credit amount", "money in", "paid in"],
     "Outflow": ["outflow", "debit amount", "money out", "paid out"],
-    "Account": ["account", "accounts", "wallet", "source"],
-    "Category": ["category"],
-    "Subcategory": ["subcategory", "sub category", "sub-category"],
-    "Note": ["note", "payee", "merchant"],
-    "Description": ["description", "memo", "details", "reference"],
-    "Currency": ["currency", "ccy"],
+    "Account": ["account", "accounts", "wallet", "source",
+                "บัญชี", "กระเป๋า", "จ่ายจาก"],
+    "Category": ["category", "หมวดหมู่"],
+    "Subcategory": ["subcategory", "sub category", "sub-category",
+                    "หมวดหมู่ย่อย"],
+    "Note": ["note", "payee", "merchant", "โน๊ต", "โน้ต", "บันทึก", "หมายเหตุ"],
+    "Description": ["description", "memo", "details", "reference",
+                    "รายละเอียด"],
+    "Currency": ["currency", "ccy", "สกุลเงิน"],
     "Id": ["id", "transaction id"],
     "TransferId": ["transferid", "transfer id"],
 }
@@ -122,16 +142,22 @@ _HEADER_GUESSES = {
 
 def read_table(filename: str, content: bytes) -> pd.DataFrame:
     """Load an uploaded .csv or .xlsx into a raw string-typed frame.
-    CSV: sniff encoding (utf-8/sig → cp874 Thai → latin-1) and delimiter."""
+    CSV: sniff encoding (utf-16 BOM → utf-8/sig → cp874 Thai → latin-1) and
+    delimiter."""
     if filename.lower().endswith((".xlsx", ".xls")):
         return pd.read_excel(io.BytesIO(content), dtype=str)
-    text = None
-    for enc in ("utf-8-sig", "utf-8", "cp874", "latin-1"):
-        try:
-            text = content.decode(enc)
-            break
-        except UnicodeDecodeError:
-            continue
+    if content.startswith((b"\xff\xfe", b"\xfe\xff")):
+        # UTF-16 (e.g. Money Lover exports) would otherwise pass the latin-1
+        # fallback as mojibake, so catch the BOM before the sniff loop.
+        text = content.decode("utf-16")
+    else:
+        text = None
+        for enc in ("utf-8-sig", "utf-8", "cp874", "latin-1"):
+            try:
+                text = content.decode(enc)
+                break
+            except UnicodeDecodeError:
+                continue
     try:
         dialect = _csv.Sniffer().sniff(text[:4096], delimiters=",;\t|")
         sep = dialect.delimiter
@@ -225,7 +251,8 @@ def _clean(v) -> str:
     if v is None or (isinstance(v, float) and pd.isna(v)):
         return ""
     s = str(v).strip()
-    return "" if s.lower() == "nan" else s
+    # "-" is the empty-cell placeholder in Thai app exports (MeowJot et al.)
+    return "" if s.lower() == "nan" or s == "-" else s
 
 
 # (dayfirst, yearfirst) for each explicit date ordering; "auto" infers per value.
@@ -237,10 +264,31 @@ _DATE_ORDER_FLAGS = {
 }
 
 
+# Buddhist Era years (Thai apps: 2568 = CE 2025) exceed pandas' Timestamp
+# range (max year 2262), so they must be shifted before pd.to_datetime.
+# 4-digit years ≥ 2400 map to CE 1857–2100 — unambiguous for ledger data.
+_YEAR_TOKEN = re.compile(r"(?<!\d)(\d{4})(?!\d)")
+
+
+def _convert_be_years(series: pd.Series) -> pd.Series:
+    def shift(m: re.Match) -> str:
+        y = int(m.group(1))
+        return str(y - 543) if y >= 2400 else m.group(1)
+
+    def conv(v):
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return v
+        return _YEAR_TOKEN.sub(shift, str(v))
+
+    return series.map(conv)
+
+
 def _parse_dates(series: pd.Series, date_order: str) -> pd.Series:
     """Parse a date column under the chosen ordering. ``auto`` infers each value
     individually; the explicit orders pass day/year-first hints and stay
-    separator-agnostic (works for ``/``, ``-``, ``.``)."""
+    separator-agnostic (works for ``/``, ``-``, ``.``). Buddhist Era years are
+    converted to CE first."""
+    series = _convert_be_years(series)
     if date_order not in _DATE_ORDER_FLAGS:
         return pd.to_datetime(series, errors="coerce", dayfirst=False,
                               format="mixed")
