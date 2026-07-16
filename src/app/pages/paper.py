@@ -440,6 +440,14 @@ def _confirm_body(pend: dict) -> html.Div:
     name = P.company_name(pend.get("symbol", ""))
     if name and name != pend["label"]:
         lines.append(html.Div(name, style={"color": theme.MUTED, "fontSize": "13px"}))
+    if pend.get("is_short"):
+        lines.append(html.Div(
+            t("⚠ You hold {held} — this sell exceeds your position and will "
+              "OPEN A SHORT of {short} {unit}(s).").format(
+                  held=f"{pend.get('held', 0):g}",
+                  short=f"{pend.get('short_qty', 0):g}", unit=unit),
+            style={"color": theme.EXPENSE_COLOR, "fontWeight": 600,
+                   "margin": "6px 0"}))
     if pend["otype"] == "market":
         lines.append(html.Div(
             t("@ {ap}${price} per {unit}").format(
@@ -461,6 +469,16 @@ def _confirm_body(pend: dict) -> html.Div:
             lines.append(html.Div([html.Span(t("Est. amount when filled: ")),
                                    _bold(f"${est:,.2f}")]))
     return html.Div(lines)
+
+
+def _ok(text) -> html.Div:
+    """Success banner for paper-msg (prominent, green-tinted)."""
+    return html.Div([html.Span("✓ "), html.Span(text)], className="paper-msg-ok")
+
+
+def _err(text) -> html.Div:
+    """Error/warning banner for paper-msg (prominent, red-tinted)."""
+    return html.Div([html.Span("⚠ "), html.Span(text)], className="paper-msg-err")
 
 
 def _help_entry(name: str, definition: str, example: str) -> html.Div:
@@ -505,6 +523,7 @@ def layout(**_):
             dcc.Store(id="paper-opt-strike"),
             dcc.Store(id="paper-pending-txn"),   # transaction awaiting confirmation
             dcc.Store(id="paper-pending-delete"),  # watchlist/portfolio delete awaiting confirm
+            dcc.Store(id="paper-loaded"),        # last successfully loaded ticket symbol
             dcc.Interval(id="paper-tick", interval=15000, n_intervals=0),
             # Play controls (status + market clock).
             html.Div(
@@ -518,7 +537,9 @@ def layout(**_):
             ),
             html.Div(
                 [
-                    # ── Left card: manage + order ticket ─────────────────────
+                    # ── Left column: Manage box on top, ordering box below ───
+                    html.Div(
+                        [
                     card(
                         [
                             html.H3(t("Manage"), style={"marginTop": 0}),
@@ -548,7 +569,17 @@ def layout(**_):
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
                             html.Hr(),
-                            html.H4(t("Capital"), style={"margin": "0 0 8px"}),
+                            html.Div(
+                                [
+                                    html.H4(t("Capital"), style={"margin": 0}),
+                                    html.Span(id="paper-cash-line",
+                                              style={"fontWeight": 600}),
+                                ],
+                                style={"display": "flex",
+                                       "justifyContent": "space-between",
+                                       "alignItems": "center",
+                                       "marginBottom": "8px"},
+                            ),
                             html.Div(
                                 [
                                     dcc.Input(id="paper-cash-amt", type="number", min=0,
@@ -568,16 +599,29 @@ def layout(**_):
                                 ],
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
-                            html.Hr(),
-                            html.H4(t("Order ticket"), style={"margin": "0 0 8px"}),
-                            dcc.RadioItems(
-                                id="paper-asset",
-                                options=[{"label": t("  Stock/ETF"), "value": "stock"},
-                                         {"label": t("  Crypto"), "value": "crypto"},
-                                         {"label": t("  Option"), "value": "option"}],
-                                value="stock", inline=True,
-                                inputStyle={"marginRight": "4px"},
-                                labelStyle={"marginRight": "12px", "cursor": "pointer"},
+                        ],
+                        style={"marginBottom": "16px"},
+                    ),
+                    card(
+                        [
+                            html.H3(t("Order ticket"), style={"marginTop": 0}),
+                            html.Div(
+                                [
+                                    dcc.RadioItems(
+                                        id="paper-asset",
+                                        options=[{"label": t("  Stock/ETF"), "value": "stock"},
+                                                 {"label": t("  Crypto"), "value": "crypto"},
+                                                 {"label": t("  Option"), "value": "option"}],
+                                        value="stock", inline=True,
+                                        inputStyle={"marginRight": "4px"},
+                                        labelStyle={"marginRight": "12px",
+                                                    "cursor": "pointer"}),
+                                    html.Button("?", id="paper-asset-help", n_clicks=0,
+                                                className="paper-help-btn",
+                                                title=t("What do these asset types mean?")),
+                                ],
+                                style={"display": "flex", "alignItems": "center",
+                                       "gap": "6px", "flexWrap": "wrap"},
                             ),
                             html.Div(
                                 [
@@ -586,12 +630,33 @@ def layout(**_):
                                               style={**theme.INPUT_STYLE,
                                                      "marginBottom": 0, "flex": "1",
                                                      "minWidth": "150px"}),
-                                    html.Button(t("Load chain"), id="paper-load-chain",
+                                    html.Button(t("Load stock"), id="paper-load-chain",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
+                                    html.Button(t("+ Watch"), id="paper-add-watch",
+                                                n_clicks=0,
+                                                style={**theme.PERIOD_BUTTON_STYLE,
+                                                       "display": "none"}),
                                 ],
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
+                            # Held-position context: shown whenever the typed symbol
+                            # is held, independent of load state, so a position can
+                            # always be closed exactly (incl. fractional dust).
+                            html.Div(
+                                [
+                                    html.Span(id="paper-held-label",
+                                              style={"fontSize": "13px"}),
+                                    html.Button(t("Close position"),
+                                                id="paper-close-pos", n_clicks=0,
+                                                style={**theme.PERIOD_BUTTON_STYLE,
+                                                       "color": theme.EXPENSE_COLOR,
+                                                       "borderColor": theme.EXPENSE_COLOR}),
+                                ],
+                                id="paper-held-row",
+                                style=_HIDDEN,
+                            ),
+                            html.Div(id="paper-msg", style={"marginTop": "8px"}),
                             # Option-only controls.
                             html.Div(
                                 [
@@ -613,6 +678,11 @@ def layout(**_):
                                 id="paper-option-row",
                                 style={**_FLEX, "marginTop": "8px", "display": "none"},
                             ),
+                            # Order controls stay hidden until a symbol is loaded
+                            # (Load stock / Load chain, or a row click) — see
+                            # _ticket_visibility.
+                            html.Div(
+                                [
                             html.Div(
                                 [
                                     dcc.RadioItems(
@@ -677,15 +747,12 @@ def layout(**_):
                                                 style={**theme.PERIOD_BUTTON_STYLE,
                                                        "color": theme.EXPENSE_COLOR,
                                                        "borderColor": theme.EXPENSE_COLOR}),
-                                    html.Button(t("+ Watch"), id="paper-add-watch",
-                                                n_clicks=0,
-                                                style=theme.PERIOD_BUTTON_STYLE),
                                 ],
                                 style={**_FLEX, "marginTop": "10px"},
                             ),
-                            html.Div(id="paper-msg",
-                                     style={"fontSize": "13px", "marginTop": "8px",
-                                            "minHeight": "18px"}),
+                                ],
+                                id="paper-ticket-controls", style=_HIDDEN,
+                            ),
                             html.Hr(),
                             html.H4(t("Pending orders"), style={"margin": "0 0 8px"}),
                             html.Div(id="paper-orders"),
@@ -706,6 +773,8 @@ def layout(**_):
                                        "marginBottom": "8px"},
                             ),
                             html.Div(id="paper-trades"),
+                        ],
+                    ),
                         ],
                         style={"flex": "0 0 420px"},
                     ),
@@ -918,6 +987,44 @@ def layout(**_):
                 ),
                 id="paper-help-modal", className="modal-overlay", style=_HIDDEN,
             ),
+            # Asset-type help modal (mirrors the order-type one).
+            html.Div(
+                html.Div(
+                    [
+                        html.H3(t("Asset types explained")),
+                        _help_entry(
+                            "Stock/ETF",
+                            "A share of a single company (stock), or a fund that "
+                            "holds a whole basket of assets under one ticker "
+                            "(ETF). Trades during US market hours.",
+                            "AAPL is Apple stock; SPY is an ETF that holds all "
+                            "S&P 500 companies at once."),
+                        _help_entry(
+                            "Crypto",
+                            "A digital currency, quoted as a -USD pair. Trades "
+                            "around the clock (24/7) and is typically far more "
+                            "volatile than stocks.",
+                            "BTC-USD is Bitcoin priced in dollars; ETH-USD is "
+                            "Ethereum."),
+                        _help_entry(
+                            "Option",
+                            "A contract giving the right — not the obligation — "
+                            "to buy (call) or sell (put) 100 shares of the "
+                            "underlying at a set strike price until expiry. Load "
+                            "the chain, then pick expiry, call/put and strike.",
+                            "An AAPL call with strike $300 expiring in December "
+                            "profits if Apple rises well above $300 before then; "
+                            "it can also expire worthless."),
+                        html.Div(
+                            html.Button(t("Close"), id="paper-asset-help-close",
+                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                            className="invest-modal-actions",
+                        ),
+                    ],
+                    className="modal-card",
+                ),
+                id="paper-asset-help-modal", className="modal-overlay", style=_HIDDEN,
+            ),
             # Full trade-history modal (scrollable; filled on open).
             html.Div(
                 html.Div(
@@ -953,6 +1060,7 @@ def layout(**_):
     Output("paper-refresh", "data", allow_duplicate=True),
     Input("paper-buy", "n_clicks"),
     Input("paper-sell", "n_clicks"),
+    Input("paper-close-pos", "n_clicks"),
     Input("paper-deposit-btn", "n_clicks"),
     Input("paper-withdraw-btn", "n_clicks"),
     Input("paper-add-pf", "n_clicks"),
@@ -971,8 +1079,8 @@ def layout(**_):
     State("paper-refresh", "data"),
     prevent_initial_call=True,
 )
-def _preview(_b, _s, _d, _w, _pf, asset, symbol, expiry, right, strike, otype, mode,
-             qty, limit, stop, trail, cash_amt, refresh):
+def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otype,
+             mode, qty, limit, stop, trail, cash_amt, refresh):
     state = P.load_state()
     if not state:
         raise PreventUpdate
@@ -981,6 +1089,19 @@ def _preview(_b, _s, _d, _w, _pf, asset, symbol, expiry, right, strike, otype, m
         if trig == "paper-add-pf":               # new portfolios open empty ($0)
             P.add_portfolio(state, 0)
             return _HIDDEN, no_update, None, "", (refresh or 0) + 1
+        elif trig == "paper-close-pos":
+            # Close the whole position exactly (sell a long / buy back a short),
+            # using the position's own kind so the asset radio can't mismatch.
+            sym = (symbol or "").strip().upper()
+            pos = state["portfolios"][state["active"]]["positions"].get(sym)
+            if not pos:
+                return (_HIDDEN, no_update, None,
+                        _err(t("No open position for {symbol}.").format(symbol=sym)),
+                        no_update)
+            pend = P.preview_order(state, {
+                "kind": pos.get("kind", "stock"), "symbol": sym,
+                "side": "sell" if pos["qty"] > 0 else "buy",
+                "otype": "market", "mode": "shares", "qty": abs(pos["qty"])})
         elif trig in ("paper-deposit-btn", "paper-withdraw-btn"):
             op = "deposit" if trig == "paper-deposit-btn" else "withdraw"
             pend = P.preview_cash(state, op, cash_amt)
@@ -995,7 +1116,7 @@ def _preview(_b, _s, _d, _w, _pf, asset, symbol, expiry, right, strike, otype, m
                 spec["symbol"] = symbol
             pend = P.preview_order(state, spec)
     except P.TradeError as exc:
-        return _HIDDEN, no_update, None, str(exc), no_update
+        return _HIDDEN, no_update, None, _err(str(exc)), no_update
     return {"display": "flex"}, _confirm_body(pend), pend, "", no_update
 
 
@@ -1028,8 +1149,8 @@ def _confirm(_yes, _no, pend, refresh):
         else:                                    # trade
             msg = P.place_order(state, pend["spec"])
     except P.TradeError as exc:
-        return _HIDDEN, no_update, str(exc), None, no_update, no_update
-    return _HIDDEN, (refresh or 0) + 1, msg, None, None, None
+        return _HIDDEN, no_update, _err(str(exc)), None, no_update, no_update
+    return _HIDDEN, (refresh or 0) + 1, _ok(msg), None, None, None
 
 
 @callback(
@@ -1048,7 +1169,7 @@ def _rename(_n, name, refresh):
     try:
         P.rename_portfolio(state, state["active"], name)
     except P.TradeError as exc:
-        return no_update, str(exc), no_update
+        return no_update, _err(str(exc)), no_update
     return (refresh or 0) + 1, "", ""
 
 
@@ -1081,8 +1202,9 @@ def _add_watch(_n, symbol, refresh):
     try:
         P.add_watch(state, symbol)
     except P.TradeError as exc:
-        return no_update, str(exc)
-    return (refresh or 0) + 1, ""
+        return no_update, _err(str(exc))
+    return (refresh or 0) + 1, _ok(t("Added {symbol} to watchlist.").format(
+        symbol=(symbol or "").strip().upper()))
 
 
 @callback(
@@ -1110,6 +1232,7 @@ def _cancel(clicks, refresh):
     Output("paper-delete-body", "children", allow_duplicate=True),
     Output("paper-pending-delete", "data", allow_duplicate=True),
     Output("paper-symbol", "value"),
+    Output("paper-loaded", "data", allow_duplicate=True),
     Input({"type": "paper-watch-row", "ticker": ALL}, "n_clicks"),
     Input({"type": "paper-unwatch", "ticker": ALL}, "n_clicks"),
     Input({"type": "paper-pos-row", "ticker": ALL}, "n_clicks"),
@@ -1135,13 +1258,16 @@ def _watch_click(row_clicks, unwatch_clicks, pos_clicks, current, asset):
         body = html.Div([html.Span(t("Remove ")), _bold(unwatch),
                          html.Span(t(" from your watchlist? Your holdings are not "
                                      "affected."))])
-        return no_update, no_update, {"display": "flex"}, body, pend, no_update
+        return no_update, no_update, {"display": "flex"}, body, pend, no_update, no_update
     tk = ctx.triggered_id["ticker"]
     # Toggle stock selection; a stock selection clears any sector comparison. On a fresh
-    # selection (not a deselect) also target it in the order ticket, unless an Option
-    # order is being built for a different underlying.
-    sym = tk if (tk != current and asset != "option") else no_update
-    return (None if tk == current else tk), None, no_update, no_update, no_update, sym
+    # selection (not a deselect) also target it in the order ticket — a row click counts
+    # as loading the symbol, so the order controls appear — unless an Option order is
+    # being built for a different underlying.
+    fresh = tk != current and asset != "option"
+    sym = tk if fresh else no_update
+    loaded = {"symbol": tk, "asset": asset} if fresh else no_update
+    return (None if tk == current else tk), None, no_update, no_update, no_update, sym, loaded
 
 
 @callback(
@@ -1158,7 +1284,7 @@ def _delete_pf_prompt(_n):
     if not state:
         raise PreventUpdate
     if len(state["portfolios"]) <= 1:
-        return no_update, no_update, no_update, t("Can't delete the only portfolio.")
+        return no_update, no_update, no_update, _err(t("Can't delete the only portfolio."))
     pf = state["portfolios"][state["active"]]
     pend = {"kind": "portfolio", "idx": state["active"], "name": pf["name"]}
     body = html.Div([html.Span(t("Delete portfolio ")), _bold(pf["name"]),
@@ -1196,8 +1322,8 @@ def _delete_confirm(_yes, _no, pend, refresh):
             msg = t("Deleted portfolio {name}").format(name=pend['name'])
             sel = no_update
     except P.TradeError as exc:
-        return _HIDDEN, no_update, str(exc), None, no_update
-    return _HIDDEN, (refresh or 0) + 1, msg, None, sel
+        return _HIDDEN, no_update, _err(str(exc)), None, no_update
+    return _HIDDEN, (refresh or 0) + 1, _ok(msg), None, sel
 
 
 @callback(
@@ -1230,25 +1356,46 @@ def _history_toggle(_open, _close):
     return {"display": "flex"}, _trades_table(state, limit=None)
 
 
+# The load button doubles as the symbol check: "Load stock" (stock/crypto)
+# validates the ticker against a live quote; "Load chain" (options) fetches
+# expiries. Success records the symbol in paper-loaded, which reveals the
+# order controls (see _ticket_visibility).
 @callback(
     Output("paper-opt-underlying", "data"),
     Output("paper-expiry", "options"),
     Output("paper-expiry", "value"),
     Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-loaded", "data"),
+    Output("paper-selected", "data", allow_duplicate=True),
     Input("paper-load-chain", "n_clicks"),
     State("paper-symbol", "value"),
+    State("paper-asset", "value"),
     prevent_initial_call=True,
 )
-def _load_chain(_n, symbol):
+def _load_symbol(_n, symbol, asset):
     symbol = (symbol or "").strip().upper()
     if not symbol:
-        return no_update, no_update, no_update, t("Enter an underlying symbol first.")
-    exps = Q.option_expirations(symbol)
-    if not exps:
-        return (no_update, [], None,
-                t("No listed options for {symbol}.").format(symbol=symbol))
-    opts = [{"label": e, "value": e} for e in exps]
-    return symbol, opts, exps[0], ""
+        return (no_update, no_update, no_update,
+                _err(t("Enter a symbol first.")), None, no_update)
+    if asset == "option":
+        exps = Q.option_expirations(symbol)
+        if not exps:
+            return (no_update, [], None,
+                    _err(t("No listed options for {symbol}.").format(symbol=symbol)),
+                    None, no_update)
+        opts = [{"label": e, "value": e} for e in exps]
+        return (symbol, opts, exps[0],
+                _ok(t("Loaded option chain for {symbol}.").format(symbol=symbol)),
+                {"symbol": symbol, "asset": asset}, no_update)
+    price = Q.live_price(symbol)
+    if price is None:
+        return (no_update, no_update, no_update,
+                _err(t("{symbol} not found — check the symbol.").format(symbol=symbol)),
+                None, no_update)
+    return (no_update, no_update, no_update,
+            _ok(t("{symbol} loaded — last price ${price}.").format(
+                    symbol=symbol, price=_money(price))),
+            {"symbol": symbol, "asset": asset}, symbol)
 
 
 @callback(
@@ -1264,12 +1411,14 @@ def _select_strike(clicks, current):
     return None if current == strike else strike
 
 
-# Toggle option-only row + which conditional price input shows.
+# Toggle option-only row + which conditional price input shows; the load
+# button is "Load chain" for options, "Load stock" otherwise.
 @callback(
     Output("paper-option-row", "style"),
     Output("paper-limit", "style"),
     Output("paper-stop", "style"),
     Output("paper-trail", "style"),
+    Output("paper-load-chain", "children"),
     Input("paper-asset", "value"),
     Input("paper-otype", "value"),
 )
@@ -1280,7 +1429,55 @@ def _toggle_inputs(asset, otype):
     opt_row = {**_FLEX, "marginTop": "8px",
                "display": "flex" if asset == "option" else "none"}
     return (opt_row, price("110px", otype == "limit"),
-            price("110px", otype == "stop"), price("110px", otype == "trailing"))
+            price("110px", otype == "stop"), price("110px", otype == "trailing"),
+            t("Load chain") if asset == "option" else t("Load stock"))
+
+
+# Held-position context row: visible whenever the typed symbol is held, so a
+# position can always be closed exactly — no need to hand-type the fractional
+# quantity that $-mode buys leave behind.
+@callback(
+    Output("paper-held-row", "style"),
+    Output("paper-held-label", "children"),
+    Input("paper-symbol", "value"),
+    Input("paper-refresh", "data"),
+)
+def _held_row(symbol, _refresh):
+    sym = (symbol or "").strip().upper()
+    state = P.load_state()
+    if not sym or not state:
+        return _HIDDEN, ""
+    pos = state["portfolios"][state["active"]]["positions"].get(sym)
+    qty = pos["qty"] if pos else 0.0
+    if abs(qty) < 1e-12:
+        return _HIDDEN, ""
+    label = (t("You hold {qty} {symbol}.") if qty > 0
+             else t("You are SHORT {qty} {symbol}.")).format(
+        qty=f"{abs(qty):g}", symbol=sym)
+    return {**_FLEX, "marginTop": "8px"}, label
+
+
+# Progressive disclosure: the order controls and "+ Watch" only appear once
+# the typed symbol has actually been loaded (stock/crypto: quote check via the
+# load button or a holdings/watchlist row click; option: chain loaded).
+# Typing a different symbol hides them again.
+@callback(
+    Output("paper-ticket-controls", "style"),
+    Output("paper-add-watch", "style"),
+    Input("paper-loaded", "data"),
+    Input("paper-opt-underlying", "data"),
+    Input("paper-symbol", "value"),
+    Input("paper-asset", "value"),
+)
+def _ticket_visibility(loaded, opt_under, symbol, asset):
+    sym = (symbol or "").strip().upper()
+    if asset == "option":
+        ready = bool(sym) and opt_under == sym
+    else:
+        ready = bool(sym) and bool(loaded) and loaded.get("symbol") == sym
+    return ({"display": "block"} if ready else _HIDDEN,
+            theme.PERIOD_BUTTON_STYLE if ready
+            else {**theme.PERIOD_BUTTON_STYLE, "display": "none"})
 
 
 # ── Market clock (client-side, ticks every second; no server load) ────────────
@@ -1333,7 +1530,17 @@ clientside_callback(
 )
 
 
-# ── Order-type help modal toggle ──────────────────────────────────────────────
+# ── Help modal toggles (order types / asset types) ────────────────────────────
+
+@callback(
+    Output("paper-asset-help-modal", "style"),
+    Input("paper-asset-help", "n_clicks"),
+    Input("paper-asset-help-close", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _asset_help_toggle(_open, _close):
+    return {"display": "flex"} if ctx.triggered_id == "paper-asset-help" else _HIDDEN
+
 
 @callback(
     Output("paper-help-modal", "style"),
@@ -1385,6 +1592,7 @@ def _tick(_n, refresh):
     Output("paper-stats", "style"),
     Output("paper-charttype-wrap", "style"),
     Output("paper-chart-type", "options"),
+    Output("paper-cash-line", "children"),
     Input("paper-refresh", "data"),
     Input("paper-selected", "data"),
     Input("paper-selected-sector", "data"),
@@ -1500,6 +1708,8 @@ def _render(_refresh, selected, sel_sector, asset, opt_under, expiry, right, str
         _stats_table(state), fig, chain_wrap, chain, label, stock_wrap, stock_fig,
         metrics, _trades_table(state), graph_style, stats_style, charttype_style,
         chart_type_options,
+        t("Cash: ${amount}").format(
+            amount=_money(P.summary(state, state["active"])["cash"])),
     )
 
 

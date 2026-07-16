@@ -1284,8 +1284,58 @@ TRANSLATIONS_TH: dict[str, str] = {
     "This cannot be undone.": "การกระทำนี้ย้อนกลับไม่ได้",
     "Removed {ticker} from watchlist": "ลบ {ticker} ออกจากรายการเฝ้าดูแล้ว",
     "Deleted portfolio {name}": "ลบพอร์ต {name} แล้ว",
-    "Enter an underlying symbol first.": "ใส่สัญลักษณ์อ้างอิงก่อน",
+    "Enter a symbol first.": "ใส่สัญลักษณ์ก่อน",
+    "Close position": "ปิดสถานะ",
+    "You hold {qty} {symbol}.": "คุณถือ {symbol} อยู่ {qty} หน่วย",
+    "You are SHORT {qty} {symbol}.": "คุณชอร์ต {symbol} อยู่ {qty} หน่วย",
+    "No open position for {symbol}.": "ไม่มีสถานะเปิดสำหรับ {symbol}",
+    "⚠ You hold {held} — this sell exceeds your position and will "
+    "OPEN A SHORT of {short} {unit}(s).":
+        "⚠ คุณถืออยู่ {held} — คำสั่งขายนี้เกินจำนวนที่ถือ "
+        "และจะเปิดสถานะชอร์ต {short} {unit}",
     "No listed options for {symbol}.": "ไม่มีออปชันจดทะเบียนสำหรับ {symbol}",
+    "Loaded option chain for {symbol}.": "โหลดเชนออปชันของ {symbol} แล้ว",
+    "{symbol} not found — check the symbol.":
+        "ไม่พบ {symbol} — ตรวจสอบสัญลักษณ์อีกครั้ง",
+    "{symbol} loaded — last price ${price}.":
+        "โหลด {symbol} แล้ว — ราคาล่าสุด ${price}",
+    "Added {symbol} to watchlist.": "เพิ่ม {symbol} ในรายการเฝ้าดูแล้ว",
+    "Load stock": "โหลดหุ้น",
+    "Cash: ${amount}": "เงินสด: ${amount}",
+    "What do these asset types mean?": "ประเภทสินทรัพย์เหล่านี้หมายถึงอะไร?",
+    "Asset types explained": "อธิบายประเภทสินทรัพย์",
+    "Stock/ETF": "หุ้น/ETF",
+    "Crypto": "คริปโต",
+    "Option": "ออปชัน",
+    "A share of a single company (stock), or a fund that "
+    "holds a whole basket of assets under one ticker "
+    "(ETF). Trades during US market hours.":
+        "หุ้นของบริษัทเดียว (หุ้น) หรือกองทุนที่ถือสินทรัพย์หลายตัวรวมกัน"
+        "ในติกเกอร์เดียว (ETF) ซื้อขายในช่วงเวลาทำการของตลาดสหรัฐฯ",
+    "AAPL is Apple stock; SPY is an ETF that holds all "
+    "S&P 500 companies at once.":
+        "AAPL คือหุ้น Apple ส่วน SPY คือ ETF ที่ถือหุ้นทั้งหมดใน S&P 500 พร้อมกัน",
+    "A digital currency, quoted as a -USD pair. Trades "
+    "around the clock (24/7) and is typically far more "
+    "volatile than stocks.":
+        "สกุลเงินดิจิทัล แสดงราคาเป็นคู่ -USD ซื้อขายได้ตลอด 24 ชั่วโมงทุกวัน "
+        "และโดยทั่วไปผันผวนมากกว่าหุ้นมาก",
+    "BTC-USD is Bitcoin priced in dollars; ETH-USD is "
+    "Ethereum.":
+        "BTC-USD คือบิตคอยน์ในสกุลดอลลาร์ ส่วน ETH-USD คืออีเธอเรียม",
+    "A contract giving the right — not the obligation — "
+    "to buy (call) or sell (put) 100 shares of the "
+    "underlying at a set strike price until expiry. Load "
+    "the chain, then pick expiry, call/put and strike.":
+        "สัญญาที่ให้สิทธิ์ — แต่ไม่ใช่ข้อผูกมัด — ในการซื้อ (คอล) หรือขาย (พุท) "
+        "หุ้นอ้างอิง 100 หุ้นที่ราคาใช้สิทธิ์ที่กำหนดจนถึงวันหมดอายุ "
+        "โหลดเชนแล้วเลือกวันหมดอายุ คอล/พุท และราคาใช้สิทธิ์",
+    "An AAPL call with strike $300 expiring in December "
+    "profits if Apple rises well above $300 before then; "
+    "it can also expire worthless.":
+        "คอลออปชัน AAPL ราคาใช้สิทธิ์ $300 ที่หมดอายุเดือนธันวาคม จะได้กำไร"
+        "ถ้าราคา Apple ขึ้นสูงกว่า $300 มากพอก่อนถึงตอนนั้น "
+        "แต่ก็อาจหมดค่าลงได้เช่นกัน",
     "Contract: {under} {expiry} {cp}{strike}": "สัญญา: {under} {expiry} {cp}{strike}",
     # paper figure
     "{name} principal": "เงินต้น {name}",

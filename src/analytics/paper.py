@@ -511,7 +511,7 @@ def _apply_fill(pf: dict, meta: dict, side: str, qty: float, price: float,
         realized = closed * (price - old_avg) * (1 if old_qty > 0 else -1) * mult
         new_avg = old_avg if abs(signed) <= abs(old_qty) else price  # flip → new basis
 
-    if abs(new_qty) < 1e-9:
+    if abs(new_qty) < 1e-6:     # sub-millionth residuals are rounding dust
         pf["positions"].pop(sym, None)
     else:
         kept = {k: meta[k] for k in
@@ -585,6 +585,14 @@ def _resolve_trade(state: dict, spec: dict):
         raise TradeError(f"No live quote for {instrument_label(meta)}.")
     ref = live if live is not None else 0.0
     qty = _qty_from_spec(spec, ref or 1.0, _mult(meta))
+    # Dust snap: a reducing order within a rounding hair of the full position
+    # (display-rounded qty, $-mode remainder) becomes an exact close, so
+    # fractional dust and accidental micro-shorts can't be created.
+    pos = _active(state)["positions"].get(meta["symbol"])
+    held = pos["qty"] if pos else 0.0
+    reducing = (side == "sell" and held > 0) or (side == "buy" and held < 0)
+    if reducing and abs(qty - abs(held)) <= max(abs(held) * 1e-5, 1e-3):
+        qty = abs(held)
     return meta, side, otype, live, ref, qty
 
 
@@ -675,6 +683,8 @@ def preview_order(state: dict, spec: dict) -> dict:
         "est": (qty * price * mult) if price else None,
         "is_option": meta.get("kind") == "option",
         "is_short": side == "sell" and qty > max(held, 0.0) + 1e-9,
+        "held": max(held, 0.0),
+        "short_qty": max(0.0, qty - max(held, 0.0)),
     }
 
 

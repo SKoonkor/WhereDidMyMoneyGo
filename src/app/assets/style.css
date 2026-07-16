@@ -946,6 +946,24 @@ label.dash-options-list-option { color: var(--ink); }
 }
 .paper-help-btn:hover { color: var(--accent); border-color: var(--accent); }
 
+/* Paper Trading — prominent feedback banners (success / error) */
+.paper-msg-ok, .paper-msg-err {
+    font-size: 14px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-left: 3px solid;
+}
+.paper-msg-ok {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.paper-msg-err {
+    color: var(--expense);
+    border-color: var(--expense);
+    background: color-mix(in srgb, var(--expense) 12%, transparent);
+}
+
 /* Paper Trading — accounts (sessions) picker */
 .paper-acct-grid {
     display: grid;
