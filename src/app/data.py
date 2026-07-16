@@ -124,6 +124,16 @@ def privacy_config() -> dict:
     }
 
 
+def language_config() -> dict:
+    """Language settings: whether the header language toggle is disabled, and which
+    second language it switches to (English is always the first language)."""
+    lang = settings().get("language", {})
+    return {
+        "toggle_disabled": bool(lang.get("toggle_disabled", False)),
+        "second_language": (lang.get("second_language") or "th"),
+    }
+
+
 def tax_config() -> dict:
     """Income-tax settings: which expense subcategory records tax payments, and
     which country's tax model to use (Thailand today)."""

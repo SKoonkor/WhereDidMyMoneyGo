@@ -122,6 +122,13 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Goal name": "ชื่อเป้าหมาย",
     "Target": "เป้าหมาย",
     "Importance ×factor (default 1)": "ความสำคัญ ×ตัวคูณ (ค่าเริ่มต้น 1)",
+    "Importance factor (≥ 1, optional)": "ตัวคูณความสำคัญ (≥ 1, ไม่บังคับ)",
+    "xTimes rule factor (≥ 1, optional)": "ตัวคูณกฎ x เท่า (≥ 1, ไม่บังคับ)",
+    "[{fx}x rule]": "[กฎ {fx} เท่า]",
+    "Add '{name}' with a target of {amount} {cur} and a {fx}x rule?":
+        "เพิ่ม '{name}' เป้าหมาย {amount} {cur} และกฎ {fx} เท่า?",
+    "Add '{name}' with a target of {amount} {cur} and no multiplier?":
+        "เพิ่ม '{name}' เป้าหมาย {amount} {cur} โดยไม่มีตัวคูณ?",
     "Multiplies this goal's target before it counts "
     "as reached (the pool needs the highest of your "
     "ticked goals).":
@@ -364,6 +371,8 @@ TRANSLATIONS_TH: dict[str, str] = {
     "60,000 if your spouse has no assessable income.":
         "60,000 หากคู่สมรสไม่มีเงินได้ที่ต้องประเมิน",
     "Children": "บุตร",
+    "children": "คน",
+    "people": "คน",
     "30,000 per child.": "30,000 ต่อบุตรหนึ่งคน",
     "Parental care": "ค่าอุปการะบิดามารดา",
     "30,000 per dependent parent aged 60+, up to 4.":
@@ -421,6 +430,25 @@ TRANSLATIONS_TH: dict[str, str] = {
     "The Income Tax page sums this expense subcategory over the "
     "year as the tax you have already paid.":
         "หน้าภาษีเงินได้จะรวมยอดหมวดหมู่ย่อยรายจ่ายนี้ตลอดทั้งปีเป็นภาษีที่คุณจ่ายไปแล้ว",
+    "Language settings": "การตั้งค่าภาษา",
+    "{label}: {old} → {new}": "{label}: {old} → {new}",
+    "You have unsaved changes:": "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก:",
+    "Leave without saving?": "ออกจากหน้านี้โดยไม่บันทึกหรือไม่?",
+    "on": "เปิด",
+    "off": "ปิด",
+    "disabled": "ปิดใช้งาน",
+    "allowed": "อนุญาต",
+    "Language toggle": "ปุ่มสลับภาษา",
+    "Disable language toggling": "ปิดการสลับภาษา",
+    "When disabled, the EN/ไทย switch at the top still shows but "
+    "cannot change the language.":
+        "เมื่อปิดใช้งาน ปุ่ม EN/ไทย ด้านบนจะยังแสดงอยู่ แต่จะไม่สามารถเปลี่ยนภาษาได้",
+    "Second language": "ภาษาที่สอง",
+    "English is always the first language. Choose the language the "
+    "toggle translates to.":
+        "ภาษาอังกฤษเป็นภาษาแรกเสมอ เลือกภาษาที่ต้องการให้ปุ่มสลับไปแปล",
+    "No language toggle allowed, enable in Settings":
+        "ไม่อนุญาตให้สลับภาษา เปิดใช้งานได้ในการตั้งค่า",
     "Account tools": "เครื่องมือบัญชี",
     "Transaction data": "ข้อมูลการจดบันทึก",
     "⬇ Import": "⬇ นำเข้า",

@@ -3,7 +3,7 @@
 from datetime import datetime
 
 import dash
-from dash import dcc, html, callback, Input, Output
+from dash import dcc, html, callback, clientside_callback, Input, Output, State
 
 from src.app import theme
 from src.app.components import page_header
@@ -16,7 +16,8 @@ t = make_t("flow")
 
 dash.register_page(__name__, path="/flow", name="Money Flow", order=1)
 
-# "Reset axes" returns to the initial range; "Autoscale" shows everything.
+# Both "Reset axes" and "Autoscale" are re-snapped (clientside, below) to the
+# opening window — the last ~2 months of real data plus the selected forecast.
 _GRAPH_CONFIG = {
     "displaylogo": False,
     "doubleClick": "reset",
@@ -54,6 +55,7 @@ def layout(**_):
                         id="flow-horizon",
                         options=[{"label": f"  {t(lbl)}", "value": v} for lbl, v in _HORIZONS],
                         value="30", inline=True,
+                        inputClassName="sq-tick",
                         inputStyle={"marginRight": "4px"},
                         labelStyle={"marginRight": "16px", "cursor": "pointer"},
                     ),
@@ -66,6 +68,7 @@ def layout(**_):
                 className="flow-controls",
             ),
             dcc.Store(id="flow-forecast-refresh", data=0),
+            dcc.Store(id="flow-reset-sink"),
             dcc.ConfirmDialog(
                 id="flow-retrain-confirm",
                 message=t("Retrain the forecast model on all your current "
@@ -114,3 +117,31 @@ def _render(theme_value, horizon, _refresh, censor):
                                   dark=theme.is_dark(theme_value), forecast=fc,
                                   censor=theme.is_censored(censor))
     return fig, _trained_text(model)
+
+
+# "Autoscale" and "Reset axes" both emit {"xaxis.autorange": true}, which would jump
+# to the full history. Intercept that and relayout the x-axis back to the figure's
+# opening window (last ~2 months of real data + the selected forecast). The figure
+# prop still holds that window (client pan/zoom don't write it back), and the y-axis
+# is fixed, so only x needs restoring. Setting an explicit range (autorange=false)
+# does not re-trigger this branch, so there is no loop.
+clientside_callback(
+    """
+    function(relayout, figure) {
+        const noup = window.dash_clientside.no_update;
+        if (!relayout || relayout['xaxis.autorange'] !== true) return noup;
+        const xr = figure && figure.layout && figure.layout.xaxis
+                   && figure.layout.xaxis.range;
+        if (!xr) return noup;
+        const gd = document.querySelector('#flow-graph .js-plotly-plot');
+        if (!gd) return noup;
+        window.Plotly.relayout(gd, {'xaxis.autorange': false,
+                                    'xaxis.range': xr.slice()});
+        return noup;
+    }
+    """,
+    Output("flow-reset-sink", "data"),
+    Input("flow-graph", "relayoutData"),
+    State("flow-graph", "figure"),
+    prevent_initial_call=True,
+)

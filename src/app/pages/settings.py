@@ -8,20 +8,66 @@ the config cache so emergency-fund settings take effect on the next render.
 from __future__ import annotations
 
 import dash
-from dash import dcc, html, callback, ctx, ALL, Input, Output, State
+from dash import (dcc, html, callback, clientside_callback, ctx, ALL,
+                  Input, Output, State)
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
 from src.app.components import page_header
-from src.app.i18n import make_t
+from src.app.i18n import make_t, LANGUAGES, second_lang_native
 from src.app.data import (get_config, emergency_fund_config, privacy_config,
-                          account_names, refresh_config, tax_config)
+                          account_names, refresh_config, tax_config,
+                          language_config)
 from src.analytics.transaction_categories import load_categories
 from src.utils.config import save_settings
 
 t = make_t("settings")
 
 dash.register_page(__name__, path="/settings", name="Settings", order=8)
+
+
+def _settings_changes(saved: dict, current: dict) -> list[str]:
+    """Human-readable ``"{label}: {old} → {new}"`` lines for every setting whose
+    ``current`` value differs from the ``saved`` one. Pure (so it is unit-testable);
+    reuses the field-label translations. Returns ``[]`` when nothing changed."""
+    def line(label, old, new):
+        return t("{label}: {old} → {new}").format(label=label, old=old, new=new)
+
+    def onoff(v):
+        return t("on") if v else t("off")
+
+    changes = []
+    if saved["app_name"] != current["app_name"]:
+        changes.append(line(t("App name"), saved["app_name"], current["app_name"]))
+    if saved["base_currency"] != current["base_currency"]:
+        changes.append(line(t("Base currency"), saved["base_currency"],
+                            current["base_currency"]))
+    if saved["monthly"] != current["monthly"]:
+        changes.append(line(t("Monthly required expenses"), saved["monthly"],
+                            current["monthly"]))
+    if saved["months"] != current["months"]:
+        changes.append(line(t("Target months"), saved["months"], current["months"]))
+    if saved["accounts"] != current["accounts"]:
+        changes.append(line(t("Savings account(s)"), ", ".join(saved["accounts"]),
+                            ", ".join(current["accounts"])))
+    if saved["privacy_auto"] != current["privacy_auto"]:
+        changes.append(line(t("Auto-privacy"), onoff(saved["privacy_auto"]),
+                            onoff(current["privacy_auto"])))
+    if saved["privacy_seconds"] != current["privacy_seconds"]:
+        changes.append(line(t("Idle delay (seconds)"), saved["privacy_seconds"],
+                            current["privacy_seconds"]))
+    if saved["tax_subcat"] != current["tax_subcat"]:
+        changes.append(line(t("Tax-payment subcategory"), saved["tax_subcat"],
+                            current["tax_subcat"]))
+    if saved["lang_disabled"] != current["lang_disabled"]:
+        state = lambda v: t("disabled") if v else t("allowed")
+        changes.append(line(t("Language toggle"), state(saved["lang_disabled"]),
+                            state(current["lang_disabled"])))
+    if saved["lang_second"] != current["lang_second"]:
+        changes.append(line(t("Second language"),
+                            second_lang_native(saved["lang_second"]),
+                            second_lang_native(current["lang_second"])))
+    return changes
 
 
 def _field(label: str, control, hint: str | None = None) -> html.Div:
@@ -155,6 +201,38 @@ def layout(**_):
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
 
+    lc = language_config()
+    language_card = html.Div(
+        [
+            html.H2(t("Language settings"), style={"color": theme.INK, "marginTop": 0}),
+            _field(
+                t("Language toggle"),
+                dcc.Checklist(
+                    id="set-lang-disable",
+                    options=[{"label": " " + t("Disable language toggling"), "value": "on"}],
+                    value=(["on"] if lc["toggle_disabled"] else []),
+                    inputClassName="sq-tick",
+                    style={"marginTop": "4px", "color": theme.INK, "fontSize": "14px"},
+                ),
+                hint=t("When disabled, the EN/ไทย switch at the top still shows but "
+                       "cannot change the language."),
+            ),
+            _field(
+                t("Second language"),
+                dcc.Dropdown(
+                    id="set-lang-second",
+                    options=[{"label": f'{v["english"]} / {v["native"]}', "value": code}
+                             for code, v in LANGUAGES.items()],
+                    value=lc["second_language"], clearable=False,
+                    style={"marginTop": "4px", "maxWidth": "260px"}),
+                hint=t("English is always the first language. Choose the language the "
+                       "toggle translates to."),
+            ),
+            dcc.Store(id="lang-disable-sink"),
+        ],
+        style={**theme.CARD_STYLE, "marginTop": "16px"},
+    )
+
     tc = tax_config()
     tax_card = html.Div(
         [
@@ -175,7 +253,8 @@ def layout(**_):
             html.Button(t("Save settings"), id="set-save", n_clicks=0, style=theme.BUTTON_STYLE),
             html.Span(id="set-msg", style={"alignSelf": "center", "fontSize": "14px"}),
         ],
-        style={"display": "flex", "gap": "14px", "alignItems": "center", "marginTop": "16px"},
+        style={"display": "flex", "gap": "14px", "alignItems": "center",
+               "justifyContent": "center", "marginTop": "16px"},
     )
 
     tools_card = html.Div(
@@ -216,14 +295,19 @@ def layout(**_):
     return html.Div(
         [
             page_header("Settings", "Edit your app configuration.", back=("Home", "/")),
+            # Leave-page guard: change summary + a mirror sink (see settings_guard.js).
+            dcc.Store(id="settings-guard"),
+            dcc.Store(id="settings-guard-sink"),
             html.Div(
                 [
-                    html.Div([general_card, ef_card, tax_card, privacy_card, save_row],
-                             style={"flex": "1", "maxWidth": "560px", "marginRight": "20px"}),
-                    html.Div(tools_card, style={"flex": "0 0 260px"}),
+                    html.Div([general_card, ef_card, tax_card],
+                             style={"flex": "1", "minWidth": 0}),
+                    html.Div([tools_card, privacy_card, language_card],
+                             style={"flex": "1", "minWidth": 0}),
                 ],
-                style={"display": "flex", "alignItems": "flex-start"},
+                style={"display": "flex", "alignItems": "flex-start", "gap": "20px"},
             ),
+            save_row,   # very bottom of the page, spanning both columns
         ],
         style=theme.PAGE_STYLE,
     )
@@ -241,10 +325,12 @@ def layout(**_):
     State("set-privacy-auto", "value"),
     State("set-privacy-seconds", "value"),
     State("set-tax-subcat", "value"),
+    State("set-lang-disable", "value"),
+    State("set-lang-second", "value"),
     prevent_initial_call=True,
 )
 def _save(n, app_name, currency, monthly, months, accounts, privacy_auto,
-          privacy_seconds, tax_subcat):
+          privacy_seconds, tax_subcat, lang_disable, lang_second):
     if not n:
         raise PreventUpdate
     ok = {"alignSelf": "center", "fontSize": "14px", "color": theme.ACCENT}
@@ -269,6 +355,10 @@ def _save(n, app_name, currency, monthly, months, accounts, privacy_auto,
             },
             "tax": {
                 "paid_subcategory": (tax_subcat or "").strip(),
+            },
+            "language": {
+                "toggle_disabled": bool(lang_disable),
+                "second_language": (lang_second or "th"),
             },
         })
         refresh_config()
@@ -331,3 +421,91 @@ def _go_remove(submit_n):
     if not submit_n:
         raise PreventUpdate
     return "/remove"
+
+
+# Live preview: reflect the "disable language toggling" tick box on the header pill
+# immediately (its data-locked drives the toggle's behaviour). Persisting still
+# needs Save; navigating/reloading re-reads the saved config.
+clientside_callback(
+    """
+    function (value) {
+        var btn = document.getElementById("lang-toggle");
+        if (btn) { btn.setAttribute("data-locked", (value && value.length) ? "1" : "0"); }
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("lang-disable-sink", "data"),
+    Input("set-lang-disable", "value"),
+)
+
+
+@callback(
+    Output("settings-guard", "data"),
+    Input("set-app-name", "value"),
+    Input("set-currency", "value"),
+    Input("set-ef-monthly", "value"),
+    Input("set-ef-months", "value"),
+    Input({"type": "set-ef-acct", "index": ALL}, "value"),
+    Input("set-privacy-auto", "value"),
+    Input("set-privacy-seconds", "value"),
+    Input("set-tax-subcat", "value"),
+    Input("set-lang-disable", "value"),
+    Input("set-lang-second", "value"),
+    Input("set-msg", "children"),   # recompute after a Save (config just changed)
+)
+def _compute_guard(app_name, currency, monthly, months, accounts, privacy_auto,
+                   privacy_seconds, tax_subcat, lang_disable, lang_second, _saved):
+    """Diff the live form against saved config → change lines for the leave guard."""
+    general = get_config().get("settings", {}).get("general", {})
+    ef, pc, tc, lc = (emergency_fund_config(), privacy_config(),
+                      tax_config(), language_config())
+    saved = {
+        "app_name": general.get("app_name", "Money Tracker"),
+        "base_currency": general.get("base_currency", "THB"),
+        "monthly": float(ef["monthly_required"]),
+        "months": int(ef["target_months"]),
+        "accounts": ef["savings_accounts"],
+        "privacy_auto": bool(pc["auto_enabled"]),
+        "privacy_seconds": int(pc["idle_seconds"]),
+        "tax_subcat": tc["paid_subcategory"],
+        "lang_disabled": bool(lc["toggle_disabled"]),
+        "lang_second": lc["second_language"],
+    }
+    # Normalise the live inputs exactly as _save persists them, so a round-tripped
+    # value never reads as a spurious change.
+    cur_accounts = list(dict.fromkeys(
+        a.strip() for a in (accounts or []) if a and a.strip())) or ["Savings"]
+    current = {
+        "app_name": (app_name or "Money Tracker").strip(),
+        "base_currency": (currency or "THB").strip(),
+        "monthly": float(monthly or 0),
+        "months": int(months or 1),
+        "accounts": cur_accounts,
+        "privacy_auto": bool(privacy_auto),
+        "privacy_seconds": max(1, int(privacy_seconds or 10)),
+        "tax_subcat": (tax_subcat or "").strip(),
+        "lang_disabled": bool(lang_disable),
+        "lang_second": (lang_second or "th"),
+    }
+    return {
+        "lines": _settings_changes(saved, current),
+        "intro": t("You have unsaved changes:"),
+        "outro": t("Leave without saving?"),
+    }
+
+
+# Mirror the change summary to the browser for the leave-page guard (settings_guard.js).
+clientside_callback(
+    """
+    function (g) {
+        var lines = (g && g.lines) || [];
+        window.__settingsChanges = lines;
+        window.__settingsDirty = lines.length > 0;
+        window.__settingsGuardIntro = (g && g.intro) || "";
+        window.__settingsGuardOutro = (g && g.outro) || "";
+        return "";
+    }
+    """,
+    Output("settings-guard-sink", "data"),
+    Input("settings-guard", "data"),
+)

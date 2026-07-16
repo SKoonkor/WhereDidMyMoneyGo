@@ -41,6 +41,16 @@ def _field(label, control, hint=None):
     return html.Div(children, style={"marginBottom": "14px"})
 
 
+def _allowance_unit(defn):
+    """Inline unit shown after the input box: currency for money amounts, a
+    counting word for count allowances, nothing for flags/fixed."""
+    if defn["type"] == "amount":
+        return currency()
+    if defn["type"] == "count":
+        return t(defn.get("unit") or "people")
+    return ""
+
+
 def _allowance_control(defn, saved):
     cid = {"type": "tax-allow", "key": defn["key"]}
     if defn["type"] == "flag":
@@ -49,10 +59,15 @@ def _allowance_control(defn, saved):
                              inputStyle={"marginRight": "6px"},
                              style={"color": theme.INK})
     step = 1 if defn["type"] == "count" else 1000
-    return dcc.Input(id=cid, type="number", min=0, step=step,
-                     value=(saved if saved not in (None, False) else 0),
-                     className="no-spin",
-                     style={**theme.INPUT_STYLE, "marginBottom": 0, "width": "100%"})
+    box = dcc.Input(id=cid, type="number", min=0, step=step,
+                    value=(saved if saved not in (None, False) else 0),
+                    className="no-spin",
+                    style={**theme.INPUT_STYLE, "marginBottom": 0, "width": "100%"})
+    unit = _allowance_unit(defn)
+    if not unit:
+        return box
+    return html.Div([box, html.Span(unit, className="tax-input-unit")],
+                    className="tax-input-row")
 
 
 def _allowance_boxes(saved_allow):
@@ -109,10 +124,16 @@ def layout(**_):
                                 value=default_year, clearable=False,
                                 style={"marginBottom": "4px"})),
             _field(t("Gross annual income"),
-                   dcc.Input(id="tax-gross", type="number", min=0, step=0.01,
-                             value=gross0, className="no-spin",
-                             style={**theme.INPUT_STYLE, "marginTop": "4px",
-                                    "width": "200px"}),
+                   html.Div(
+                       [
+                           dcc.Input(id="tax-gross", type="number", min=0, step=0.01,
+                                     value=gross0, className="no-spin",
+                                     style={**theme.INPUT_STYLE, "marginBottom": 0,
+                                            "width": "150px", "flexGrow": 0}),
+                           html.Span(currency(), className="tax-input-unit"),
+                       ],
+                       className="tax-input-row",
+                       style={"marginTop": "4px"}),
                    hint=t("Prefilled from your tracked income for the year — "
                           "edit if some of it isn't taxable.")),
             _personal_field(),

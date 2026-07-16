@@ -20,6 +20,22 @@ SUPPORTED = ("en", "th")
 DEFAULT_LANG = "en"
 COOKIE_NAME = "lang"
 
+# Second-language registry. English is always the first language; a goal's second
+# language is chosen from here (see data.language_config). Each entry carries the
+# language's own native script (shown on the EN/xx toggle pill) and its English
+# name (shown in the Settings dropdown). Adding a language is a data-only change
+# here; wiring the actual translations/`SUPPORTED` for a new code is separate.
+LANGUAGES: dict[str, dict[str, str]] = {
+    "th": {"native": "ไทย", "english": "Thai"},
+}
+DEFAULT_SECOND_LANG = "th"
+
+
+def second_lang_native(code: str | None) -> str:
+    """Native-script symbol for the toggle pill (e.g. ``th`` → ``ไทย``)."""
+    entry = LANGUAGES.get(code or DEFAULT_SECOND_LANG) or LANGUAGES[DEFAULT_SECOND_LANG]
+    return entry["native"]
+
 
 def get_lang() -> str:
     """Current UI language from the request cookie; ``"en"`` by default.

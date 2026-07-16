@@ -138,6 +138,17 @@ def create_app() -> Dash:
             // reload racing the store write can't desync the toggle.
             var m = document.cookie.match(/(?:^|; )lang=(en|th)/);
             var lang = m ? m[1] : "en";
+            var btn = document.getElementById("lang-toggle");
+            if (n_clicks && btn && btn.getAttribute("data-locked") === "1") {
+                // Toggling is disabled in Settings: show the inline notice, keep lang.
+                var msg = document.getElementById("lang-lock-msg");
+                if (msg) {
+                    msg.classList.add("show");
+                    setTimeout(function () { msg.classList.remove("show"); }, 3000);
+                }
+                document.documentElement.setAttribute("data-lang", lang);
+                return window.dash_clientside.no_update;
+            }
             if (n_clicks) {
                 lang = (lang === "en") ? "th" : "en";
                 document.cookie = "lang=" + lang + ";path=/;max-age=31536000;samesite=lax";

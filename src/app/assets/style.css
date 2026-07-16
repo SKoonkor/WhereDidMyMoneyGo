@@ -223,6 +223,28 @@ html[data-censor="on"] .censor-toggle .ct-eye {
 html[data-lang="en"] .lang-switch .lang-en { color: var(--accent); font-weight: 700; }
 html[data-lang="th"] .lang-switch .lang-th { color: var(--accent); font-weight: 700; }
 
+/* Inline "toggling disabled" notice that pops up under the pill (see app.py). */
+.lang-switch-wrap { position: relative; display: inline-flex; }
+.lang-lock-msg {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 6px;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 5px 9px;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 30;
+}
+.lang-lock-msg.show { opacity: 1; }
+
 /* Number inputs: no −/+ steppers anywhere by default. Dash renders its own
    `.dash-input-stepper` buttons; also drop the native browser spinners. (Opt a
    specific field back in later if ever needed.) */
@@ -266,6 +288,38 @@ html[data-theme="light"] .theme-switch .tt-knob {
     left: 3px;                           /* light → sun knob on the left */
     background-color: #ffffff;           /* light-mode knob (bright bg) */
     background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%3E%3Ccircle%20cx%3D%2712%27%20cy%3D%2712%27%20r%3D%274%27%2F%3E%3Cpath%20d%3D%27M12%202v2M12%2020v2M4.2%204.2l1.4%201.4M18.4%2018.4l1.4%201.4M2%2012h2M20%2012h2M4.2%2019.8l1.4-1.4M18.4%205.6l1.4-1.4%27%2F%3E%3C%2Fsvg%3E");
+}
+
+/* ── Square tick boxes (RadioItems styled as check-squares) ───────────────── */
+/* Applied via inputClassName="sq-tick" on the Money Flow forecast horizon and the
+   Budget "Income basis" radios so they read as squares, not the native circles. */
+input.sq-tick {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 15px;
+    height: 15px;
+    border: 1.5px solid var(--border);
+    border-radius: 3px;
+    background: var(--surface);
+    vertical-align: -3px;
+    cursor: pointer;
+    position: relative;
+    flex: none;
+}
+input.sq-tick:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+input.sq-tick:checked::after {   /* white check-mark inside the filled square */
+    content: "";
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 4px;
+    height: 8px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
 /* ── Collapsible header menu ──────────────────────────────────────────────── */
@@ -1243,6 +1297,10 @@ label.dash-options-list-option { color: var(--ink); }
 .tax-allow-box-label { font-weight: 600; color: var(--ink); }
 .tax-allow-box-hint { font-size: 12px; color: var(--muted); }
 .tax-allow-box .tax-applied { font-size: 12px; color: var(--accent); font-weight: 600; }
+/* Input box + inline unit (currency / count word) sharing one line. */
+.tax-input-row { display: flex; align-items: center; gap: 8px; }
+.tax-input-row > .dash-input-container { flex: 1 1 auto; min-width: 0; }
+.tax-input-unit { flex: 0 0 auto; color: var(--muted); font-size: 13px; white-space: nowrap; }
 .manage-col {
     flex: 1;
     min-width: 0;

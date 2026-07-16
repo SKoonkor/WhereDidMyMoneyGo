@@ -1,8 +1,12 @@
 """Financial-goals pool math and persistence."""
 
+# Instantiate the Dash app first so the goals page module can register_page/callbacks
+# when we import its pure display helpers below.
+import src.app.app  # noqa: F401
 from src.analytics.goals import (
     pool_target, goal_factor, load_goals, add_goal, remove_goal, reorder_goals,
     EMERGENCY_FUND)
+from src.app.pages.goals import _compact, _fmt_factor, _rule_tag
 
 
 def test_pool_target_uses_max_not_sum():
@@ -49,3 +53,29 @@ def test_emergency_fund_cannot_be_removed(ledger_env):
     add_goal("Car", 500_000)
     goals = remove_goal(EMERGENCY_FUND)
     assert EMERGENCY_FUND in goals
+
+
+def test_add_goal_persists_float_factor(ledger_env):
+    # Factors may be fractional (≥ 1.0), not just integers.
+    add_goal("Trip", 1_000, factor=1.2)
+    assert goal_factor("Trip") == 1.2
+
+
+# ── Financial Goals page display helpers (pure) ───────────────────────────────
+
+def test_compact_amount_formatting():
+    assert _compact(999) == "999"
+    assert _compact(1_500) == "1.50k"
+    assert _compact(2_300_000) == "2.30M"
+
+
+def test_fmt_factor_trims_trailing_zeros():
+    assert _fmt_factor(5.0) == "5"
+    assert _fmt_factor(1.2) == "1.2"
+
+
+def test_rule_tag_only_above_one():
+    # Outside a request context t() falls back to English, so the tag is literal.
+    assert _rule_tag(1.0) == ""
+    assert _rule_tag(1.2) == "[1.2x rule]"
+    assert _rule_tag(5.0) == "[5x rule]"

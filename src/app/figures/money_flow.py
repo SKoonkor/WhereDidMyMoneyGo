@@ -241,7 +241,10 @@ def build_money_flow_figure(
                     yanchor="bottom", y=1.02, x=0),
         xaxis=dict(range=[x0, x1], showgrid=False, type="date"),
         # Privacy mode: hide the y tick labels so exact balances aren't readable.
-        yaxis=dict(range=y_range, showticklabels=not censor),
+        # `fixedrange` locks the y-axis on the interactive page chart so pan and
+        # zoom (incl. the scroll wheel) act only on the time axis; the compact
+        # home snapshot is left unlocked.
+        yaxis=dict(range=y_range, showticklabels=not censor, fixedrange=not compact),
         margin=dict(t=50, b=40, l=60, r=20),
     )
     return fig

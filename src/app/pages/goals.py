@@ -1,5 +1,7 @@
 """Feature 3 — Financial Goals page (slide 6)."""
 
+from __future__ import annotations
+
 import dash
 from dash import dcc, html, callback, Input, Output, State, no_update, ctx
 
@@ -11,7 +13,7 @@ from src.app.figures.goals import build_goal_gauge
 from src.analytics.emergency_fund import emergency_fund_status
 from src.analytics.goals import (
 
-    load_goals, add_goal, remove_goal, reorder_goals,
+    load_goals, add_goal, remove_goal, reorder_goals, load_factors, goal_factor,
     load_selected, save_selected, pool_target, EMERGENCY_FUND)
 
 t = make_t("goals")
@@ -19,18 +21,51 @@ t = make_t("goals")
 dash.register_page(__name__, path="/goals", name="Financial Goals", order=3)
 
 
-def _goal_rows(goals: dict, selected: list[str]) -> list:
+def _compact(v: float) -> str:
+    """Goal target, compacted: ``XXX.XXk`` / ``XXX.XXM`` above 1k / 1M."""
+    if v >= 1_000_000:
+        return f"{v / 1_000_000:.2f}M"
+    if v >= 1_000:
+        return f"{v / 1_000:.2f}k"
+    return f"{v:,.0f}"
+
+
+def _fmt_factor(f: float) -> str:
+    """Factor without trailing zeros: 5.0 → "5", 1.2 → "1.2"."""
+    return f"{f:g}"
+
+
+def _clean_factor(f) -> float:
+    """Coerce a raw factor input to a float ≥ 1.0 (blank/invalid → 1.0)."""
+    try:
+        return max(float(f or 1), 1.0)
+    except (TypeError, ValueError):
+        return 1.0
+
+
+def _rule_tag(factor: float) -> str:
+    """``[1.2x rule]`` / ``[กฎ 1.2 เท่า]`` for a >1 multiplier; ``""`` for 1×."""
+    if factor > 1:
+        return t("[{fx}x rule]").format(fx=_fmt_factor(factor))
+    return ""
+
+
+def _goal_rows(goals: dict, selected: list[str], factors: dict | None = None) -> list:
     """Draggable, click-to-select rows for every goal except the Emergency Fund."""
     selected = set(selected or [])
+    factors = load_factors() if factors is None else factors
     rows = []
     for name, amt in goals.items():
         if name == EMERGENCY_FUND:
             continue
+        label = [f"{name} (", money_span(f"{_compact(amt)} {currency()}"), ")"]
+        tag = _rule_tag(goal_factor(name, factors))
+        if tag:
+            label.append(f" {tag}")
         rows.append(html.Div(
             [
                 html.Span(className="goal-check"),
-                html.Span([f"{name} (", money_span(f"{amt:,.0f} {currency()}"), ")"],
-                          className="goal-label"),
+                html.Span(label, className="goal-label"),
             ],
             className="goal-row" + (" selected" if name in selected else ""),
             **{"data-goal": name},
@@ -46,12 +81,20 @@ def _savings_balance() -> float:
     return status["current_balance"]
 
 
-def _other_goals(goals: dict, censor: bool = False) -> list[dict]:
-    # Dropdown labels are plain strings (no CSS masking) — drop the amount when
-    # privacy mode is on.
+def _other_goals(goals: dict, censor: bool = False,
+                 factors: dict | None = None) -> list[dict]:
+    # Dropdown labels are plain strings (no CSS masking) — drop the amount (and the
+    # rule tag) when privacy mode is on.
+    factors = load_factors() if factors is None else factors
+
+    def _label(name, amt):
+        if censor:
+            return name
+        tag = _rule_tag(goal_factor(name, factors))
+        return f"{name} ({_compact(amt)} {currency()})" + (f" {tag}" if tag else "")
+
     return [
-        {"label": (name if censor else f"{name} ({amt:,.0f} {currency()})"),
-         "value": name}
+        {"label": _label(name, amt), "value": name}
         for name, amt in goals.items()
         if name != EMERGENCY_FUND
     ]
@@ -70,6 +113,7 @@ def layout(**_):
             dcc.Store(id="goals-select-sink"),
             dcc.Store(id="goals-order-store"),
             dcc.ConfirmDialog(id="goal-del-confirm"),
+            dcc.ConfirmDialog(id="goal-add-confirm"),
             html.Div(
                 [
                     card(
@@ -89,9 +133,8 @@ def layout(**_):
                             dcc.Input(id="goal-amount", type="number",
                                       placeholder=f"{t('Target')} ({currency()})",
                                       style=theme.INPUT_STYLE),
-                            dcc.Input(id="goal-factor", type="number", min=1, step=1,
-                                      value=1,
-                                      placeholder=t("Importance ×factor (default 1)"),
+                            dcc.Input(id="goal-factor", type="number", min=1, step="any",
+                                      placeholder=t("xTimes rule factor (≥ 1, optional)"),
                                       style=theme.INPUT_STYLE),
                             html.Div(t("Multiplies this goal's target before it counts "
                                        "as reached (the pool needs the highest of your "
@@ -138,7 +181,7 @@ def layout(**_):
     Output("goal-name", "value"),
     Output("goal-amount", "value"),
     Output("goal-factor", "value"),
-    Input("goal-add", "n_clicks"),
+    Input("goal-add-confirm", "submit_n_clicks"),
     Input("goal-del-confirm", "submit_n_clicks"),
     State("goal-name", "value"),
     State("goal-amount", "value"),
@@ -146,18 +189,42 @@ def layout(**_):
     State("goal-del-select", "value"),
     prevent_initial_call=True,
 )
-def _mutate_goals(_add_clicks, _del_submit, name, amount, factor, del_name):
+def _mutate_goals(_add_submit, _del_submit, name, amount, factor, del_name):
     trigger = ctx.triggered_id
-    if trigger == "goal-add":
+    if trigger == "goal-add-confirm":
         if not name or amount is None:
-            return (no_update, t("Enter both a name and a target amount."),
-                    no_update, no_update, no_update)
+            return no_update, no_update, no_update, no_update, no_update
         goals = add_goal(name, amount, factor or 1)
-        return goals, t("Added '{name}'.").format(name=name.strip()), "", None, 1
+        return goals, t("Added '{name}'.").format(name=name.strip()), "", None, None
     if trigger == "goal-del-confirm" and del_name:
         goals = remove_goal(del_name)
         return goals, t("Deleted '{name}'.").format(name=del_name), no_update, no_update, no_update
     return no_update, no_update, no_update, no_update, no_update
+
+
+@callback(
+    Output("goal-add-confirm", "displayed"),
+    Output("goal-add-confirm", "message"),
+    Output("goal-msg", "children", allow_duplicate=True),
+    Input("goal-add", "n_clicks"),
+    State("goal-name", "value"),
+    State("goal-amount", "value"),
+    State("goal-factor", "value"),
+    prevent_initial_call=True,
+)
+def _confirm_add(_n, name, amount, factor):
+    """Describe the goal about to be added and ask for confirmation before saving."""
+    if not name or amount is None:
+        return False, "", t("Enter both a name and a target amount.")
+    f = _clean_factor(factor)
+    amt = f"{float(amount):,.0f}"
+    if f > 1:
+        msg = t("Add '{name}' with a target of {amount} {cur} and a {fx}x rule?").format(
+            name=name.strip(), amount=amt, cur=currency(), fx=_fmt_factor(f))
+    else:
+        msg = t("Add '{name}' with a target of {amount} {cur} and no multiplier?").format(
+            name=name.strip(), amount=amt, cur=currency())
+    return True, msg, no_update
 
 
 @callback(

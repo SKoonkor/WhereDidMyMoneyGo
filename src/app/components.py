@@ -5,7 +5,8 @@ from __future__ import annotations
 from dash import dcc, html
 
 from src.app import theme
-from src.app.i18n import t
+from src.app.i18n import t, second_lang_native
+from src.app.data import language_config
 from src.analytics.reconciliation import is_reminder_due
 
 
@@ -62,18 +63,27 @@ def censor_toggle():
 
 
 def lang_toggle():
-    """Language toggle — a compact ``EN / TH`` pill (clientside in app.py).
+    """Language toggle — a compact ``EN / <native>`` pill (clientside in app.py).
 
-    Both codes are always rendered; CSS highlights the active one off
-    ``data-lang`` (the same trick as ``money_span`` off ``data-censor``), so the
-    callback only has to flip the stored value. Page text is not translated yet —
-    this just persists the choice for the upcoming per-page translation work."""
-    return html.Button(
+    Both codes are always rendered; CSS highlights the active one off ``data-lang``
+    (the same trick as ``money_span`` off ``data-censor``), so the callback only
+    flips the stored value. The second code shows the chosen language's native
+    script (e.g. ``ไทย``). ``data-locked`` mirrors the Settings "disable toggling"
+    option; when locked, a click reveals the sibling ``lang-lock-msg`` instead of
+    switching (see the clientside callback in ``app.py``)."""
+    lc = language_config()
+    button = html.Button(
         [html.Span("EN", className="lang-en"),
          html.Span("/", className="lang-sep"),
-         html.Span("TH", className="lang-th")],
-        id="lang-toggle", n_clicks=0,
-        className="lang-switch", title=t("Switch language (EN / TH)"))
+         html.Span(second_lang_native(lc["second_language"]), className="lang-th")],
+        id="lang-toggle", n_clicks=0, className="lang-switch",
+        title=t("Switch language"),
+        **{"data-locked": "1" if lc["toggle_disabled"] else "0"})
+    return html.Div(
+        [button,
+         html.Span(t("No language toggle allowed, enable in Settings"),
+                   id="lang-lock-msg", className="lang-lock-msg")],
+        className="lang-switch-wrap")
 
 
 def money_span(text, className: str = ""):
