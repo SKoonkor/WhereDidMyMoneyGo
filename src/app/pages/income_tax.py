@@ -33,6 +33,14 @@ _LABEL_STYLE = {"color": theme.MUTED, "fontSize": "13px"}
 _ALLOW_BY_KEY = {a["key"]: a for a in TH_ALLOWANCES}
 
 
+def _selection_label(sel: str) -> str:
+    """Human label for an encoded selection: 'Cat / Sub' stays as-is; a whole-category
+    selection reads 'Cat (all)'."""
+    if " / " in str(sel):
+        return str(sel)
+    return t("{cat} (all)").format(cat=sel)
+
+
 def _field(label, control, hint=None):
     children = [html.Label(label, style=_LABEL_STYLE), control]
     if hint:
@@ -102,18 +110,28 @@ def _personal_field():
 
 def _default_year_gross():
     """Default tax year (current if the ledger has it, else the newest) and the
-    gross income prefilled for it. Shared by the layout and the Reset callback."""
+    gross income prefilled for it, filtered to the configured income categories
+    (empty ⇒ all income). Shared by the layout and the Reset callback."""
     df = get_df()
     years = ledger_years(df)
     cur_year = datetime.date.today().year
     default_year = cur_year if cur_year in years else years[0]
-    return years, default_year, round(gross_income_for_year(df, default_year), 2)
+    sels = tax_config().get("income_selections") or None
+    gross = round(gross_income_for_year(df, default_year, sels), 2)
+    return years, default_year, gross
 
 
 def layout(**_):
     years, default_year, gross0 = _default_year_gross()
     saved = load_tax()
-    subcat = tax_config().get("paid_subcategory")
+    tc = tax_config()
+    inc_sels = tc.get("income_selections") or []
+    gross_hint = t("Prefilled from your tracked income for the year — "
+                   "edit if some of it isn't taxable.")
+    if inc_sels:
+        gross_hint = (t("Prefilled from these income categories: {cats} — "
+                        "edit if some of it isn't taxable.")
+                      .format(cats=", ".join(_selection_label(s) for s in inc_sels)))
 
     input_card = card(
         [
@@ -134,8 +152,7 @@ def layout(**_):
                        ],
                        className="tax-input-row",
                        style={"marginTop": "4px"}),
-                   hint=t("Prefilled from your tracked income for the year — "
-                          "edit if some of it isn't taxable.")),
+                   hint=gross_hint),
             _personal_field(),
             html.Div(
                 [
@@ -212,11 +229,11 @@ def _result_row(label, value, strong=False):
     )
 
 
-def _paid_row(status, subcat):
+def _paid_row(status):
     """The 'Tax already paid' row — its amount is a clickable link that opens the
     per-month payments pop-up."""
     cur = currency()
-    label = t("Tax already paid") + (f" · {subcat}" if subcat else "")
+    label = t("Tax already paid")
     amount = html.Span(
         f"{status['tax_paid']:,.0f} {cur}", id="tax-paid-open", n_clicks=0,
         title=t("See which months you paid tax"),
@@ -227,40 +244,115 @@ def _paid_row(status, subcat):
                     style=theme.RESULT_ROW_STYLE)
 
 
-def _payment_rows(payments, cur):
-    """Render the pop-up body: one 'DD-MMM-YYYY  X.XX CUR' line per payment."""
-    if not payments:
-        return html.Div(t("No tax payments recorded for this year."),
-                        style={"color": theme.MUTED, "fontSize": "13px"})
-    line = {"display": "flex", "justifyContent": "space-between", "gap": "16px",
-            "padding": "7px 0", "borderBottom": "1px solid var(--border-soft)",
+def _ordinal(n: int):
+    """Ordinal day with the suffix as a superscript, e.g. 29 → '29ᵗʰ'."""
+    n = int(n)
+    suffix = "th" if 11 <= (n % 100) <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return [str(n), html.Sup(suffix)]
+
+
+def _payment_label(p) -> str:
+    """'Category / Subcategory' for a payment row (just the category if no sub)."""
+    cat = (p.get("category") or "").strip()
+    sub = (p.get("subcategory") or "").strip()
+    return f"{cat} / {sub}" if cat and sub else (cat or sub)
+
+
+def _month_groups(payments, year, today=None):
+    """Group the year's tax payments by month for the pop-up. Returns an ordered list
+    of ``{"label": "Jul 2026", "total": float, "paid": bool, "items": [...]}`` — one
+    entry per month to display. A completed year shows all 12 months; the current year
+    stops at the current month (future months aren't listed as unpaid). Each item is
+    ``{"day": int, "label": "Cat / Sub", "amount": float}``, oldest first."""
+    year = int(year)
+    today = today or datetime.date.today()
+    last_month = today.month if year == today.year else 12
+
+    by_month: dict[int, list] = {}
+    for p in payments or []:
+        try:
+            d = datetime.datetime.strptime(p["date"], "%d-%b-%Y").date()
+        except (ValueError, KeyError):
+            continue
+        if d.year != year:
+            continue
+        by_month.setdefault(d.month, []).append(
+            {"day": d.day, "label": _payment_label(p), "amount": float(p["amount"])})
+
+    groups = []
+    for m in range(1, last_month + 1):
+        items = sorted(by_month.get(m, []), key=lambda x: x["day"])
+        groups.append({
+            "label": datetime.date(year, m, 1).strftime("%b %Y"),
+            "total": sum(x["amount"] for x in items),
+            "paid": bool(items),
+            "items": items,
+        })
+    return groups
+
+
+# A 3-column pop-up row: label (grows) · number (right-aligned) · currency (fixed
+# width, blank on sub-lines) — so main and sub-line digits line up under each other.
+_PAY_ROW = {"display": "flex", "alignItems": "baseline", "gap": "8px",
+            "padding": "6px 0", "borderBottom": "1px solid var(--border-soft)",
             "fontVariantNumeric": "tabular-nums"}
-    items = [html.Div([html.Span(p["date"], style={"color": theme.MUTED}),
-                       html.Span(f"{p['amount']:,.2f} {cur}",
-                                 style={"color": theme.INK, "fontWeight": 600})],
-                      style=line)
-             for p in payments]
-    total = sum(p["amount"] for p in payments)
-    items.append(html.Div(
-        [html.Span(t("Total"), style={"color": theme.INK}),
-         html.Span(f"{total:,.2f} {cur}", style={"color": theme.INK})],
-        style={**line, "borderBottom": "none", "fontWeight": 700,
-               "marginTop": "2px"}))
-    return html.Div(items)
+_PAY_NUM = {"marginLeft": "auto", "textAlign": "right", "whiteSpace": "nowrap"}
+_PAY_CUR = {"minWidth": "2.6em", "textAlign": "left", "color": theme.MUTED,
+            "fontSize": "12px"}
 
 
-def _results_block(status, subcat):
+def _pay_row(left, number, cur_txt, *, style=None, num_style=None):
+    return html.Div(
+        [html.Span(left, style={"flex": "1", "minWidth": 0}),
+         html.Span(number, style={**_PAY_NUM, **(num_style or {})}),
+         html.Span(cur_txt, style=_PAY_CUR)],
+        style={**_PAY_ROW, **(style or {})})
+
+
+def _payment_rows(payments, cur, year):
+    """Pop-up body: every month of the tax year, paid months grouped with their
+    transactions beneath, unpaid months flagged 'No payment made' in red."""
+    rows = []
+    for g in _month_groups(payments, year):
+        if not g["paid"]:
+            rows.append(_pay_row(
+                g["label"],
+                html.Span(t("No payment made"), style={"color": theme.EXPENSE_COLOR}),
+                "", num_style={"color": theme.EXPENSE_COLOR}))
+            continue
+        # Month header (bold, with currency), then indented faint sub-lines.
+        rows.append(_pay_row(g["label"], f"{g['total']:,.2f}", cur,
+                             style={"fontWeight": 700, "color": theme.INK},
+                             num_style={"color": theme.INK}))
+        for it in g["items"]:
+            left = html.Span([*_ordinal(it["day"]), " " + it["label"]])
+            rows.append(_pay_row(
+                left, f"{it['amount']:,.2f}", "",
+                style={"borderBottom": "none", "padding": "3px 0 3px 22px",
+                       "color": theme.MUTED, "fontSize": "12px"},
+                num_style={"color": theme.MUTED}))
+
+    total = sum(float(p["amount"]) for p in (payments or []))
+    rows.append(_pay_row(t("Total"), f"{total:,.2f}", cur,
+                         style={"borderBottom": "none", "fontWeight": 700,
+                                "color": theme.INK, "marginTop": "6px",
+                                "borderTop": "1px solid var(--border)"},
+                         num_style={"color": theme.INK}))
+    return html.Div(rows)
+
+
+def _results_block(status):
     cur = currency()
     money = lambda v: f"{v:,.0f} {cur}"
     rows = [
         _result_row(t("Gross income"), money(status["gross"])),
-        _result_row(t("− Employment expense"), money(status["expense_deduction"])),
-        _result_row(t("− Allowances"), money(status["allowance_total"])),
+        _result_row(t("Employment expense"), f"−{money(status['expense_deduction'])}"),
+        _result_row(t("Allowances"), f"−{money(status['allowance_total'])}"),
         _result_row(t("Net taxable income"), money(status["net_taxable"])),
         _result_row(t("Tax due"), money(status["tax_due"]), strong=True),
         _result_row(t("Effective rate"), f"{status['effective_rate']*100:.2f}%"),
         _result_row(t("Marginal rate"), f"{status['marginal_rate']*100:.0f}%"),
-        _paid_row(status, subcat),
+        _paid_row(status),
     ]
     rem = status["remaining"]
     if rem > 0:
@@ -339,7 +431,8 @@ def _prefill_gross(year):
     """Re-prefill gross income when the tax year changes."""
     if year is None:
         raise PreventUpdate
-    return round(gross_income_for_year(get_df(), year), 2)
+    sels = tax_config().get("income_selections") or None
+    return round(gross_income_for_year(get_df(), year, sels), 2)
 
 
 @callback(
@@ -365,9 +458,11 @@ def _calculate(_n, year, gross, allow_values, allow_ids):
             continue
         values[cid["key"]] = bool(val) if defn["type"] == "flag" else (val or 0)
 
-    subcat = cfg.get("paid_subcategory")
+    paid_sels = cfg.get("paid_selections") or []
+    # Display label for the "Tax already paid" row.
+    subcat = ", ".join(_selection_label(s) for s in paid_sels)
     year = year or datetime.date.today().year
-    paid = tax_paid_for_year(get_df(), subcat, year)
+    paid = tax_paid_for_year(get_df(), paid_sels, year)
     status = income_tax_status(gross, values, spec, tax_paid=paid)
 
     # Remember the entered allowances (only on an explicit Calculate).
@@ -387,10 +482,10 @@ def _calculate(_n, year, gross, allow_values, allow_ids):
     payload = {"status": status, "year": year,
                "country": spec.get("country", "Thailand"), "currency": cur,
                "subcat": subcat,
-               "payments": tax_payments_for_year(get_df(), subcat, year),
+               "payments": tax_payments_for_year(get_df(), paid_sels, year),
                "generated": datetime.date.today().isoformat()}
 
-    return (_results_block(status, subcat), _breakdown_card(status),
+    return (_results_block(status), _breakdown_card(status),
             applied, payload)
 
 
@@ -449,11 +544,11 @@ def _open_paid_modal(_n, payload):
         raise PreventUpdate
     payload = payload or {}
     cur = payload.get("currency") or currency()
-    year = payload.get("year")
+    year = payload.get("year") or datetime.date.today().year
     subcat = payload.get("subcat")
     title = t("Tax paid — {year}").format(year=year) + (f" · {subcat}" if subcat else "")
     return ({"display": "flex"},
-            _payment_rows(payload.get("payments") or [], cur), title)
+            _payment_rows(payload.get("payments") or [], cur, year), title)
 
 
 @callback(

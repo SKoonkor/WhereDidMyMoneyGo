@@ -331,6 +331,10 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Prefilled from your tracked income for the year — "
     "edit if some of it isn't taxable.":
         "กรอกล่วงหน้าจากรายได้ที่บันทึกไว้ในปีนั้น — แก้ไขได้หากบางส่วนไม่ต้องเสียภาษี",
+    "Prefilled from these income categories: {cats} — "
+    "edit if some of it isn't taxable.":
+        "กรอกล่วงหน้าจากหมวดหมู่รายได้เหล่านี้: {cats} — "
+        "แก้ไขได้หากบางส่วนไม่ต้องเสียภาษี",
     "CALCULATE": "คำนวณ",
     "RESET": "รีเซ็ต",
     "⬇ Export report": "⬇ ส่งออกรายงาน",
@@ -346,8 +350,8 @@ TRANSLATIONS_TH: dict[str, str] = {
     "See which months you paid tax": "ดูว่าจ่ายภาษีในเดือนใดแล้วบ้าง",
     "No tax payments recorded for this year.": "ไม่มีการบันทึกการจ่ายภาษีสำหรับปีนี้",
     "Gross income": "รายได้รวม",
-    "− Employment expense": "− ค่าใช้จ่ายจากการจ้างงาน",
-    "− Allowances": "− ค่าลดหย่อน",
+    "Employment expense": "ค่าใช้จ่ายจากการจ้างงาน",
+    "Allowances": "ค่าลดหย่อน",
     "Net taxable income": "เงินได้สุทธิที่ต้องเสียภาษี",
     "Tax due": "ภาษีที่ต้องชำระ",
     "Effective rate": "อัตราภาษีที่แท้จริง",
@@ -363,6 +367,7 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Tax by bracket": "ภาษีตามขั้นบันได",
     "Counts: {v}": "นำมาใช้: {v}",
     "Tax paid — {year}": "ภาษีที่จ่าย — {year}",
+    "No payment made": "ยังไม่ได้จ่าย",
 
     # Income-tax allowance labels + hints (Thai model)
     "Personal allowance": "ค่าลดหย่อนส่วนตัว",
@@ -430,6 +435,28 @@ TRANSLATIONS_TH: dict[str, str] = {
     "The Income Tax page sums this expense subcategory over the "
     "year as the tax you have already paid.":
         "หน้าภาษีเงินได้จะรวมยอดหมวดหมู่ย่อยรายจ่ายนี้ตลอดทั้งปีเป็นภาษีที่คุณจ่ายไปแล้ว",
+    "Income categories (for tax)": "หมวดหมู่รายได้ (สำหรับคำนวณภาษี)",
+    "Tax-payment subcategories": "หมวดหมู่ย่อยการจ่ายภาษี",
+    "Leave empty to tax all income. The Income Tax page prefills "
+    "gross income from the categories you add here.":
+        "เว้นว่างไว้เพื่อคิดภาษีจากรายได้ทั้งหมด หน้าภาษีเงินได้จะกรอกรายได้รวม"
+        "จากหมวดหมู่ที่คุณเพิ่มไว้ที่นี่",
+    "The Income Tax page sums these expense subcategories over "
+    "the year as the tax you have already paid.":
+        "หน้าภาษีเงินได้จะรวมยอดหมวดหมู่ย่อยรายจ่ายเหล่านี้ตลอดทั้งปีเป็นภาษีที่คุณจ่ายไปแล้ว",
+    "+ add category": "+ เพิ่มหมวดหมู่",
+    "+ add subcategory": "+ เพิ่มหมวดหมู่ย่อย",
+    "− remove": "− ลบ",
+    "Select income category": "เลือกหมวดหมู่รายได้",
+    "Select tax subcategory": "เลือกหมวดหมู่ย่อยภาษี",
+    "Select tax category": "เลือกหมวดหมู่ภาษี",
+    "Select subcategory in {cat}": "เลือกหมวดหมู่ย่อยใน {cat}",
+    "Select in {cat}": "เลือกใน {cat}",
+    "Whole category": "ทั้งหมวดหมู่",
+    "{cat} (all)": "{cat} (ทั้งหมด)",
+    "All income (default)": "รายได้ทั้งหมด (ค่าเริ่มต้น)",
+    "All income": "รายได้ทั้งหมด",
+    "None selected — defaults to “Tax”.": "ยังไม่ได้เลือก — ใช้ค่าเริ่มต้น “Tax”",
     "Language settings": "การตั้งค่าภาษา",
     "{label}: {old} → {new}": "{label}: {old} → {new}",
     "You have unsaved changes:": "คุณมีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก:",

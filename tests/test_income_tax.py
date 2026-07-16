@@ -109,21 +109,25 @@ def test_gross_income_for_year_filters_by_year_and_type():
 
 def test_tax_paid_for_year_sums_subcategory():
     df = _year_df()
-    assert tax_paid_for_year(df, "Tax", 2026) == 5_000
-    assert tax_paid_for_year(df, "Tax", 2025) == 0
+    assert tax_paid_for_year(df, "Bills / Tax", 2026) == 5_000
+    assert tax_paid_for_year(df, "Bills / Tax", 2025) == 0
     assert tax_paid_for_year(df, None, 2026) == 0
+    # A whole-category selection sums every expense row in that category.
+    assert tax_paid_for_year(df, "Bills", 2026) == 5_000
 
 
 def test_tax_payments_for_year_lists_rows_oldest_first():
     df = _year_df()
-    payments = tax_payments_for_year(df, "Tax", 2026)
+    payments = tax_payments_for_year(df, "Bills / Tax", 2026)
     assert payments == [
-        {"date": "10-Mar-2026", "amount": 2_000.0},
-        {"date": "10-Sep-2026", "amount": 3_000.0},
+        {"date": "10-Mar-2026", "amount": 2_000.0,
+         "category": "Bills", "subcategory": "Tax"},
+        {"date": "10-Sep-2026", "amount": 3_000.0,
+         "category": "Bills", "subcategory": "Tax"},
     ]
     # Sum of the listed rows equals the summed figure shown on the page.
-    assert sum(p["amount"] for p in payments) == tax_paid_for_year(df, "Tax", 2026)
-    assert tax_payments_for_year(df, "Tax", 2025) == []
+    assert sum(p["amount"] for p in payments) == tax_paid_for_year(df, "Bills / Tax", 2026)
+    assert tax_payments_for_year(df, "Bills / Tax", 2025) == []
     assert tax_payments_for_year(df, None, 2026) == []
 
 
@@ -132,3 +136,64 @@ def test_ledger_years_includes_current():
     years = ledger_years(df, current=2027)
     assert years == sorted(years, reverse=True)
     assert 2027 in years and 2026 in years and 2025 in years
+
+
+def _multi_cat_df():
+    return make_df([
+        {"Period": "2026-01-10", "Income/Expense": "Income", "Amount": 40_000,
+         "Account": "Bank", "Category": "Salary"},
+        {"Period": "2026-02-10", "Income/Expense": "Income", "Amount": 10_000,
+         "Account": "Bank", "Category": "Bonus"},
+        {"Period": "2026-03-10", "Income/Expense": "Income", "Amount": 5_000,
+         "Account": "Bank", "Category": "Interest"},
+        {"Period": "2026-04-10", "Income/Expense": "Expense", "Amount": 2_000,
+         "Account": "Bank", "Category": "Bills", "Subcategory": "Tax"},
+        {"Period": "2026-05-10", "Income/Expense": "Expense", "Amount": 1_500,
+         "Account": "Bank", "Category": "Bills", "Subcategory": "WHT"},
+    ])
+
+
+def test_gross_income_filters_by_selections():
+    df = _multi_cat_df()
+    # No filter (None / empty) sums all income.
+    assert gross_income_for_year(df, 2026) == 55_000
+    assert gross_income_for_year(df, 2026, None) == 55_000
+    assert gross_income_for_year(df, 2026, []) == 55_000
+    # Whole-category selections sum only those categories.
+    assert gross_income_for_year(df, 2026, ["Salary"]) == 40_000
+    assert gross_income_for_year(df, 2026, ["Salary", "Bonus"]) == 50_000
+
+
+def test_gross_income_subcategory_selection_is_precise():
+    # Income with subcategories: a whole category vs a specific subcategory.
+    df = make_df([
+        {"Period": "2026-01-10", "Income/Expense": "Income", "Amount": 40_000,
+         "Account": "Bank", "Category": "Salary", "Subcategory": "Base"},
+        {"Period": "2026-02-10", "Income/Expense": "Income", "Amount": 10_000,
+         "Account": "Bank", "Category": "Salary", "Subcategory": "Overtime"},
+    ])
+    assert gross_income_for_year(df, 2026, ["Salary"]) == 50_000          # whole cat
+    assert gross_income_for_year(df, 2026, ["Salary / Base"]) == 40_000   # one sub
+    assert gross_income_for_year(df, 2026, ["Salary / Overtime"]) == 10_000
+
+
+def test_tax_paid_accepts_selection_list_and_whole_category():
+    df = _multi_cat_df()
+    assert tax_paid_for_year(df, ["Bills / Tax"], 2026) == 2_000
+    assert tax_paid_for_year(df, ["Bills / Tax", "Bills / WHT"], 2026) == 3_500
+    # A whole-category selection sums every expense row in Bills.
+    assert tax_paid_for_year(df, "Bills", 2026) == 3_500
+    # A single encoded string still works, and empty selections sum to zero.
+    assert tax_paid_for_year(df, "Bills / WHT", 2026) == 1_500
+    assert tax_paid_for_year(df, [], 2026) == 0
+
+
+def test_tax_payments_lists_rows_for_multiple_selections():
+    df = _multi_cat_df()
+    payments = tax_payments_for_year(df, ["Bills / Tax", "Bills / WHT"], 2026)
+    assert payments == [
+        {"date": "10-Apr-2026", "amount": 2_000.0,
+         "category": "Bills", "subcategory": "Tax"},
+        {"date": "10-May-2026", "amount": 1_500.0,
+         "category": "Bills", "subcategory": "WHT"},
+    ]

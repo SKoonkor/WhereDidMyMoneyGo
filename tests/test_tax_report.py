@@ -33,18 +33,23 @@ def test_report_shows_capped_allowance_and_paid():
     html = build_report_html(_payload())
     # SSF 300k is capped to 200k for gross 840k; the capped figure appears.
     assert "200,000 THB" in html
-    assert "Tax already paid · Tax" in html
+    # The paid row is label-only now (no subcategory suffix).
+    assert "Tax already paid" in html
+    assert "Tax already paid ·" not in html
+
+
+def test_report_deductions_show_minus_on_amount():
+    s = income_tax_status(840_000, {"ssf": 300_000}, TH_SPEC, tax_paid=8_000)
+    html = build_report_html(_payload())
+    # Labels carry no leading minus; the deducted amounts do.
+    assert "− Employment expense" not in html and "− Allowances" not in html
+    assert f"−{s['expense_deduction']:,.0f} THB" in html
+    assert f"−{s['allowance_total']:,.0f} THB" in html
 
 
 def test_report_refund_vs_owed_wording():
     assert "Still to pay" in build_report_html(_payload(tax_paid=0))
     assert "Refund" in build_report_html(_payload(tax_paid=100_000))
-
-
-def test_report_escapes_subcategory():
-    html = build_report_html(_payload(subcat="Tax & <b>WHT</b>"))
-    assert "Tax &amp; &lt;b&gt;WHT&lt;/b&gt;" in html
-    assert "<b>WHT</b>" not in html                 # raw markup not injected
 
 
 def test_report_handles_zero_tax():

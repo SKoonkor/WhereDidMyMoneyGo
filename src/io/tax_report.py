@@ -55,7 +55,6 @@ def build_report_html(payload: dict) -> str:
     cur = escape(str(payload.get("currency") or ""))
     year = escape(str(payload.get("year") or ""))
     country = escape(str(payload.get("country") or "Thailand"))
-    subcat = payload.get("subcat")
     generated = escape(str(payload.get("generated") or ""))
 
     def money(v):
@@ -64,16 +63,15 @@ def build_report_html(payload: dict) -> str:
     # ── summary rows ─────────────────────────────────────────────────────────
     rows = [
         ("Gross income", money(status.get("gross")), ""),
-        ("− Employment expense", money(status.get("expense_deduction")), ""),
-        ("− Allowances", money(status.get("allowance_total")), ""),
+        ("Employment expense", f"−{money(status.get('expense_deduction'))}", ""),
+        ("Allowances", f"−{money(status.get('allowance_total'))}", ""),
         ("Net taxable income", money(status.get("net_taxable")), ""),
         ("Tax due", money(status.get("tax_due")), "due"),
         ("Effective rate", f"{status.get('effective_rate', 0) * 100:.2f}%", ""),
         ("Marginal rate", f"{status.get('marginal_rate', 0) * 100:.0f}%", ""),
     ]
     # Raw here — the row renderer escapes every label once (avoid double-escaping).
-    paid_label = "Tax already paid" + (f" · {subcat}" if subcat else "")
-    rows.append((paid_label, money(status.get("tax_paid")), ""))
+    rows.append(("Tax already paid", money(status.get("tax_paid")), ""))
 
     rem = float(status.get("remaining", 0) or 0)
     if rem > 0:

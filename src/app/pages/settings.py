@@ -8,7 +8,7 @@ the config cache so emergency-fund settings take effect on the next render.
 from __future__ import annotations
 
 import dash
-from dash import (dcc, html, callback, clientside_callback, ctx, ALL,
+from dash import (dcc, html, callback, clientside_callback, ctx, ALL, no_update,
                   Input, Output, State)
 from dash.exceptions import PreventUpdate
 
@@ -17,7 +17,7 @@ from src.app.components import page_header
 from src.app.i18n import make_t, LANGUAGES, second_lang_native
 from src.app.data import (get_config, emergency_fund_config, privacy_config,
                           account_names, refresh_config, tax_config,
-                          language_config)
+                          language_config, _resolve_paid_sub)
 from src.analytics.transaction_categories import load_categories
 from src.utils.config import save_settings
 
@@ -56,9 +56,14 @@ def _settings_changes(saved: dict, current: dict) -> list[str]:
     if saved["privacy_seconds"] != current["privacy_seconds"]:
         changes.append(line(t("Idle delay (seconds)"), saved["privacy_seconds"],
                             current["privacy_seconds"]))
-    if saved["tax_subcat"] != current["tax_subcat"]:
-        changes.append(line(t("Tax-payment subcategory"), saved["tax_subcat"],
-                            current["tax_subcat"]))
+    if saved["income_sels"] != current["income_sels"]:
+        allc = lambda xs: ", ".join(xs) if xs else t("All income")
+        changes.append(line(t("Income categories (for tax)"),
+                            allc(saved["income_sels"]), allc(current["income_sels"])))
+    if saved["paid_sels"] != current["paid_sels"]:
+        changes.append(line(t("Tax-payment subcategories"),
+                            ", ".join(saved["paid_sels"]),
+                            ", ".join(current["paid_sels"])))
     if saved["lang_disabled"] != current["lang_disabled"]:
         state = lambda v: t("disabled") if v else t("allowed")
         changes.append(line(t("Language toggle"), state(saved["lang_disabled"]),
@@ -109,17 +114,90 @@ def _savings_rows(accounts: list[str]) -> list:
     return rows
 
 
-def _subcategory_options(selected: str | None = None) -> list[dict]:
-    """Expense subcategories as "Category / Sub" options for the tax picker.
-    The value is the subcategory name (matched against the ledger's Subcategory)."""
-    seen: dict[str, str] = {}
-    for cat, subs in load_categories().get("expense", {}).items():
-        for sub in subs:
-            seen.setdefault(sub, f"{cat} / {sub}")
-    # Keep the saved value selectable even if the category set has since changed.
-    if selected and selected not in seen:
-        seen[selected] = selected
-    return [{"label": label, "value": sub} for sub, label in seen.items()]
+# ── Tax category/subcategory pickers (pop-up + addable list) ─────────────────
+# A selection is an encoded string: "Category" (whole category) or
+# "Category / Subcategory" (a specific subcategory).
+
+def _selection_label(sel: str) -> str:
+    """Row label for an encoded selection: 'Cat / Sub' stays as-is; a whole-category
+    selection reads 'Cat (all)'."""
+    if " / " in str(sel):
+        return str(sel)
+    return t("{cat} (all)").format(cat=sel)
+
+
+def _pick_tiles(kind: str, pane: dict | None) -> list:
+    """Drill-down tile grid shared by both tax pickers. ``kind`` is the categories
+    tree to read ("income" or "expense"). Top level lists categories — those with
+    subcategories drill in, those without are selected as a whole category on click.
+    The sub level offers a Back tile, a "Whole category" tile, and one tile per
+    subcategory."""
+    tree = load_categories().get(kind, {})
+    pane = pane or {"level": "top"}
+    if pane.get("level") == "sub":
+        cat = pane.get("category", "")
+        tiles = [html.Button(t("‹ Back"), n_clicks=0, className="cat-tile parent",
+                             id={"role": "tax-pick-back", "name": "back"}),
+                 html.Button(t("Whole category"), n_clicks=0,
+                             className="cat-tile add",
+                             id={"role": "tax-pick-whole", "name": cat})]
+        tiles += [html.Button(s, n_clicks=0, className="cat-tile",
+                              id={"role": "tax-pick-sub", "name": s})
+                  for s in tree.get(cat, [])]
+        return tiles
+    tiles = []
+    for cat, subs in tree.items():
+        if subs:
+            tiles.append(html.Button(f"{cat} ▾", n_clicks=0, className="cat-tile parent",
+                                     id={"role": "tax-pick-cat", "name": cat}))
+        else:
+            tiles.append(html.Button(cat, n_clicks=0, className="cat-tile",
+                                     id={"role": "tax-pick-whole", "name": cat}))
+    return tiles
+
+
+def _pick_title(target: str, pane: dict | None) -> str:
+    if (pane or {}).get("level") == "sub":
+        return t("Select in {cat}").format(cat=(pane or {}).get("category", ""))
+    return t("Select tax category") if target == "paid" else t("Select income category")
+
+
+def _selected_rows(items: list[str], remove_type: str, label_fn=None) -> list:
+    """EF-style rows: one "<label> · − remove" row per selected item."""
+    rows = []
+    for i, name in enumerate(items or []):
+        label = label_fn(name) if label_fn else name
+        rows.append(html.Div(
+            [
+                html.Span(label, style={"flex": "1", "color": theme.INK}),
+                html.Button(t("− remove"),
+                            id={"type": remove_type, "index": i}, n_clicks=0,
+                            className="nav-btn",
+                            style={"color": theme.EXPENSE_COLOR,
+                                   "borderColor": theme.EXPENSE_COLOR,
+                                   "whiteSpace": "nowrap"}),
+            ],
+            style={"display": "flex", "gap": "8px", "alignItems": "center",
+                   "marginTop": "6px"}))
+    return rows
+
+
+def _tax_pick_modal() -> html.Div:
+    """The shared pop-up used by both tax pickers (income + tax-payment)."""
+    return html.Div(
+        html.Div(
+            [
+                html.Div(
+                    [html.H3(id="set-tax-pick-title", style={"flex": "1"}),
+                     html.Button("✕", id="set-tax-pick-close", n_clicks=0,
+                                 className="theme-toggle")],
+                    style={"display": "flex", "alignItems": "center", "gap": "10px"}),
+                html.Div(id="set-tax-pick-body", className="cat-grid"),
+            ],
+            className="modal-card"),
+        id="set-tax-pick-modal", className="modal-overlay", style={"display": "none"},
+        # Backdrop click → close button (handled in popup_dismiss.js).
+        **{"data-close": "set-tax-pick-close"})
 
 
 def layout(**_):
@@ -237,13 +315,32 @@ def layout(**_):
     tax_card = html.Div(
         [
             html.H2(t("Tax setting"), style={"color": theme.INK, "marginTop": 0}),
-            _field(t("Tax-payment subcategory"),
-                   dcc.Dropdown(id="set-tax-subcat",
-                                options=_subcategory_options(tc["paid_subcategory"]),
-                                value=tc["paid_subcategory"], clearable=False,
-                                style={"marginTop": "4px", "maxWidth": "300px"}),
-                   hint=t("The Income Tax page sums this expense subcategory over the "
-                          "year as the tax you have already paid.")),
+            _field(t("Income categories (for tax)"),
+                   html.Div(
+                       [
+                           dcc.Store(id="set-tax-inc-store",
+                                     data=tc["income_selections"]),
+                           html.Div(id="set-tax-inc-rows"),
+                           html.Button(t("+ add category"), id="set-tax-inc-add",
+                                       n_clicks=0, className="nav-btn today",
+                                       style={"marginTop": "6px"}),
+                       ]),
+                   hint=t("Leave empty to tax all income. The Income Tax page prefills "
+                          "gross income from the categories you add here.")),
+            _field(t("Tax-payment subcategories"),
+                   html.Div(
+                       [
+                           dcc.Store(id="set-tax-paid-store",
+                                     data=tc["paid_selections"]),
+                           html.Div(id="set-tax-paid-rows"),
+                           html.Button(t("+ add subcategory"), id="set-tax-paid-add",
+                                       n_clicks=0, className="nav-btn today",
+                                       style={"marginTop": "6px"}),
+                       ]),
+                   hint=t("The Income Tax page sums these expense subcategories over "
+                          "the year as the tax you have already paid.")),
+            dcc.Store(id="set-tax-pick-target", data="income"),
+            dcc.Store(id="set-tax-pick-pane", data={"level": "top"}),
         ],
         style={**theme.CARD_STYLE, "marginTop": "16px"},
     )
@@ -308,6 +405,7 @@ def layout(**_):
                 style={"display": "flex", "alignItems": "flex-start", "gap": "20px"},
             ),
             save_row,   # very bottom of the page, spanning both columns
+            _tax_pick_modal(),
         ],
         style=theme.PAGE_STYLE,
     )
@@ -324,13 +422,14 @@ def layout(**_):
     State({"type": "set-ef-acct", "index": ALL}, "value"),
     State("set-privacy-auto", "value"),
     State("set-privacy-seconds", "value"),
-    State("set-tax-subcat", "value"),
+    State("set-tax-inc-store", "data"),
+    State("set-tax-paid-store", "data"),
     State("set-lang-disable", "value"),
     State("set-lang-second", "value"),
     prevent_initial_call=True,
 )
 def _save(n, app_name, currency, monthly, months, accounts, privacy_auto,
-          privacy_seconds, tax_subcat, lang_disable, lang_second):
+          privacy_seconds, tax_inc, tax_paid, lang_disable, lang_second):
     if not n:
         raise PreventUpdate
     ok = {"alignSelf": "center", "fontSize": "14px", "color": theme.ACCENT}
@@ -354,7 +453,10 @@ def _save(n, app_name, currency, monthly, months, accounts, privacy_auto,
                 "idle_seconds": max(1, int(privacy_seconds or 10)),
             },
             "tax": {
-                "paid_subcategory": (tax_subcat or "").strip(),
+                "income_selections": list(dict.fromkeys(
+                    c for c in (tax_inc or []) if c and str(c).strip())),
+                "paid_selections": list(dict.fromkeys(
+                    s for s in (tax_paid or []) if s and str(s).strip())),
             },
             "language": {
                 "toggle_disabled": bool(lang_disable),
@@ -399,6 +501,131 @@ def _edit_savings_rows(_add, _removes, values):
             accounts.pop(idx)
         return accounts
     raise PreventUpdate
+
+
+# ── Tax pickers: shared pop-up + addable lists ───────────────────────────────
+
+@callback(
+    Output("set-tax-pick-modal", "style"),
+    Output("set-tax-pick-target", "data"),
+    Output("set-tax-pick-pane", "data", allow_duplicate=True),
+    Input("set-tax-inc-add", "n_clicks"),
+    Input("set-tax-paid-add", "n_clicks"),
+    Input("set-tax-pick-close", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _open_close_tax_pick(_inc, _paid, _close):
+    trig = ctx.triggered_id
+    if trig == "set-tax-inc-add":
+        return {"display": "flex"}, "income", {"level": "top"}
+    if trig == "set-tax-paid-add":
+        return {"display": "flex"}, "paid", {"level": "top"}
+    return {"display": "none"}, no_update, {"level": "top"}
+
+
+@callback(
+    Output("set-tax-pick-body", "children"),
+    Output("set-tax-pick-title", "children"),
+    Input("set-tax-pick-target", "data"),
+    Input("set-tax-pick-pane", "data"),
+)
+def _render_tax_pick(target, pane):
+    kind = "expense" if target == "paid" else "income"
+    return _pick_tiles(kind, pane), _pick_title(target, pane)
+
+
+@callback(
+    Output("set-tax-inc-store", "data"),
+    Output("set-tax-paid-store", "data"),
+    Output("set-tax-pick-modal", "style", allow_duplicate=True),
+    Output("set-tax-pick-pane", "data"),
+    Input({"role": "tax-pick-cat", "name": ALL}, "n_clicks"),    # drill into category
+    Input({"role": "tax-pick-whole", "name": ALL}, "n_clicks"),  # whole category
+    Input({"role": "tax-pick-sub", "name": ALL}, "n_clicks"),    # subcategory
+    Input({"role": "tax-pick-back", "name": ALL}, "n_clicks"),   # back
+    State("set-tax-pick-target", "data"),
+    State("set-tax-pick-pane", "data"),
+    State("set-tax-inc-store", "data"),
+    State("set-tax-paid-store", "data"),
+    prevent_initial_call=True,
+)
+def _tax_pick_click(_cats, _wholes, _subs, _back, target, pane, inc, paid):
+    # Pattern inputs also fire when tiles re-render — ignore those.
+    if not ctx.triggered or not ctx.triggered[0]["value"]:
+        raise PreventUpdate
+    trig = ctx.triggered_id or {}
+    role, name = trig.get("role"), trig.get("name")
+    if role == "tax-pick-back":
+        return no_update, no_update, no_update, {"level": "top"}
+    if role == "tax-pick-cat":                        # drill into the category
+        return no_update, no_update, no_update, {"level": "sub", "category": name}
+    # Append a selection (whole category, or "Category / Subcategory") to the store
+    # for the active target, then close.
+    if role == "tax-pick-whole":
+        sel = str(name)
+    else:                                             # tax-pick-sub
+        cat = (pane or {}).get("category", "")
+        sel = f"{cat} / {name}"
+    store = list((paid if target == "paid" else inc) or [])
+    if sel and sel not in store:
+        store.append(sel)
+    if target == "paid":
+        return no_update, store, {"display": "none"}, {"level": "top"}
+    return store, no_update, {"display": "none"}, {"level": "top"}
+
+
+@callback(
+    Output("set-tax-inc-rows", "children"),
+    Input("set-tax-inc-store", "data"),
+)
+def _render_tax_inc_rows(items):
+    if not items:
+        return html.Div(t("All income (default)"),
+                        style={"color": theme.INK, "marginTop": "6px"})
+    return _selected_rows(items, "tax-inc-remove", label_fn=_selection_label)
+
+
+@callback(
+    Output("set-tax-paid-rows", "children"),
+    Input("set-tax-paid-store", "data"),
+)
+def _render_tax_paid_rows(items):
+    if not items:
+        return html.Div(t("None selected — defaults to “Tax”."),
+                        style={"color": theme.INK, "marginTop": "6px"})
+    return _selected_rows(items, "tax-paid-remove", label_fn=_selection_label)
+
+
+@callback(
+    Output("set-tax-inc-store", "data", allow_duplicate=True),
+    Input({"type": "tax-inc-remove", "index": ALL}, "n_clicks"),
+    State("set-tax-inc-store", "data"),
+    prevent_initial_call=True,
+)
+def _remove_tax_inc(_clicks, items):
+    if not ctx.triggered or not ctx.triggered[0]["value"]:
+        raise PreventUpdate
+    idx = (ctx.triggered_id or {}).get("index")
+    items = list(items or [])
+    if isinstance(idx, int) and 0 <= idx < len(items):
+        items.pop(idx)
+    return items
+
+
+@callback(
+    Output("set-tax-paid-store", "data", allow_duplicate=True),
+    Input({"type": "tax-paid-remove", "index": ALL}, "n_clicks"),
+    State("set-tax-paid-store", "data"),
+    prevent_initial_call=True,
+)
+def _remove_tax_paid(_clicks, items):
+    if not ctx.triggered or not ctx.triggered[0]["value"]:
+        raise PreventUpdate
+    idx = (ctx.triggered_id or {}).get("index")
+    items = list(items or [])
+    if isinstance(idx, int) and 0 <= idx < len(items):
+        items.pop(idx)
+    return items
 
 
 @callback(
@@ -448,13 +675,15 @@ clientside_callback(
     Input({"type": "set-ef-acct", "index": ALL}, "value"),
     Input("set-privacy-auto", "value"),
     Input("set-privacy-seconds", "value"),
-    Input("set-tax-subcat", "value"),
+    Input("set-tax-inc-store", "data"),
+    Input("set-tax-paid-store", "data"),
     Input("set-lang-disable", "value"),
     Input("set-lang-second", "value"),
     Input("set-msg", "children"),   # recompute after a Save (config just changed)
 )
 def _compute_guard(app_name, currency, monthly, months, accounts, privacy_auto,
-                   privacy_seconds, tax_subcat, lang_disable, lang_second, _saved):
+                   privacy_seconds, tax_inc, tax_paid, lang_disable, lang_second,
+                   _saved):
     """Diff the live form against saved config → change lines for the leave guard."""
     general = get_config().get("settings", {}).get("general", {})
     ef, pc, tc, lc = (emergency_fund_config(), privacy_config(),
@@ -467,7 +696,8 @@ def _compute_guard(app_name, currency, monthly, months, accounts, privacy_auto,
         "accounts": ef["savings_accounts"],
         "privacy_auto": bool(pc["auto_enabled"]),
         "privacy_seconds": int(pc["idle_seconds"]),
-        "tax_subcat": tc["paid_subcategory"],
+        "income_sels": list(tc["income_selections"]),
+        "paid_sels": list(tc["paid_selections"]),
         "lang_disabled": bool(lc["toggle_disabled"]),
         "lang_second": lc["second_language"],
     }
@@ -483,7 +713,14 @@ def _compute_guard(app_name, currency, monthly, months, accounts, privacy_auto,
         "accounts": cur_accounts,
         "privacy_auto": bool(privacy_auto),
         "privacy_seconds": max(1, int(privacy_seconds or 10)),
-        "tax_subcat": (tax_subcat or "").strip(),
+        # Normalise like tax_config() reads back: income empty ⇒ [] (all income);
+        # tax-payment empty ⇒ the resolved "Tax" default, so a round-trip never reads
+        # as dirty.
+        "income_sels": list(dict.fromkeys(
+            c for c in (tax_inc or []) if c and str(c).strip())),
+        "paid_sels": (list(dict.fromkeys(
+            s for s in (tax_paid or []) if s and str(s).strip()))
+            or [_resolve_paid_sub("Tax")]),
         "lang_disabled": bool(lang_disable),
         "lang_second": (lang_second or "th"),
     }

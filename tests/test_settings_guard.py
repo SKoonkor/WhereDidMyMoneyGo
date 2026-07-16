@@ -10,7 +10,8 @@ def _base():
     return {
         "app_name": "Money Tracker", "base_currency": "THB",
         "monthly": 20000.0, "months": 3, "accounts": ["Savings"],
-        "privacy_auto": True, "privacy_seconds": 10, "tax_subcat": "Tax",
+        "privacy_auto": True, "privacy_seconds": 10,
+        "income_sels": [], "paid_sels": ["Bills / Tax"],
         "lang_disabled": False, "lang_second": "th",
     }
 
@@ -38,3 +39,18 @@ def test_boolean_fields_render_human_readable():
     joined = " | ".join(lines)
     assert "on" in joined and "off" in joined          # auto-privacy on → off
     assert "allowed" in joined and "disabled" in joined  # toggle allowed → disabled
+
+
+def test_income_categories_change_reports_all_income_and_selection():
+    cur = _base(); cur["income_sels"] = ["Salary", "Bonus"]
+    lines = _settings_changes(_base(), cur)
+    assert len(lines) == 1
+    assert "All income" in lines[0]                 # old (empty) side
+    assert "Salary" in lines[0] and "Bonus" in lines[0]
+
+
+def test_tax_payment_subcategories_change_lists_members():
+    cur = _base(); cur["paid_sels"] = ["Bills / Tax", "Bills / WHT"]
+    lines = _settings_changes(_base(), cur)
+    assert len(lines) == 1
+    assert "Bills / Tax" in lines[0] and "Bills / WHT" in lines[0]

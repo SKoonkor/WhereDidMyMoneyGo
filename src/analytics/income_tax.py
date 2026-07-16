@@ -218,39 +218,91 @@ def income_tax_status(gross: float, values: dict, spec: dict,
 
 # ── Ledger helpers ───────────────────────────────────────────────────────────
 
-def gross_income_for_year(df: pd.DataFrame, year: int) -> float:
-    """Sum of tracked Income transactions in the given calendar year."""
+# ── Category/subcategory selections ──────────────────────────────────────────
+# A "selection" targets either a whole category or one subcategory, encoded as a
+# string: ``"Category"`` (whole category — match every row in it) or
+# ``"Category / Subcategory"`` (that category + subcategory). An empty category
+# (``" / Sub"``) is a legacy subcategory-only match (any parent category).
+
+def _parse_selection(s) -> tuple[str, str]:
+    s = str(s)
+    if " / " in s:
+        cat, sub = s.split(" / ", 1)
+        return cat.strip(), sub.strip()
+    return s.strip(), ""
+
+
+def _sel_list(selections) -> list[str]:
+    """Normalise a selection argument (a single string or a list) to a clean list."""
+    if selections is None:
+        return []
+    if isinstance(selections, str):
+        selections = [selections]
+    return [s for s in selections if s and str(s).strip()]
+
+
+def _selection_mask(df: pd.DataFrame, selections: list[str]) -> "pd.Series":
+    """Boolean mask: the union of the rows targeted by each selection."""
+    mask = pd.Series(False, index=df.index)
+    for cat, sub in map(_parse_selection, selections):
+        if not cat and not sub:
+            continue
+        if not cat:                                   # legacy subcategory-only
+            mask |= df["Subcategory"] == sub
+            continue
+        sel = df["Category"] == cat
+        if sub:
+            sel &= df["Subcategory"] == sub
+        mask |= sel
+    return mask
+
+
+def gross_income_for_year(df: pd.DataFrame, year: int,
+                          selections: list[str] | None = None) -> float:
+    """Sum of tracked Income transactions in the given calendar year. When
+    ``selections`` is a non-empty list of category/subcategory selections, only the
+    rows they target are counted; otherwise (``None``/empty) all income is summed."""
     if df is None or df.empty:
         return 0.0
     mask = ((df["Income/Expense"] == "Income")
             & (df["Period"].dt.year == int(year)))
+    sels = _sel_list(selections)
+    if sels:
+        mask &= _selection_mask(df, sels)
     return float(df.loc[mask, "Amount"].sum())
 
 
-def tax_paid_for_year(df: pd.DataFrame, subcategory: str | None, year: int) -> float:
-    """Sum of Expense transactions tagged with ``subcategory`` in the year — the
-    tax the user has already paid (withholding / prepayments)."""
-    if df is None or df.empty or not subcategory:
+def tax_paid_for_year(df: pd.DataFrame, selections, year: int) -> float:
+    """Sum of Expense transactions matched by ``selections`` in the year — the tax the
+    user has already paid (withholding / prepayments). ``selections`` may be a single
+    encoded selection or a list."""
+    sels = _sel_list(selections)
+    if df is None or df.empty or not sels:
         return 0.0
     mask = ((df["Income/Expense"] == "Expense")
-            & (df["Subcategory"] == subcategory)
+            & _selection_mask(df, sels)
             & (df["Period"].dt.year == int(year)))
     return float(df.loc[mask, "Amount"].sum())
 
 
-def tax_payments_for_year(df: pd.DataFrame, subcategory: str | None,
+def tax_payments_for_year(df: pd.DataFrame, selections,
                           year: int) -> list[dict]:
     """The individual tax-payment transactions for the year (the rows summed by
-    :func:`tax_paid_for_year`), oldest first. Each item is
-    ``{"date": "DD-MMM-YYYY", "amount": float}`` — JSON-safe for a dcc.Store."""
-    if df is None or df.empty or not subcategory:
+    :func:`tax_paid_for_year`), oldest first. Each item is ``{"date": "DD-MMM-YYYY",
+    "amount": float, "category": str, "subcategory": str}`` — JSON-safe for a
+    dcc.Store. ``selections`` may be a single encoded selection or a list."""
+    sels = _sel_list(selections)
+    if df is None or df.empty or not sels:
         return []
     mask = ((df["Income/Expense"] == "Expense")
-            & (df["Subcategory"] == subcategory)
+            & _selection_mask(df, sels)
             & (df["Period"].dt.year == int(year)))
-    sub = df.loc[mask, ["Period", "Amount"]].sort_values("Period")
-    return [{"date": pd.Timestamp(p).strftime("%d-%b-%Y"), "amount": float(a)}
-            for p, a in zip(sub["Period"], sub["Amount"])]
+    cols = ["Period", "Amount", "Category", "Subcategory"]
+    sub = df.loc[mask, cols].sort_values("Period")
+    return [{"date": pd.Timestamp(p).strftime("%d-%b-%Y"), "amount": float(a),
+             "category": str(c or ""), "subcategory": str(s or "")}
+            for p, a, c, s in zip(sub["Period"], sub["Amount"],
+                                  sub["Category"], sub["Subcategory"])]
 
 
 def ledger_years(df: pd.DataFrame, current: int | None = None) -> list[int]:

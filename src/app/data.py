@@ -134,12 +134,58 @@ def language_config() -> dict:
     }
 
 
+def _clean_selections(raw) -> list:
+    """Drop blanks and dedupe a list of encoded selection strings, keeping order."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        raw = [raw]
+    return list(dict.fromkeys(
+        str(s).strip() for s in raw if s and str(s).strip()))
+
+
+def _resolve_paid_sub(sub: str) -> str:
+    """Encode a legacy bare tax subcategory as "Parent / Sub" by finding its parent in
+    the expense tree; if the parent can't be found, keep the bare name (best-effort)."""
+    sub = str(sub).strip()
+    if not sub or " / " in sub:
+        return sub
+    from src.analytics.transaction_categories import load_categories
+    for cat, subs in load_categories().get("expense", {}).items():
+        if sub in subs:
+            return f"{cat} / {sub}"
+    return sub
+
+
 def tax_config() -> dict:
-    """Income-tax settings: which expense subcategory records tax payments, and
-    which country's tax model to use (Thailand today)."""
+    """Income-tax settings: the category/subcategory *selections* that feed the
+    gross-income figure (empty ⇒ all income) and that record tax payments, plus the
+    country model. A selection is an encoded string: ``"Category"`` (whole category)
+    or ``"Category / Subcategory"`` (a specific subcategory)."""
     t = settings().get("tax", {})
-    sub = t.get("paid_subcategory")
+
+    # Income selections; empty ⇒ tax all income. The legacy ``income_categories`` held
+    # bare category names, which are already valid whole-category selections.
+    raw_inc = t.get("income_selections")
+    if raw_inc is None:
+        raw_inc = t.get("income_categories")
+    income = _clean_selections(raw_inc)
+
+    # Paid selections; empty ⇒ default to the "Tax" subcategory. Migrate the legacy
+    # bare-subcategory list/scalar by resolving each sub to "Parent / Sub".
+    raw_paid = t.get("paid_selections")
+    if raw_paid is None:
+        legacy = t.get("paid_subcategories")
+        if legacy is None:
+            one = t.get("paid_subcategory")
+            legacy = [one] if one else ["Tax"]
+        elif isinstance(legacy, str):
+            legacy = [legacy]
+        raw_paid = [_resolve_paid_sub(s) for s in legacy]
+    paid = _clean_selections(raw_paid) or [_resolve_paid_sub("Tax")]
+
     return {
-        "paid_subcategory": (str(sub).strip() or None) if sub else "Tax",
+        "income_selections": income,
+        "paid_selections": paid,
         "country": t.get("country") or "Thailand",
     }

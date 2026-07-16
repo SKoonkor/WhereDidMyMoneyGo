@@ -11,6 +11,8 @@ down as goals are bought, with a marker at every purchase. Theming mirrors
 ``build_compound_figure``.
 """
 
+from __future__ import annotations
+
 import numpy as np
 import plotly.graph_objects as go
 
