@@ -96,6 +96,7 @@ def layout(**_):
                 ),
                 html.Div(id="imp-file-info", style={"marginTop": "10px",
                                                     **_MUTED}),
+                html.Div(id="imp-head-preview", style={"marginTop": "10px"}),
             ], style={"marginBottom": "16px"}),
 
             # ── step 2: mapping ──────────────────────────────────────────
@@ -280,11 +281,44 @@ def _known_categories() -> set[str]:
     return set(cats.get("income", {})) | set(cats.get("expense", {}))
 
 
+_HEAD_ROWS = 5
+
+
+def _head_cell(v) -> str:
+    if v is None or (isinstance(v, float) and pd.isna(v)):
+        return ""
+    s = str(v)
+    return s[:60] + "…" if len(s) > 60 else s
+
+
+def _head_preview(raw: pd.DataFrame):
+    """Read-only peek at the uploaded file — header + first rows, verbatim —
+    so the user can judge the column mapping against real values."""
+    head = raw.head(_HEAD_ROWS)
+    cell_style = {"textAlign": "left", "padding": "2px 12px 2px 0",
+                  "whiteSpace": "nowrap"}
+    table = html.Table(
+        [html.Thead(html.Tr([
+            html.Th(str(c), style={**cell_style,
+                                   "borderBottom": "1px solid var(--border)"})
+            for c in raw.columns]))] +
+        [html.Tbody([html.Tr([html.Td(_head_cell(v), style=cell_style)
+                              for v in row])
+                     for row in head.itertuples(index=False, name=None)])],
+        style={"fontSize": "13px"})
+    return html.Div([
+        html.Div(t("File contents (first {n} rows, read-only):").format(
+                     n=_HEAD_ROWS), style=_MUTED),
+        html.Div(table, style={"overflowX": "auto", "marginTop": "6px"}),
+    ])
+
+
 # ── callbacks ────────────────────────────────────────────────────────────────
 
 @callback(
     Output("imp-file-store", "data"),
     Output("imp-file-info", "children"),
+    Output("imp-head-preview", "children"),
     Output("imp-mapping-section", "style"),
     Output("imp-profile", "options"),
     Output("imp-profile", "value"),
@@ -300,7 +334,7 @@ def _on_upload(contents, filename):
     except Exception as e:  # unreadable file — tell the user, keep going
         return (no_update, t("Could not read {filename}: {err}").format(
                     filename=filename, err=e),
-                {"display": "none"}, no_update, no_update)
+                None, {"display": "none"}, no_update, no_update)
     headers = [str(c) for c in raw.columns]
     preset = importer.detect_preset(headers)
     info = (t("{filename} — {rows} rows, {cols} columns. ").format(
@@ -308,7 +342,7 @@ def _on_upload(contents, filename):
             + (t("Detected: {name}.").format(name=preset['name']) if preset
                else t("No known layout detected — check the mapping below.")))
     return ({"filename": filename, "contents": contents, "headers": headers},
-            info, {"display": "block"}, _profile_options(),
+            info, _head_preview(raw), {"display": "block"}, _profile_options(),
             preset["name"] if preset else _GUESS)
 
 

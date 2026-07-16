@@ -656,6 +656,8 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Detected: {name}.": "ตรวจพบ: {name}",
     "No known layout detected — check the mapping below.":
         "ไม่พบรูปแบบที่รู้จัก — ตรวจสอบการจับคู่ด้านล่าง",
+    "File contents (first {n} rows, read-only):":
+        "เนื้อหาไฟล์ ({n} แถวแรก ดูอย่างเดียว):",
     "3 · Review": "3 · ตรวจทาน",
     "{importable} transaction(s) ready to import "
     "({parsed} parsed, {exact} already imported — skipped":
