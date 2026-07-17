@@ -57,6 +57,38 @@ def _now() -> str:
     return datetime.now().isoformat()
 
 
+# NYSE full-day holidays — static list, refresh once a year (mirrors the
+# clientside market clock in pages/paper.py).
+_NYSE_HOLIDAYS = {
+    "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25",
+    "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25",
+}
+
+
+def market_open_now(kind: str | None = None, symbol: str | None = None,
+                    now: "datetime | None" = None) -> bool:
+    """Whether the instrument's market is trading right now. Crypto (-USD
+    pairs) trades around the clock; everything else follows the NYSE regular
+    session (9:30–16:00 US/Eastern, Mon–Fri, minus holidays)."""
+    if kind == "crypto" or (symbol or "").upper().endswith("-USD"):
+        return True
+    from zoneinfo import ZoneInfo
+    et = now or datetime.now(ZoneInfo("America/New_York"))
+    if et.weekday() >= 5:
+        return False
+    if f"{et.year}-{et.month:02d}-{et.day:02d}" in _NYSE_HOLIDAYS:
+        return False
+    minutes = et.hour * 60 + et.minute
+    return 570 <= minutes < 960           # 9:30–16:00
+
+
+def set_market_hours(state: dict, on: bool) -> dict:
+    """Persist the per-account 'fill only while the market is open' setting."""
+    state["market_hours_only"] = bool(on)
+    save_state(state)
+    return state
+
+
 # ── Persistence (one JSON file per account) ───────────────────────────────────
 
 def _account_path(acct_id: str) -> Path:
@@ -610,11 +642,18 @@ def place_order(state: dict, spec: dict) -> str:
     meta, side, otype, live, ref, qty = _resolve_trade(state, spec)
 
     if otype == "market":
-        _check_funds(pf, meta, side, qty, live)
-        _apply_fill(pf, meta, side, qty, live, note="market")
-        _snapshot(state, force=True)
-        save_state(state)
-        return f"Filled: {side} {qty:g} {instrument_label(meta)} @ {live:,.2f}"
+        # Realism setting: while the market is closed, market orders queue and
+        # fill on the first tick of the next session (like a real broker's
+        # market-on-open handling) instead of filling at the stale last quote.
+        if (state.get("market_hours_only")
+                and not market_open_now(meta.get("kind"), meta["symbol"])):
+            pass                                   # fall through to the queue
+        else:
+            _check_funds(pf, meta, side, qty, live)
+            _apply_fill(pf, meta, side, qty, live, note="market")
+            _snapshot(state, force=True)
+            save_state(state)
+            return f"Filled: {side} {qty:g} {instrument_label(meta)} @ {live:,.2f}"
 
     # Queue a pending order validated on each tick against the live price.
     def _num(key):
@@ -641,6 +680,8 @@ def place_order(state: dict, spec: dict) -> str:
     order["id"] = f"{state['order_seq']}-{uuid.uuid4().hex[:6]}"
     pf["orders"].append(order)
     save_state(state)
+    if otype == "market":
+        return f"Queued for market open: {side} {qty:g} {instrument_label(meta)}"
     return f"Queued {otype} order: {side} {qty:g} {instrument_label(meta)}"
 
 
@@ -688,6 +729,9 @@ def preview_order(state: dict, spec: dict) -> dict:
         "is_short": side == "sell" and qty > max(held, 0.0) + 1e-9,
         "held": max(held, 0.0),
         "short_qty": max(0.0, qty - max(held, 0.0)),
+        "queued_open": bool(state.get("market_hours_only") and otype == "market"
+                            and not market_open_now(meta.get("kind"),
+                                                    meta["symbol"])),
     }
 
 
@@ -718,6 +762,8 @@ def _order_meta(o: dict) -> dict:
 def _triggered(o: dict, price: float) -> bool:
     """Whether a pending order's condition is met at ``price`` (updates trail peak)."""
     otype, side = o["otype"], o["side"]
+    if otype == "market":       # queued while the market was closed — fill now
+        return True
     if otype == "limit":
         return price <= o["limit"] if side == "buy" else price >= o["limit"]
     if otype == "stop":
@@ -740,9 +786,14 @@ def process(state: dict) -> int:
     """
     filled = 0
     changed = False
+    hours_only = bool(state.get("market_hours_only"))
     for pf in state["portfolios"]:
         for o in pf["orders"]:
             if o["status"] != "open":
+                continue
+            # Realism setting: nothing fills (and trail peaks don't move)
+            # while the instrument's market is closed. Crypto is 24/7.
+            if hours_only and not market_open_now(o.get("kind"), o.get("symbol")):
                 continue
             meta = _order_meta(o)
             price = mark_price(meta)

@@ -936,14 +936,6 @@ label.dash-options-list-option { color: var(--ink); }
 }
 
 /* ── Paper Trading ───────────────────────────────────────────────────────── */
-.paper-live {
-    color: var(--income);
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.4px;
-    animation: paper-pulse 2s ease-in-out infinite;
-}
-@keyframes paper-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .paper-clock {
     color: var(--muted);
     font-size: 13px;
@@ -1016,6 +1008,19 @@ label.dash-options-list-option { color: var(--ink); }
     flex: 0 0 auto;
 }
 .paper-help-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Paper Trading — outlined market-clock box + bold session status */
+.paper-market-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 10px;
+}
+.paper-mkt-open { color: #27ae60; font-weight: 700; }    /* dark green (dark bg) */
+html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
+.paper-mkt-closed { color: var(--expense); font-weight: 700; }
 
 /* Paper Trading — prominent feedback banners (success / error) */
 .paper-msg-ok, .paper-msg-err {

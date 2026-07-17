@@ -1295,6 +1295,36 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Value: {value} $": "มูลค่า: {value} $",
     "Place order amount": "จำนวนที่จะส่งคำสั่ง",
     "Close table": "ปิดตาราง",
+    " Orders wait for market open": " คำสั่งรอจนตลาดเปิด",
+    "What does market-hours mode do?": "โหมดเวลาตลาดทำอะไร?",
+    "Market-hours fills": "เติมคำสั่งตามเวลาตลาด",
+    "When ON, orders only fill while the NYSE "
+    "is open (9:30–16:00 ET, Mon–Fri, minus "
+    "holidays). A market order placed off-hours "
+    "is queued and fills at the first quote "
+    "after the next open — like a real broker. "
+    "Pending limit/stop/trailing orders also "
+    "pause while the market is closed.":
+        "เมื่อเปิด คำสั่งจะเติมเฉพาะช่วงที่ตลาด NYSE เปิด (9:30–16:00 ET "
+        "จันทร์–ศุกร์ ยกเว้นวันหยุด) คำสั่ง market ที่ส่งนอกเวลาจะถูกจัดคิว "
+        "และเติมที่ราคาแรกหลังตลาดเปิดครั้งถัดไป — เหมือนโบรกเกอร์จริง "
+        "คำสั่งค้าง limit/stop/trailing จะหยุดทำงานช่วงตลาดปิดด้วย",
+    "Crypto (-USD pairs) trades around the "
+    "clock and is never queued. When OFF, all "
+    "orders fill instantly at the latest "
+    "(~15-min delayed) quote.":
+        "คริปโต (คู่ -USD) ซื้อขายได้ตลอด 24 ชั่วโมงและไม่ถูกจัดคิว "
+        "เมื่อปิดโหมดนี้ คำสั่งทั้งหมดจะเติมทันทีที่ราคาล่าสุด "
+        "(ดีเลย์ ~15 นาที)",
+    "Turn off market-hours fills?": "ปิดโหมดเติมคำสั่งตามเวลาตลาด?",
+    "Turning this off will place your queued "
+    "orders straight away at the current "
+    "quote. Continue?":
+        "การปิดโหมดนี้จะทำให้คำสั่งที่จัดคิวไว้ถูกส่งทันทีที่ราคาปัจจุบัน "
+        "ดำเนินการต่อหรือไม่?",
+    "Market is closed — this order will be queued and filled at "
+    "the next open.":
+        "ตลาดปิดอยู่ — คำสั่งนี้จะถูกจัดคิวและเติมเมื่อตลาดเปิดครั้งถัดไป",
     "Select amount type": "เลือกประเภทจำนวน",
     "Select an amount type first.": "เลือกประเภทจำนวนก่อน",
     "Shares/Contracts": "หุ้น/สัญญา",

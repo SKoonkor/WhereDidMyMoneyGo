@@ -82,3 +82,65 @@ def test_apply_fill_drops_sub_micro_residual(state):
     _hold(state, "DUST", 10.0000005)
     P._apply_fill(pf, meta, "sell", 10.0, PRICE, note="test")
     assert "DUST" not in pf["positions"]
+
+
+# ── Market-hours realism ─────────────────────────────────────────────────────
+
+def _et(y, m, d, hh, mm):
+    from zoneinfo import ZoneInfo
+    from datetime import datetime
+    return datetime(y, m, d, hh, mm, tzinfo=ZoneInfo("America/New_York"))
+
+
+def test_market_open_now_sessions():
+    assert P.market_open_now(now=_et(2026, 7, 16, 12, 0))        # Thu midday
+    assert not P.market_open_now(now=_et(2026, 7, 18, 12, 0))    # Saturday
+    assert not P.market_open_now(now=_et(2026, 7, 3, 12, 0))     # holiday
+    assert not P.market_open_now(now=_et(2026, 7, 16, 8, 0))     # pre-market
+    assert not P.market_open_now(now=_et(2026, 7, 16, 20, 0))    # after hours
+    assert P.market_open_now(now=_et(2026, 7, 16, 9, 30))        # open bell
+    assert not P.market_open_now(now=_et(2026, 7, 16, 16, 0))    # close bell
+    # crypto trades around the clock regardless of the wall clock
+    assert P.market_open_now(kind="crypto", now=_et(2026, 7, 18, 3, 0))
+    assert P.market_open_now(symbol="BTC-USD", now=_et(2026, 7, 18, 3, 0))
+
+
+def test_setting_off_fills_instantly_when_closed(state, monkeypatch):
+    monkeypatch.setattr(P, "market_open_now", lambda *a, **k: False)
+    # default behavior must be unchanged: instant fill even when closed
+    msg = P.place_order(state, {"kind": "stock", "symbol": "AAPL",
+                                "side": "buy", "otype": "market",
+                                "mode": "shares", "qty": 1})
+    assert msg.startswith("Filled:")
+    assert state["portfolios"][0]["positions"]["AAPL"]["qty"] == 1
+
+
+def test_setting_on_queues_market_order_when_closed(state, monkeypatch):
+    monkeypatch.setattr(P, "market_open_now", lambda *a, **k: False)
+    state["market_hours_only"] = True
+    msg = P.place_order(state, {"kind": "stock", "symbol": "AAPL",
+                                "side": "buy", "otype": "market",
+                                "mode": "shares", "qty": 1})
+    assert msg.startswith("Queued for market open")
+    pf = state["portfolios"][0]
+    assert "AAPL" not in pf["positions"]
+    assert pf["orders"][-1]["status"] == "open"
+    assert pf["orders"][-1]["otype"] == "market"
+    # nothing fills while the market stays closed
+    assert P.process(state) == 0
+    assert pf["orders"][-1]["status"] == "open"
+    # ...and it fills on the first tick after the open
+    monkeypatch.setattr(P, "market_open_now", lambda *a, **k: True)
+    monkeypatch.setattr(P, "_snapshot", lambda *a, **k: None)
+    assert P.process(state) == 1
+    assert pf["orders"][-1]["status"] == "filled"
+    assert pf["positions"]["AAPL"]["qty"] == 1
+
+
+def test_setting_on_crypto_fills_anytime(state):
+    # the real market_open_now: crypto is exempt even on a weekend
+    state["market_hours_only"] = True
+    msg = P.place_order(state, {"kind": "stock", "symbol": "BTC-USD",
+                                "side": "buy", "otype": "market",
+                                "mode": "shares", "qty": 0.1})
+    assert msg.startswith("Filled:")

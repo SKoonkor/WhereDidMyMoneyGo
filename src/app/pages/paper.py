@@ -467,6 +467,12 @@ def _confirm_body(pend: dict) -> html.Div:
                   short=f"{pend.get('short_qty', 0):g}", unit=unit),
             style={"color": theme.EXPENSE_COLOR, "fontWeight": 600,
                    "margin": "6px 0"}))
+    if pend.get("queued_open"):
+        lines.append(html.Div(
+            t("Market is closed — this order will be queued and filled at "
+              "the next open."),
+            style={"color": theme.MUTED, "fontSize": "13px",
+                   "margin": "6px 0"}))
     if pend["otype"] == "market":
         lines.append(html.Div(
             t("@ {ap}${price} per {unit}").format(
@@ -569,13 +575,33 @@ def layout(**_):
             dcc.Store(id="paper-mode"),          # qty mode; None until explicitly picked
             dcc.Store(id="paper-ticket-reset"),  # bump to reset the order ticket
             dcc.Interval(id="paper-tick", interval=15000, n_intervals=0),
-            # Play controls (status + market clock).
+            # Play controls (status + the outlined market-clock box).
             html.Div(
                 [
                     html.Span(id="paper-status"),
-                    html.Span(t("● LIVE"), id="paper-live-badge", className="paper-live"),
-                    html.Span(id="paper-clock", className="paper-clock"),
-                    dcc.Interval(id="paper-clock-tick", interval=1000, n_intervals=0),
+                    html.Div(
+                        [
+                            html.Span(id="paper-market-status"),
+                            html.Span(id="paper-clock", className="paper-clock"),
+                            dcc.Checklist(
+                                id="paper-hours",
+                                options=[{"label": t(" Orders wait for "
+                                                     "market open"),
+                                          "value": "on"}],
+                                value=(["on"] if state.get("market_hours_only")
+                                       else []),
+                                inputClassName="sq-tick",
+                                style={"fontSize": "13px"},
+                            ),
+                            html.Button("i", id="paper-hours-help", n_clicks=0,
+                                        className="paper-help-btn",
+                                        title=t("What does market-hours mode do?")),
+                            dcc.Interval(id="paper-clock-tick", interval=1000,
+                                         n_intervals=0),
+                        ],
+                        className="paper-market-box",
+                        style={"marginLeft": "auto"},
+                    ),
                 ],
                 id="paper-play-row", className="invest-controls", style=_HIDDEN,
             ),
@@ -1125,6 +1151,64 @@ def layout(**_):
                     className="modal-card",
                 ),
                 id="paper-help-modal", className="modal-overlay", style=_HIDDEN,
+            ),
+            # Market-hours mode: (i) explainer modal.
+            html.Div(
+                html.Div(
+                    [
+                        html.H3(t("Market-hours fills")),
+                        html.Div(t("When ON, orders only fill while the NYSE "
+                                   "is open (9:30–16:00 ET, Mon–Fri, minus "
+                                   "holidays). A market order placed off-hours "
+                                   "is queued and fills at the first quote "
+                                   "after the next open — like a real broker. "
+                                   "Pending limit/stop/trailing orders also "
+                                   "pause while the market is closed."),
+                                 style={"lineHeight": "1.7"}),
+                        html.Div(t("Crypto (-USD pairs) trades around the "
+                                   "clock and is never queued. When OFF, all "
+                                   "orders fill instantly at the latest "
+                                   "(~15-min delayed) quote."),
+                                 style={"lineHeight": "1.7",
+                                        "marginTop": "8px"}),
+                        html.Div(
+                            html.Button(t("Close"), id="paper-hours-info-close",
+                                        n_clicks=0, style=theme.BUTTON_STYLE),
+                            className="invest-modal-actions",
+                            style={"justifyContent": "center"},
+                        ),
+                    ],
+                    className="modal-card",
+                ),
+                id="paper-hours-info-modal", className="modal-overlay",
+                style=_HIDDEN,
+            ),
+            # Market-hours mode: confirm before turning OFF with pending orders.
+            html.Div(
+                html.Div(
+                    [
+                        html.H3(t("Turn off market-hours fills?")),
+                        html.Div(t("Turning this off will place your queued "
+                                   "orders straight away at the current "
+                                   "quote. Continue?"),
+                                 style={"lineHeight": "1.7"}),
+                        html.Div(
+                            [
+                                html.Button(t("Confirm"), id="paper-hours-yes",
+                                            n_clicks=0,
+                                            style=theme.BUTTON_STYLE),
+                                html.Button(t("Cancel"), id="paper-hours-no",
+                                            n_clicks=0,
+                                            style=theme.PERIOD_BUTTON_STYLE),
+                            ],
+                            className="invest-modal-actions",
+                            style={"justifyContent": "center"},
+                        ),
+                    ],
+                    className="modal-card",
+                ),
+                id="paper-hours-confirm-modal", className="modal-overlay",
+                style=_HIDDEN,
             ),
             # Asset-type help modal (mirrors the order-type one).
             html.Div(
@@ -1700,6 +1784,61 @@ def _chain_close(n):
     return {"clear_symbol": False, "n": n}
 
 
+@callback(
+    Output("paper-hours-info-modal", "style"),
+    Input("paper-hours-help", "n_clicks"),
+    Input("paper-hours-info-close", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _hours_help_toggle(_open, _close):
+    return {"display": "flex"} if ctx.triggered_id == "paper-hours-help" else _HIDDEN
+
+
+@callback(
+    Output("paper-hours-confirm-modal", "style"),
+    Output("paper-refresh", "data", allow_duplicate=True),
+    Input("paper-hours", "value"),
+    State("paper-refresh", "data"),
+    prevent_initial_call=True,
+)
+def _set_hours(value, refresh):
+    state = P.load_state()
+    if not state:
+        raise PreventUpdate
+    on = "on" in (value or [])
+    if not on and state.get("market_hours_only"):
+        # Turning off with pending orders: confirm first — they'd fill at the
+        # very next tick. Setting stays ON until the user confirms.
+        pending = any(o["status"] == "open"
+                      for pf in state["portfolios"] for o in pf["orders"])
+        if pending:
+            return {"display": "flex"}, no_update
+    P.set_market_hours(state, on)
+    return _HIDDEN, (refresh or 0) + 1
+
+
+@callback(
+    Output("paper-hours-confirm-modal", "style", allow_duplicate=True),
+    Output("paper-hours", "value", allow_duplicate=True),
+    Output("paper-refresh", "data", allow_duplicate=True),
+    Input("paper-hours-yes", "n_clicks"),
+    Input("paper-hours-no", "n_clicks"),
+    State("paper-refresh", "data"),
+    prevent_initial_call=True,
+)
+def _hours_confirm(_yes, _no, refresh):
+    if ctx.triggered_id == "paper-hours-no":
+        # Stay in market-hours mode: re-tick the box (its _set_hours re-fire
+        # lands in the turning-on path, a harmless no-op persist).
+        return _HIDDEN, ["on"], no_update
+    state = P.load_state()
+    if not state:
+        raise PreventUpdate
+    P.set_market_hours(state, False)
+    P.process(state)          # fill the queued orders straight away, as promised
+    return _HIDDEN, no_update, (refresh or 0) + 1
+
+
 # Full order-ticket reset (from Close table or deselecting a stock). Number
 # inputs are cleared by rendering FRESH instances into their holders — a
 # server-pushed value would brick their keystroke propagation (Dash 4.2).
@@ -1795,10 +1934,16 @@ clientside_callback(
         else if (mins >= 240 && mins < 570) { s = 'Pre-market'; }  // 4:00–9:30
         else if (mins >= 960 && mins < 1200) { s = 'After-hours'; }// 16:00–20:00
         else { s = 'Closed'; }
-        return '🕒 NYSE ' + t + ' ET · ' + s;
+        var label = (s === 'Open') ? 'MARKET OPEN' : 'MARKET CLOSED';
+        if (s === 'Pre-market') { label += ' (Pre-market)'; }
+        if (s === 'After-hours') { label += ' (After hours)'; }
+        var cls = (s === 'Open') ? 'paper-mkt-open' : 'paper-mkt-closed';
+        return ['🕒 NYSE ' + t + ' ET', label, cls];
     }
     """,
     Output("paper-clock", "children"),
+    Output("paper-market-status", "children"),
+    Output("paper-market-status", "className"),
     Input("paper-clock-tick", "n_intervals"),
 )
 
