@@ -38,6 +38,9 @@ SNAPSHOT_MIN_GAP = 8.0      # seconds between equity snapshots on a tick
 _NAMES = ["Portfolio A", "Portfolio B", "Portfolio C"]
 
 # Instrument kinds that trade as ordinary tickers (multiplier 1).
+# "crypto" is kept for backward compatibility: older saved positions/trades
+# carry it, and closing them re-submits the stored kind. Behaviorally it is
+# identical to "stock" (same quote path); the UI no longer offers it.
 _TICKER_KINDS = {"stock", "crypto"}
 OPTION_MULT = 100
 

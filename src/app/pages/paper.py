@@ -8,6 +8,8 @@ Simulator's two-card layout. State persists to config/paper_trading.json.
 
 from __future__ import annotations
 
+import time
+
 from dash import (dcc, html, callback, clientside_callback, Input, Output, State,
                   ctx, no_update, ALL, register_page)
 from dash.exceptions import PreventUpdate
@@ -186,7 +188,9 @@ def _holdings_table(state: dict, selected: str | None = None,
         for r in rows_data:
             groups.setdefault(r.get("sector") or "Unknown", []).append(r)
         for sec in sorted(groups, key=lambda s: -sum(abs(x["value"]) for x in groups[s])):
-            body.append(html.Tr(html.Td(t(sec), colSpan=6),
+            # Indented so the header reads as a group label, not a stock row.
+            body.append(html.Tr(html.Td(t(sec), colSpan=6,
+                                        style={"paddingLeft": "18px"}),
                                  className="invest-sector-head"))
             body.extend(_pos_tr(r) for r in groups[sec])   # value-desc preserved
     else:                                                  # by amount + color legend
@@ -261,14 +265,17 @@ def _watch_table(state: dict, selected: str | None,
     for r in rows_data:
         if r["sector"] != current_sector:        # sector group header
             current_sector = r["sector"]
+            # Indented so the header reads as a group label, not a ticker row.
+            indent = {"paddingLeft": "18px"}
             if current_sector == "Unknown":
-                rows.append(html.Tr(html.Td(t(current_sector), colSpan=5),
+                rows.append(html.Tr(html.Td(t(current_sector), colSpan=5,
+                                            style=indent),
                                     className="invest-sector-head"))
             else:
                 hcls = "invest-sector-head invest-sector-click" + (
                     " selected" if current_sector == sel_sector else "")
                 rows.append(html.Tr(
-                    html.Td(current_sector, colSpan=5),
+                    html.Td(current_sector, colSpan=5, style=indent),
                     id={"type": "paper-sector-head", "sector": current_sector},
                     n_clicks=0, className=hcls))
         cls = "invest-price-row" + (" selected" if r["ticker"] == selected else "")
@@ -377,8 +384,20 @@ def _chain_table(underlying: str, expiry: str, right: str,
             html.Td(f"{int(r['oi'])}" if r["oi"] else "–"),
         ], id={"type": "paper-strike", "strike": r["strike"]}, n_clicks=0,
             className="invest-price-row" + itm + sel))
-    return html.Table([html.Thead(header), html.Tbody(rows)],
-                      className="invest-table paper-chain")
+    # Scroll lives on the wrapper so the table keeps real table layout and
+    # spreads its columns across the full box width. The permanent scroll
+    # indicator is our own track+thumb (chain_scrollbar.js) — macOS overlay
+    # scrollbars auto-hide and ignore styling, so a native bar can't be
+    # trusted to stay visible.
+    return html.Div(
+        [
+            html.Div(html.Table([html.Thead(header), html.Tbody(rows)],
+                                className="invest-table paper-chain"),
+                     className="paper-chain-scroll"),
+            html.Div(html.Div(className="paper-scroll-thumb"),
+                     className="paper-scroll-track"),
+        ],
+        className="paper-chain-outer")
 
 
 def _history(symbol: str, rng: str) -> pd.Series:
@@ -497,6 +516,28 @@ def _help_entry(name: str, definition: str, example: str) -> html.Div:
 
 # ── Layout ────────────────────────────────────────────────────────────────────
 
+# The ticket's number inputs are cleared by re-rendering FRESH instances into
+# their holder divs (see _apply_ticket_reset) — never by server-pushing a value,
+# which bricks a Dash 4.2 number input's keystroke propagation.
+
+def _qty_input() -> dcc.Input:
+    return dcc.Input(id="paper-qty", type="number", min=0, step="any",
+                     placeholder=t("Qty / $"),
+                     style={**theme.INPUT_STYLE, "marginBottom": 0,
+                            "width": "170px"})
+
+
+def _price_inputs() -> list:
+    def price(pid, ph):
+        return dcc.Input(id=pid, type="number", placeholder=ph, min=0,
+                         step="any",
+                         style={**theme.INPUT_STYLE, "marginBottom": 0,
+                                "width": "110px", "display": "none"})
+    return [price("paper-limit", t("Limit $")),
+            price("paper-stop", t("Stop $")),
+            price("paper-trail", t("Trail %"))]
+
+
 def _labelled(label, comp):
     return html.Div([html.Span(t(label), style={"color": theme.MUTED,
                                              "fontSize": "13px",
@@ -524,6 +565,9 @@ def layout(**_):
             dcc.Store(id="paper-pending-txn"),   # transaction awaiting confirmation
             dcc.Store(id="paper-pending-delete"),  # watchlist/portfolio delete awaiting confirm
             dcc.Store(id="paper-loaded"),        # last successfully loaded ticket symbol
+            dcc.Store(id="paper-side"),          # buy/sell chosen in the order-entry dropdown
+            dcc.Store(id="paper-mode"),          # qty mode; None until explicitly picked
+            dcc.Store(id="paper-ticket-reset"),  # bump to reset the order ticket
             dcc.Interval(id="paper-tick", interval=15000, n_intervals=0),
             # Play controls (status + market clock).
             html.Div(
@@ -545,6 +589,7 @@ def layout(**_):
                             html.H3(t("Manage"), style={"marginTop": 0}),
                             dcc.RadioItems(id="paper-active", options=[], value=0,
                                            inline=True,
+                                           inputClassName="sq-tick",
                                            labelStyle={"marginRight": "14px",
                                                        "cursor": "pointer"}),
                             html.Div(
@@ -599,6 +644,10 @@ def layout(**_):
                                 ],
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
+                            # Feedback for Manage-box actions (portfolio ops,
+                            # deposit/withdraw) — kept out of the Order ticket.
+                            html.Div(id="paper-manage-msg",
+                                     style={"marginTop": "8px"}),
                         ],
                         style={"marginBottom": "16px"},
                     ),
@@ -609,10 +658,13 @@ def layout(**_):
                                 [
                                     dcc.RadioItems(
                                         id="paper-asset",
-                                        options=[{"label": t("  Stock/ETF"), "value": "stock"},
-                                                 {"label": t("  Crypto"), "value": "crypto"},
+                                        # Crypto shares every code path with stocks
+                                        # (same Yahoo quote API), so it's one box.
+                                        options=[{"label": t("  Stock/ETF/Crypto"),
+                                                  "value": "stock"},
                                                  {"label": t("  Option"), "value": "option"}],
                                         value="stock", inline=True,
+                                        inputClassName="sq-tick",
                                         inputStyle={"marginRight": "4px"},
                                         labelStyle={"marginRight": "12px",
                                                     "cursor": "pointer"}),
@@ -640,22 +692,6 @@ def layout(**_):
                                 ],
                                 style={**_FLEX, "marginTop": "8px"},
                             ),
-                            # Held-position context: shown whenever the typed symbol
-                            # is held, independent of load state, so a position can
-                            # always be closed exactly (incl. fractional dust).
-                            html.Div(
-                                [
-                                    html.Span(id="paper-held-label",
-                                              style={"fontSize": "13px"}),
-                                    html.Button(t("Close position"),
-                                                id="paper-close-pos", n_clicks=0,
-                                                style={**theme.PERIOD_BUTTON_STYLE,
-                                                       "color": theme.EXPENSE_COLOR,
-                                                       "borderColor": theme.EXPENSE_COLOR}),
-                                ],
-                                id="paper-held-row",
-                                style=_HIDDEN,
-                            ),
                             html.Div(id="paper-msg", style={"marginTop": "8px"}),
                             # Option-only controls.
                             html.Div(
@@ -668,6 +704,7 @@ def layout(**_):
                                         options=[{"label": t("  Call"), "value": "call"},
                                                  {"label": t("  Put"), "value": "put"}],
                                         value="call", inline=True,
+                                        inputClassName="sq-tick",
                                         inputStyle={"marginRight": "4px"},
                                         labelStyle={"marginRight": "10px",
                                                     "cursor": "pointer"}),
@@ -683,6 +720,63 @@ def layout(**_):
                             # _ticket_visibility.
                             html.Div(
                                 [
+                            # Loading above, order entry below.
+                            html.Hr(),
+                            html.H4(t("Order entry"), style={"margin": "0 0 2px"}),
+                            html.Div(t("Buy or sell the loaded symbol, or close "
+                                       "your whole position."),
+                                     style={"color": theme.MUTED,
+                                            "fontSize": "12.5px"}),
+                            # Stage 1: held qty on its own full-width line, the
+                            # Buy/Sell dropdown + Close underneath.
+                            html.Div(id="paper-held-label",
+                                     style={"fontSize": "17px", "fontWeight": 600,
+                                            "whiteSpace": "nowrap", "width": "100%",
+                                            "textAlign": "center",
+                                            "margin": "10px 0 0"}),
+                            html.Div(id="paper-held-value",
+                                     style={"fontSize": "12.5px",
+                                            "color": theme.MUTED,
+                                            "textAlign": "center",
+                                            "margin": "2px 0 0"}),
+                            html.Div(
+                                [
+                                    html.Div(
+                                        [
+                                            html.Button(t("Buy / Sell") + " ▾",
+                                                        id="paper-side-toggle",
+                                                        n_clicks=0,
+                                                        className="menu-btn"),
+                                            html.Div(
+                                                [
+                                                    html.Button(t("Buy"),
+                                                                id="paper-side-buy",
+                                                                n_clicks=0,
+                                                                className="dd-item"),
+                                                    html.Button(t("Sell / Short"),
+                                                                id="paper-side-sell",
+                                                                n_clicks=0,
+                                                                className="dd-item"),
+                                                ],
+                                                id="paper-side-dd",
+                                                className="menu-dropdown",
+                                                style={"display": "none"},
+                                            ),
+                                        ],
+                                        style={"position": "relative"},
+                                    ),
+                                    html.Button(t("Close position"),
+                                                id="paper-close-pos", n_clicks=0,
+                                                style={**theme.PERIOD_BUTTON_STYLE,
+                                                       "color": theme.EXPENSE_COLOR,
+                                                       "borderColor": theme.EXPENSE_COLOR}),
+                                ],
+                                style={**_FLEX, "marginTop": "10px",
+                                       "justifyContent": "center"},
+                            ),
+                            # Stage 2: revealed once Buy or Sell/Short is chosen.
+                            html.Div(
+                                [
                             html.Div(
                                 [
                                     dcc.RadioItems(
@@ -692,6 +786,7 @@ def layout(**_):
                                                  {"label": t("  Stop"), "value": "stop"},
                                                  {"label": t("  Trailing"), "value": "trailing"}],
                                         value="market", inline=True,
+                                        inputClassName="sq-tick",
                                         inputStyle={"marginRight": "4px"},
                                         labelStyle={"marginRight": "12px",
                                                     "cursor": "pointer"}),
@@ -704,65 +799,89 @@ def layout(**_):
                                        "flexWrap": "wrap"},
                             ),
                             html.Div(
-                                [
-                                    dcc.Input(id="paper-limit", type="number",
-                                              placeholder=t("Limit $"), min=0, step="any",
-                                              style={**theme.INPUT_STYLE,
-                                                     "marginBottom": 0, "width": "110px",
-                                                     "display": "none"}),
-                                    dcc.Input(id="paper-stop", type="number",
-                                              placeholder=t("Stop $"), min=0, step="any",
-                                              style={**theme.INPUT_STYLE,
-                                                     "marginBottom": 0, "width": "110px",
-                                                     "display": "none"}),
-                                    dcc.Input(id="paper-trail", type="number",
-                                              placeholder=t("Trail %"), min=0, step="any",
-                                              style={**theme.INPUT_STYLE,
-                                                     "marginBottom": 0, "width": "110px",
-                                                     "display": "none"}),
-                                ],
-                                style={**_FLEX, "marginTop": "8px"},
+                                _price_inputs(),
+                                id="paper-price-holder",
+                                style={**_FLEX, "marginTop": "8px",
+                                       "justifyContent": "center"},
                             ),
-                            dcc.RadioItems(
-                                id="paper-mode",
-                                options=[{"label": t("  Shares/Contracts"), "value": "shares"},
-                                         {"label": t("  $ amount"), "value": "dollars"}],
-                                value="shares", inline=True,
-                                inputStyle={"marginRight": "4px"},
-                                labelStyle={"marginRight": "12px", "cursor": "pointer"},
-                                style={"marginTop": "10px"},
+                            html.H4(t("Place order amount"),
+                                    style={"margin": "12px 0 2px"}),
+                            html.Div(
+                                [
+                                    html.Div(_qty_input(), id="paper-qty-holder"),
+                                    html.Div(
+                                        [
+                                            html.Button(t("Select amount type") + " ▾",
+                                                        id="paper-mode-toggle",
+                                                        n_clicks=0,
+                                                        className="menu-btn"),
+                                            html.Div(
+                                                [
+                                                    html.Button(t("Shares/Contracts"),
+                                                                id="paper-mode-shares",
+                                                                n_clicks=0,
+                                                                className="dd-item"),
+                                                    html.Button(t("$ amount"),
+                                                                id="paper-mode-dollars",
+                                                                n_clicks=0,
+                                                                className="dd-item"),
+                                                ],
+                                                id="paper-mode-dd",
+                                                className="menu-dropdown",
+                                                style={"display": "none"},
+                                            ),
+                                        ],
+                                        style={"position": "relative"},
+                                    ),
+                                ],
+                                style={**_FLEX, "marginTop": "6px"},
                             ),
                             html.Div(
                                 [
-                                    dcc.Input(id="paper-qty", type="number", min=0,
-                                              step="any", placeholder=t("Qty / $"),
-                                              style={**theme.INPUT_STYLE,
-                                                     "marginBottom": 0, "width": "100px"}),
-                                    html.Button(t("Buy"), id="paper-buy", n_clicks=0,
-                                                style={**theme.PERIOD_BUTTON_STYLE,
-                                                       "color": theme.INCOME_COLOR,
-                                                       "borderColor": theme.INCOME_COLOR}),
-                                    html.Button(t("Sell / Short"), id="paper-sell",
+                                    html.Button(t("Place order"), id="paper-place",
                                                 n_clicks=0,
-                                                style={**theme.PERIOD_BUTTON_STYLE,
-                                                       "color": theme.EXPENSE_COLOR,
-                                                       "borderColor": theme.EXPENSE_COLOR}),
+                                                style=theme.PERIOD_BUTTON_STYLE),
+                                    html.Button(t("Cancel order"),
+                                                id="paper-cancel-order", n_clicks=0,
+                                                style=theme.PERIOD_BUTTON_STYLE),
                                 ],
-                                style={**_FLEX, "marginTop": "10px"},
+                                style={"display": "flex",
+                                       "justifyContent": "center", "gap": "8px",
+                                       "marginTop": "14px"},
+                            ),
+                            # Input errors from Place order land right here.
+                            html.Div(id="paper-order-msg",
+                                     style={"marginTop": "8px"}),
+                                ],
+                                id="paper-order-detail", style=_HIDDEN,
                             ),
                                 ],
                                 id="paper-ticket-controls", style=_HIDDEN,
                             ),
-                            html.Hr(),
-                            html.H4(t("Pending orders"), style={"margin": "0 0 8px"}),
+                        ],
+                        style={"marginBottom": "16px"},
+                        className="paper-ticket-card",
+                    ),
+                    card(
+                        [
+                            html.H3(t("Pending orders"), style={"marginTop": 0}),
                             html.Div(id="paper-orders"),
-                            html.Hr(),
-                            html.H4(t("Watchlist"), style={"margin": "0 0 8px"}),
+                        ],
+                        style={"marginBottom": "16px"},
+                    ),
+                    card(
+                        [
+                            html.H3(t("Watchlist"), style={"marginTop": 0}),
                             html.Div(id="paper-watch"),
-                            html.Hr(),
+                        ],
+                        style={"marginBottom": "16px"},
+                    ),
+                    card(
+                        [
                             html.Div(
                                 [
-                                    html.H4(t("Trade history"), style={"margin": 0}),
+                                    html.H3(t("Trade history"),
+                                            style={"margin": 0}),
                                     html.Button(t("View all"), id="paper-history-open",
                                                 n_clicks=0,
                                                 style=theme.PERIOD_BUTTON_STYLE),
@@ -781,9 +900,11 @@ def layout(**_):
                     # ── Right column: Positions box, then equity/detail box ──
                     html.Div(
                         [
-                            # Box A — Positions (moved out of the left card).
+                            # Box A — Positions, or the option chain in its place.
                             card(
                                 [
+                                    html.Div(
+                                        [
                                     html.Div(
                                         [
                                             html.H4(t("Positions"), style={"margin": 0}),
@@ -804,9 +925,35 @@ def layout(**_):
                                                "marginBottom": "8px"},
                                     ),
                                     html.Div(id="paper-holdings"),
+                                        ],
+                                        id="paper-positions-wrap",
+                                    ),
+                                    # Loaded option chain replaces Positions.
+                                    html.Div(
+                                        [
+                                            html.Div(
+                                                [
+                                                    html.H4(t("Option chain"),
+                                                            style={"margin": 0}),
+                                                    html.Button(
+                                                        t("Close table"),
+                                                        id="paper-chain-close",
+                                                        n_clicks=0,
+                                                        style=theme.PERIOD_BUTTON_STYLE),
+                                                ],
+                                                style={"display": "flex",
+                                                       "justifyContent": "space-between",
+                                                       "alignItems": "center",
+                                                       "marginBottom": "8px"},
+                                            ),
+                                            html.Div(id="paper-chain"),
+                                        ],
+                                        id="paper-chain-wrap",
+                                        style=_HIDDEN,
+                                    ),
                                 ],
                             ),
-                            # Box B — equity chart + stats + chain + stock detail.
+                            # Box B — equity chart + stats + stock detail.
                             card(
                                 [
                                     dcc.Graph(id="paper-graph",
@@ -814,15 +961,6 @@ def layout(**_):
                                               config=_GRAPH_CONFIG),
                                     html.Div(id="paper-stats",
                                              style={"marginTop": "12px"}),
-                                    html.Div(
-                                        [
-                                            html.H4(t("Option chain"),
-                                                    style={"margin": "0 0 8px"}),
-                                            html.Div(id="paper-chain"),
-                                        ],
-                                        id="paper-chain-wrap",
-                                        style={"marginTop": "20px", "display": "none"},
-                                    ),
                                     html.Div(
                                         [
                                             html.Div(
@@ -908,6 +1046,7 @@ def layout(**_):
                                             n_clicks=0, style=theme.PERIOD_BUTTON_STYLE),
                             ],
                             className="invest-modal-actions",
+                            style={"justifyContent": "center"},
                         ),
                     ],
                     className="modal-card",
@@ -1037,6 +1176,7 @@ def layout(**_):
                                         id="paper-history-close", n_clicks=0,
                                         style=theme.BUTTON_STYLE),
                             className="invest-modal-actions",
+                            style={"justifyContent": "center"},
                         ),
                     ],
                     className="modal-card paper-history-card",
@@ -1057,9 +1197,10 @@ def layout(**_):
     Output("paper-confirm-body", "children"),
     Output("paper-pending-txn", "data"),
     Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-manage-msg", "children", allow_duplicate=True),
+    Output("paper-order-msg", "children", allow_duplicate=True),
     Output("paper-refresh", "data", allow_duplicate=True),
-    Input("paper-buy", "n_clicks"),
-    Input("paper-sell", "n_clicks"),
+    Input("paper-place", "n_clicks"),
     Input("paper-close-pos", "n_clicks"),
     Input("paper-deposit-btn", "n_clicks"),
     Input("paper-withdraw-btn", "n_clicks"),
@@ -1070,17 +1211,18 @@ def layout(**_):
     State("paper-right", "value"),
     State("paper-opt-strike", "data"),
     State("paper-otype", "value"),
-    State("paper-mode", "value"),
+    State("paper-mode", "data"),
     State("paper-qty", "value"),
     State("paper-limit", "value"),
     State("paper-stop", "value"),
     State("paper-trail", "value"),
     State("paper-cash-amt", "value"),
     State("paper-refresh", "data"),
+    State("paper-side", "data"),
     prevent_initial_call=True,
 )
-def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otype,
-             mode, qty, limit, stop, trail, cash_amt, refresh):
+def _preview(_p, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otype,
+             mode, qty, limit, stop, trail, cash_amt, refresh, side):
     state = P.load_state()
     if not state:
         raise PreventUpdate
@@ -1088,7 +1230,7 @@ def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otyp
     try:
         if trig == "paper-add-pf":               # new portfolios open empty ($0)
             P.add_portfolio(state, 0)
-            return _HIDDEN, no_update, None, "", (refresh or 0) + 1
+            return _HIDDEN, no_update, None, "", "", "", (refresh or 0) + 1
         elif trig == "paper-close-pos":
             # Close the whole position exactly (sell a long / buy back a short),
             # using the position's own kind so the asset radio can't mismatch.
@@ -1097,7 +1239,7 @@ def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otyp
             if not pos:
                 return (_HIDDEN, no_update, None,
                         _err(t("No open position for {symbol}.").format(symbol=sym)),
-                        no_update)
+                        no_update, no_update, no_update)
             pend = P.preview_order(state, {
                 "kind": pos.get("kind", "stock"), "symbol": sym,
                 "side": "sell" if pos["qty"] > 0 else "buy",
@@ -1105,8 +1247,12 @@ def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otyp
         elif trig in ("paper-deposit-btn", "paper-withdraw-btn"):
             op = "deposit" if trig == "paper-deposit-btn" else "withdraw"
             pend = P.preview_cash(state, op, cash_amt)
-        else:                                    # buy / sell
-            side = "buy" if trig == "paper-buy" else "sell"
+        else:                                    # Place order (side from dropdown)
+            if side not in ("buy", "sell"):
+                raise PreventUpdate
+            if mode not in ("shares", "dollars"):
+                return (_HIDDEN, no_update, None, no_update, no_update,
+                        _err(t("Select an amount type first.")), no_update)
             spec = {"kind": asset, "side": side, "otype": otype, "mode": mode,
                     "qty": qty, "limit": limit, "stop": stop, "trail": trail}
             if asset == "option":
@@ -1116,8 +1262,15 @@ def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otyp
                 spec["symbol"] = symbol
             pend = P.preview_order(state, spec)
     except P.TradeError as exc:
-        return _HIDDEN, no_update, None, _err(str(exc)), no_update
-    return {"display": "flex"}, _confirm_body(pend), pend, "", no_update
+        # Route errors to where the user acted: Manage box for cash ops,
+        # under Place order for order-entry input, top banner for the rest.
+        err = _err(str(exc))
+        if trig in ("paper-deposit-btn", "paper-withdraw-btn"):
+            return _HIDDEN, no_update, None, no_update, err, no_update, no_update
+        if trig == "paper-place":
+            return _HIDDEN, no_update, None, no_update, no_update, err, no_update
+        return _HIDDEN, no_update, None, err, no_update, no_update, no_update
+    return {"display": "flex"}, _confirm_body(pend), pend, "", "", "", no_update
 
 
 # Step 2: execute (Confirm) or discard (Cancel) the pending transaction.
@@ -1125,8 +1278,10 @@ def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otyp
     Output("paper-confirm-modal", "style", allow_duplicate=True),
     Output("paper-refresh", "data", allow_duplicate=True),
     Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-manage-msg", "children", allow_duplicate=True),
     Output("paper-pending-txn", "data", allow_duplicate=True),
-    Output("paper-qty", "value"),
+    Output("paper-side", "data", allow_duplicate=True),
+    Output("paper-mode", "data", allow_duplicate=True),
     Output("paper-cash-amt", "value"),
     Input("paper-confirm-yes", "n_clicks"),
     Input("paper-confirm-no", "n_clicks"),
@@ -1136,12 +1291,14 @@ def _preview(_b, _s, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otyp
 )
 def _confirm(_yes, _no, pend, refresh):
     if ctx.triggered_id == "paper-confirm-no" or not pend:
-        return _HIDDEN, no_update, no_update, None, no_update, no_update
+        return (_HIDDEN, no_update, no_update, no_update, None,
+                no_update, no_update, no_update)
     state = P.load_state()
     if not state:
         raise PreventUpdate
+    is_cash = pend["kind"] == "cash"
     try:
-        if pend["kind"] == "cash":
+        if is_cash:
             fn = P.deposit if pend["op"] == "deposit" else P.withdraw
             fn(state, state["active"], pend["amount"])
             verb = t("Deposited") if pend["op"] == "deposit" else t("Withdrew")
@@ -1149,13 +1306,24 @@ def _confirm(_yes, _no, pend, refresh):
         else:                                    # trade
             msg = P.place_order(state, pend["spec"])
     except P.TradeError as exc:
-        return _HIDDEN, no_update, _err(str(exc)), None, no_update, no_update
-    return _HIDDEN, (refresh or 0) + 1, _ok(msg), None, None, None
+        err = _err(str(exc))
+        return (_HIDDEN, no_update, no_update if is_cash else err,
+                err if is_cash else no_update, None, no_update, no_update,
+                no_update)
+    ok = _ok(msg)
+    # A filled/queued order collapses the ticket back to stage 1 (side and
+    # amount-type reset). Note: never write to paper-qty from the server — a
+    # pushed None leaves the number input unable to propagate later keystrokes
+    # (Dash 4.2 quirk).
+    return (_HIDDEN, (refresh or 0) + 1, no_update if is_cash else ok,
+            ok if is_cash else no_update, None,
+            no_update if is_cash else None,
+            no_update if is_cash else None, None)
 
 
 @callback(
     Output("paper-refresh", "data", allow_duplicate=True),
-    Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-manage-msg", "children", allow_duplicate=True),
     Output("paper-rename", "value"),
     Input("paper-rename-btn", "n_clicks"),
     State("paper-rename", "value"),
@@ -1233,6 +1401,7 @@ def _cancel(clicks, refresh):
     Output("paper-pending-delete", "data", allow_duplicate=True),
     Output("paper-symbol", "value"),
     Output("paper-loaded", "data", allow_duplicate=True),
+    Output("paper-ticket-reset", "data", allow_duplicate=True),
     Input({"type": "paper-watch-row", "ticker": ALL}, "n_clicks"),
     Input({"type": "paper-unwatch", "ticker": ALL}, "n_clicks"),
     Input({"type": "paper-pos-row", "ticker": ALL}, "n_clicks"),
@@ -1258,23 +1427,29 @@ def _watch_click(row_clicks, unwatch_clicks, pos_clicks, current, asset):
         body = html.Div([html.Span(t("Remove ")), _bold(unwatch),
                          html.Span(t(" from your watchlist? Your holdings are not "
                                      "affected."))])
-        return no_update, no_update, {"display": "flex"}, body, pend, no_update, no_update
+        return (no_update, no_update, {"display": "flex"}, body, pend,
+                no_update, no_update, no_update)
     tk = ctx.triggered_id["ticker"]
     # Toggle stock selection; a stock selection clears any sector comparison. On a fresh
     # selection (not a deselect) also target it in the order ticket — a row click counts
     # as loading the symbol, so the order controls appear — unless an Option order is
-    # being built for a different underlying.
-    fresh = tk != current and asset != "option"
+    # being built for a different underlying. Deselecting (stop viewing) fully
+    # resets the ticket, symbol included.
+    deselect = tk == current
+    fresh = not deselect and asset != "option"
     sym = tk if fresh else no_update
-    loaded = {"symbol": tk, "asset": asset} if fresh else no_update
-    return (None if tk == current else tk), None, no_update, no_update, no_update, sym, loaded
+    loaded = None if deselect else (
+        {"symbol": tk, "asset": asset} if fresh else no_update)
+    reset = ({"clear_symbol": True, "n": time.time()} if deselect else no_update)
+    return ((None if deselect else tk), None, no_update, no_update, no_update,
+            sym, loaded, reset)
 
 
 @callback(
     Output("paper-delete-modal", "style", allow_duplicate=True),
     Output("paper-delete-body", "children", allow_duplicate=True),
     Output("paper-pending-delete", "data", allow_duplicate=True),
-    Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-manage-msg", "children", allow_duplicate=True),
     Input("paper-delete-pf-btn", "n_clicks"),
     prevent_initial_call=True,
 )
@@ -1298,6 +1473,7 @@ def _delete_pf_prompt(_n):
     Output("paper-delete-modal", "style", allow_duplicate=True),
     Output("paper-refresh", "data", allow_duplicate=True),
     Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-manage-msg", "children", allow_duplicate=True),
     Output("paper-pending-delete", "data", allow_duplicate=True),
     Output("paper-selected", "data", allow_duplicate=True),
     Input("paper-delete-yes", "n_clicks"),
@@ -1308,22 +1484,27 @@ def _delete_pf_prompt(_n):
 )
 def _delete_confirm(_yes, _no, pend, refresh):
     if ctx.triggered_id == "paper-delete-no" or not pend:
-        return _HIDDEN, no_update, no_update, None, no_update
+        return _HIDDEN, no_update, no_update, no_update, None, no_update
     state = P.load_state()
     if not state:
         raise PreventUpdate
+    is_watch = pend["kind"] == "watch"
     try:
-        if pend["kind"] == "watch":
+        if is_watch:
             P.remove_watch(state, pend["ticker"])
             msg = t("Removed {ticker} from watchlist").format(ticker=pend['ticker'])
             sel = None if pend.get("was_selected") else no_update
-        else:                                    # portfolio
+        else:                                    # portfolio → message under Manage
             P.delete_portfolio(state, pend["idx"])
             msg = t("Deleted portfolio {name}").format(name=pend['name'])
             sel = no_update
     except P.TradeError as exc:
-        return _HIDDEN, no_update, _err(str(exc)), None, no_update
-    return _HIDDEN, (refresh or 0) + 1, _ok(msg), None, sel
+        err = _err(str(exc))
+        return (_HIDDEN, no_update, err if is_watch else no_update,
+                no_update if is_watch else err, None, no_update)
+    ok = _ok(msg)
+    return (_HIDDEN, (refresh or 0) + 1, ok if is_watch else no_update,
+            no_update if is_watch else ok, None, sel)
 
 
 @callback(
@@ -1433,28 +1614,139 @@ def _toggle_inputs(asset, otype):
             t("Load chain") if asset == "option" else t("Load stock"))
 
 
-# Held-position context row: visible whenever the typed symbol is held, so a
-# position can always be closed exactly — no need to hand-type the fractional
-# quantity that $-mode buys leave behind.
+# Held-position context: the label always states the held quantity (0 included);
+# the Close button only shows when there is a position to close — no need to
+# hand-type the fractional quantity that $-mode buys leave behind.
 @callback(
-    Output("paper-held-row", "style"),
     Output("paper-held-label", "children"),
+    Output("paper-held-value", "children"),
+    Output("paper-close-pos", "style"),
     Input("paper-symbol", "value"),
     Input("paper-refresh", "data"),
 )
 def _held_row(symbol, _refresh):
     sym = (symbol or "").strip().upper()
     state = P.load_state()
+    close_style = {**theme.PERIOD_BUTTON_STYLE, "color": theme.EXPENSE_COLOR,
+                   "borderColor": theme.EXPENSE_COLOR}
     if not sym or not state:
-        return _HIDDEN, ""
+        return "", "", {**close_style, "display": "none"}
     pos = state["portfolios"][state["active"]]["positions"].get(sym)
     qty = pos["qty"] if pos else 0.0
-    if abs(qty) < 1e-12:
-        return _HIDDEN, ""
-    label = (t("You hold {qty} {symbol}.") if qty > 0
-             else t("You are SHORT {qty} {symbol}.")).format(
+    label = (t("You are SHORT {qty} {symbol}.") if qty < 0
+             else t("You hold {qty} {symbol}.")).format(
         qty=f"{abs(qty):g}", symbol=sym)
-    return {**_FLEX, "marginTop": "8px"}, label
+    value = qty * (pos.get("mark") or 0.0) * pos.get("mult", 1) if pos else 0.0
+    vline = t("Value: {value} $").format(value=f"{value:,.2f}")
+    if abs(qty) < 1e-12:
+        return label, vline, {**close_style, "display": "none"}
+    return label, vline, close_style
+
+
+# Stage 1 → 2: picking Buy or Sell/Short from the dropdown reveals the rest of
+# the ticket (order type, quantity, Place order), colored by the chosen side.
+@callback(
+    Output("paper-side", "data"),
+    Output("paper-order-msg", "children", allow_duplicate=True),
+    Input("paper-side-buy", "n_clicks"),
+    Input("paper-side-sell", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _pick_side(_b, _s):
+    return ("buy" if ctx.triggered_id == "paper-side-buy" else "sell"), ""
+
+
+@callback(
+    Output("paper-mode", "data"),
+    Input("paper-mode-shares", "n_clicks"),
+    Input("paper-mode-dollars", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _pick_mode(_s, _d):
+    return "dollars" if ctx.triggered_id == "paper-mode-dollars" else "shares"
+
+
+@callback(
+    Output("paper-mode-toggle", "children"),
+    Input("paper-mode", "data"),
+)
+def _mode_label(mode):
+    label = {"shares": t("Shares/Contracts"),
+             "dollars": t("$ amount")}.get(mode, t("Select amount type"))
+    return label + " ▾"
+
+
+# "Cancel order": collapse back to the just-loaded state (stage 1). The symbol
+# stays loaded; qty is deliberately left alone (see the Dash 4.2 note above).
+@callback(
+    Output("paper-side", "data", allow_duplicate=True),
+    Output("paper-mode", "data", allow_duplicate=True),
+    Output("paper-order-msg", "children", allow_duplicate=True),
+    Input("paper-cancel-order", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _cancel_order(_n):
+    return None, None, ""
+
+
+# "Close table" on the option chain: restore Positions and reset the ticket to
+# its default state (Stock/ETF/Crypto), keeping the symbol loaded.
+@callback(
+    Output("paper-ticket-reset", "data"),
+    Input("paper-chain-close", "n_clicks"),
+    prevent_initial_call=True,
+)
+def _chain_close(n):
+    return {"clear_symbol": False, "n": n}
+
+
+# Full order-ticket reset (from Close table or deselecting a stock). Number
+# inputs are cleared by rendering FRESH instances into their holders — a
+# server-pushed value would brick their keystroke propagation (Dash 4.2).
+@callback(
+    Output("paper-side", "data", allow_duplicate=True),
+    Output("paper-mode", "data", allow_duplicate=True),
+    Output("paper-otype", "value"),
+    Output("paper-asset", "value"),
+    Output("paper-opt-underlying", "data", allow_duplicate=True),
+    Output("paper-expiry", "options", allow_duplicate=True),
+    Output("paper-expiry", "value", allow_duplicate=True),
+    Output("paper-msg", "children", allow_duplicate=True),
+    Output("paper-order-msg", "children", allow_duplicate=True),
+    Output("paper-qty-holder", "children"),
+    Output("paper-price-holder", "children"),
+    Output("paper-symbol", "value", allow_duplicate=True),
+    Input("paper-ticket-reset", "data"),
+    prevent_initial_call=True,
+)
+def _apply_ticket_reset(data):
+    if not data:
+        raise PreventUpdate
+    return (None, None, "market", "stock", None, [], None, "", "",
+            _qty_input(), _price_inputs(),
+            "" if data.get("clear_symbol") else no_update)
+
+
+@callback(
+    Output("paper-order-detail", "style"),
+    Output("paper-side-toggle", "children"),
+    Output("paper-side-toggle", "style"),
+    Output("paper-place", "style"),
+    Input("paper-side", "data"),
+)
+def _order_detail(side):
+    if side == "buy":
+        accent = {"color": theme.INCOME_COLOR,
+                  "borderColor": theme.INCOME_COLOR}
+        label = t("Buy") + " ▾"
+    elif side == "sell":
+        accent = {"color": theme.EXPENSE_COLOR,
+                  "borderColor": theme.EXPENSE_COLOR}
+        label = t("Sell / Short") + " ▾"
+    else:
+        return _HIDDEN, t("Buy / Sell") + " ▾", {}, theme.PERIOD_BUTTON_STYLE
+    return ({"display": "block"}, label, accent,
+            {**theme.PERIOD_BUTTON_STYLE, **accent})
 
 
 # Progressive disclosure: the order controls and "+ Watch" only appear once
@@ -1464,10 +1756,12 @@ def _held_row(symbol, _refresh):
 @callback(
     Output("paper-ticket-controls", "style"),
     Output("paper-add-watch", "style"),
+    Output("paper-side", "data", allow_duplicate=True),
     Input("paper-loaded", "data"),
     Input("paper-opt-underlying", "data"),
     Input("paper-symbol", "value"),
     Input("paper-asset", "value"),
+    prevent_initial_call=True,
 )
 def _ticket_visibility(loaded, opt_under, symbol, asset):
     sym = (symbol or "").strip().upper()
@@ -1477,7 +1771,8 @@ def _ticket_visibility(loaded, opt_under, symbol, asset):
         ready = bool(sym) and bool(loaded) and loaded.get("symbol") == sym
     return ({"display": "block"} if ready else _HIDDEN,
             theme.PERIOD_BUTTON_STYLE if ready
-            else {**theme.PERIOD_BUTTON_STYLE, "display": "none"})
+            else {**theme.PERIOD_BUTTON_STYLE, "display": "none"},
+            no_update if ready else None)   # hiding the ticket resets the flow
 
 
 # ── Market clock (client-side, ticks every second; no server load) ────────────
@@ -1593,6 +1888,7 @@ def _tick(_n, refresh):
     Output("paper-charttype-wrap", "style"),
     Output("paper-chart-type", "options"),
     Output("paper-cash-line", "children"),
+    Output("paper-positions-wrap", "style"),
     Input("paper-refresh", "data"),
     Input("paper-selected", "data"),
     Input("paper-selected-sector", "data"),
@@ -1623,9 +1919,9 @@ def _render(_refresh, selected, sel_sector, asset, opt_under, expiry, right, str
     active_opts = [{"label": f"  {pf['name']}", "value": i}
                    for i, pf in enumerate(state["portfolios"])]
 
-    # Option chain panel (only in Option mode).
+    # Option chain panel (only in Option mode) — replaces the Positions table.
     if asset == "option" and opt_under and expiry:
-        chain_wrap = {"marginTop": "20px", "display": "block"}
+        chain_wrap = {"display": "block"}
         chain = _chain_table(opt_under, expiry, right, strike)
         price = Q.option_price(opt_under, expiry, right, strike) if strike else None
         label = (t("Contract: {under} {expiry} {cp}{strike}").format(
@@ -1710,6 +2006,7 @@ def _render(_refresh, selected, sel_sector, asset, opt_under, expiry, right, str
         chart_type_options,
         t("Cash: ${amount}").format(
             amount=_money(P.summary(state, state["active"])["cash"])),
+        _HIDDEN if chain_wrap.get("display") == "block" else {"display": "block"},
     )
 
 

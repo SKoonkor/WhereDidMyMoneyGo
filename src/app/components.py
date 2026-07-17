@@ -191,5 +191,6 @@ def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
     )
 
 
-def card(children, style: dict | None = None):
-    return html.Div(children, style={**theme.CARD_STYLE, **(style or {})})
+def card(children, style: dict | None = None, className: str | None = None):
+    return html.Div(children, style={**theme.CARD_STYLE, **(style or {})},
+                    className=className)

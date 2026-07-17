@@ -24,6 +24,22 @@
       }
     }
 
+    // Paper-trading dropdowns (Buy/Sell side, qty mode): same toggle/outside-
+    // dismiss as the menu, except a click on an item (inside the dropdown)
+    // also closes it — the item buttons are Dash components whose n_clicks
+    // still fire.
+    [["paper-side-toggle", "paper-side-dd"],
+     ["paper-mode-toggle", "paper-mode-dd"]].forEach(function (pair) {
+      var dd = document.getElementById(pair[1]);
+      if (!dd) return;
+      var onToggle = e.target.closest && e.target.closest("#" + pair[0]);
+      if (onToggle) {
+        dd.style.display = (dd.style.display === "block") ? "none" : "block";
+      } else if (dd.style.display === "block") {
+        dd.style.display = "none";
+      }
+    });
+
     if (e.target.classList && e.target.classList.contains("modal-overlay")) {
       var cid = e.target.getAttribute("data-close");
       if (cid) {

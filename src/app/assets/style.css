@@ -366,6 +366,42 @@ input.sq-tick:checked::after {   /* white check-mark inside the filled square */
     font-size: 14px;
 }
 .menu-dropdown a:hover { background: var(--surface-2); }
+/* Button-based dropdown items (paper-trading Buy/Sell picker) — match the
+   look of the menu links above. */
+.menu-dropdown button.dd-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--ink);
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.menu-dropdown button.dd-item:hover { background: var(--surface-2); }
+#paper-side-dd, #paper-mode-dd { left: 0; right: auto; }   /* open under the button's left edge */
+/* The Order ticket stands out from the other cards. Everything inside derives
+   its colors from these vars (buttons/inputs/dropdowns/ticks), so scoping new
+   values here re-colors the whole box in both themes. */
+.paper-ticket-card {                     /* dark (default) — brighter */
+    --surface: #273140;
+    --surface-2: #313d4e;
+    --border: #4a566d;
+    --border-soft: #3b4759;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.55);
+}
+html[data-theme="light"] .paper-ticket-card {   /* light — cool lifted tint */
+    --surface: #eef5fa;
+    --surface-2: #ffffff;
+    --border: #b9c9d6;
+    --border-soft: #dde7ee;
+    box-shadow: 0 3px 14px rgba(44, 62, 80, 0.12);
+}
+/* Fixed toggle widths (sized to the widest label, "Sell / Short ▾") so picking
+   a choice doesn't resize the button. */
+#paper-side-toggle, #paper-mode-toggle { min-width: 140px; }
 .menu-divider {
     border: none;
     border-top: 1px solid var(--border);
@@ -925,8 +961,43 @@ label.dash-options-list-option { color: var(--ink); }
     line-height: 1.4;
 }
 .paper-cancel-btn:hover { background: var(--surface-2); }
-.paper-chain { max-height: 340px; overflow-y: auto; display: block; }
+/* Chain table: full-width table inside a scrolling wrapper, with a custom
+   always-visible scroll indicator (track+thumb kept in sync by
+   chain_scrollbar.js — macOS overlay scrollbars auto-hide, so the native bar
+   can't serve as a permanent indication). */
+.paper-chain { width: 100%; }
 .paper-chain.invest-table td, .paper-chain.invest-table th { padding: 4px 8px; }
+.paper-chain.invest-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+}
+.paper-chain-outer { display: flex; gap: 6px; align-items: stretch; }
+.paper-chain-scroll {
+    flex: 1;
+    min-width: 0;
+    max-height: 340px;
+    overflow-y: auto;
+    scrollbar-width: none;               /* hide natives — our track replaces them */
+}
+.paper-chain-scroll::-webkit-scrollbar { display: none; }
+.paper-scroll-track {
+    flex: 0 0 8px;
+    max-height: 340px;
+    border-radius: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    position: relative;
+}
+.paper-scroll-thumb {
+    position: absolute;
+    left: 1px;
+    right: 1px;
+    top: 0;
+    height: 30%;
+    border-radius: 3px;
+    background: var(--muted);
+}
 .invest-price-row.paper-itm td:first-child {
     border-left: 3px solid var(--accent);
 }
