@@ -100,11 +100,9 @@ def create_app() -> Dash:
 
     # The toggle button remounts with n_clicks=0 on every page change; only a
     # real click (truthy n_clicks) flips the theme, otherwise we just re-sync.
-    # Two inputs: the desktop header button and the mobile menu mirror (``-m``);
-    # a click on either flips, identified via the clientside callback context.
     clientside_callback(
         """
-        function (n_desktop, n_mobile, current) {
+        function (n_clicks, current) {
             var dark = current !== "light";
             var trig = (window.dash_clientside.callback_context.triggered || [])[0];
             if (trig && trig.value) { dark = !dark; }
@@ -115,7 +113,6 @@ def create_app() -> Dash:
         """,
         Output("theme-store", "data"),
         Input("theme-toggle", "n_clicks"),
-        Input("theme-toggle-m", "n_clicks"),
         State("theme-store", "data"),
     )
 
@@ -123,7 +120,7 @@ def create_app() -> Dash:
     # (CSS masks amounts instantly); figure callbacks also read the store value.
     clientside_callback(
         """
-        function (n_desktop, n_mobile, current) {
+        function (n_clicks, current) {
             var on = current === true;
             var trig = (window.dash_clientside.callback_context.triggered || [])[0];
             if (trig && trig.value) { on = !on; }
@@ -133,7 +130,6 @@ def create_app() -> Dash:
         """,
         Output("censor-store", "data"),
         Input("censor-toggle", "n_clicks"),
-        Input("censor-toggle-m", "n_clicks"),
         State("censor-store", "data"),
     )
 
@@ -143,20 +139,18 @@ def create_app() -> Dash:
     # language (page layouts/callbacks read the cookie via src/app/i18n.get_lang).
     clientside_callback(
         """
-        function (n_desktop, n_mobile, current) {
+        function (n_clicks, current) {
             // The `lang` cookie is the single source of truth (the server reads
             // it too); read the current value from it, not from the store, so a
             // reload racing the store write can't desync the toggle.
             var m = document.cookie.match(/(?:^|; )lang=(en|th)/);
             var lang = m ? m[1] : "en";
-            // Which instance fired (desktop "lang-toggle" or mobile "lang-toggle-m")?
             var trig = (window.dash_clientside.callback_context.triggered || [])[0];
             var clicked = trig && trig.value;
-            var sfx = (trig && trig.prop_id.indexOf("lang-toggle-m") === 0) ? "-m" : "";
-            var btn = document.getElementById("lang-toggle" + sfx);
+            var btn = document.getElementById("lang-toggle");
             if (clicked && btn && btn.getAttribute("data-locked") === "1") {
                 // Toggling is disabled in Settings: show the inline notice, keep lang.
-                var msg = document.getElementById("lang-lock-msg" + sfx);
+                var msg = document.getElementById("lang-lock-msg");
                 if (msg) {
                     msg.classList.add("show");
                     setTimeout(function () { msg.classList.remove("show"); }, 3000);
@@ -177,7 +171,6 @@ def create_app() -> Dash:
         """,
         Output("lang-store", "data"),
         Input("lang-toggle", "n_clicks"),
-        Input("lang-toggle-m", "n_clicks"),
         State("lang-store", "data"),
     )
     return app

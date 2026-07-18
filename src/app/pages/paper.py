@@ -16,7 +16,7 @@ from dash.exceptions import PreventUpdate
 import pandas as pd
 
 from src.app import theme
-from src.app.components import page_header, card
+from src.app.components import page_header, card, landscape_chart, LANDSCAPE_JS
 from src.app.i18n import make_t
 from src.app.figures.paper import build_equity_figure
 from src.app.figures.investment import (build_price_figure, build_sector_figure,
@@ -982,9 +982,12 @@ def layout(**_):
                             # Box B — equity chart + stats + stock detail.
                             card(
                                 [
-                                    dcc.Graph(id="paper-graph",
-                                              style={"height": "420px"},
-                                              config=_GRAPH_CONFIG),
+                                    landscape_chart(
+                                        dcc.Graph(id="paper-graph",
+                                                  className="ls-graph",
+                                                  style={"height": "420px"},
+                                                  config=_GRAPH_CONFIG),
+                                        prefix="paper-eq"),
                                     html.Div(id="paper-stats",
                                              style={"marginTop": "12px"}),
                                     html.Div(
@@ -1038,9 +1041,28 @@ def layout(**_):
                                                        "alignItems": "center",
                                                        "flexWrap": "wrap", "gap": "8px"},
                                             ),
-                                            dcc.Graph(id="paper-stock-graph",
-                                                      style={"height": "340px"},
-                                                      config=_GRAPH_CONFIG),
+                                            # Landscape box (narrow-screen path of the
+                                            # ⛶ button); wide screens use .maximized on
+                                            # #paper-stock-wrap instead (see fs callback).
+                                            html.Div(
+                                                html.Div(
+                                                    [
+                                                        html.Button(
+                                                            "✕ " + t("Close landscape"),
+                                                            id="paper-stock-ls-exit",
+                                                            n_clicks=0,
+                                                            className="ls-exit"),
+                                                        dcc.Graph(
+                                                            id="paper-stock-graph",
+                                                            className="ls-graph",
+                                                            style={"height": "340px"},
+                                                            config=_GRAPH_CONFIG),
+                                                    ],
+                                                    className="ls-inner",
+                                                ),
+                                                id="paper-stock-ls-box",
+                                                className="ls-box",
+                                            ),
                                             dcc.Store(id="paper-fs-dummy"),
                                             html.Div(id="paper-stock-metrics",
                                                      style={"marginTop": "10px"}),
@@ -1057,6 +1079,7 @@ def layout(**_):
                 ],
                 id="paper-main", className="invest-main mt-split", style=_HIDDEN,
             ),
+            dcc.Store(id="paper-eq-ls-dummy"),
             # Transaction confirmation modal (guardrail before any money moves).
             html.Div(
                 html.Div(
@@ -1959,24 +1982,50 @@ clientside_callback(
 )
 
 
-# ── Maximize toggle for the stock chart (in-app overlay, keeps all controls) ───
+# ── Adaptive fullscreen for the stock chart ──────────────────────────────────
+# The ⛶ button is width-aware: on wide screens it maximizes (in-app overlay that
+# keeps all controls, .maximized on #paper-stock-wrap); on narrow screens it opens
+# the rotated landscape view (.landscape on #paper-stock-ls-box) instead. Exit comes
+# from ✕ Exit-Full-Screen (maximize) or ✕ Close-landscape (landscape).
 clientside_callback(
     """
-    function (nEnter, nExit) {
-        var w = document.getElementById('paper-stock-wrap');
-        if (w) {
-            w.classList.toggle('maximized');
-            // Nudge Plotly to refit once the box has resized.
-            setTimeout(function () {
-                window.dispatchEvent(new Event('resize'));
-            }, 120);
+    function (nEnter, nExit, nLsExit) {
+        var trig = (window.dash_clientside.callback_context.triggered[0] || {});
+        var id = (trig.prop_id || '').split('.')[0];
+        var wrap = document.getElementById('paper-stock-wrap');
+        var box = document.getElementById('paper-stock-ls-box');
+        if (id === 'paper-fs-enter') {
+            if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) {
+                if (box) box.classList.add('landscape');   // phone → rotate
+                document.body.style.overflow = 'hidden';
+            } else if (wrap) {
+                wrap.classList.add('maximized');            // computer → fill
+            }
+        } else {   // paper-fs-exit or paper-stock-ls-exit
+            if (box) box.classList.remove('landscape');
+            if (wrap) wrap.classList.remove('maximized');
+            document.body.style.overflow = '';
         }
+        setTimeout(function () {
+            window.dispatchEvent(new Event('resize'));
+        }, 120);
         return window.dash_clientside.no_update;
     }
     """,
     Output("paper-fs-dummy", "data"),
     Input("paper-fs-enter", "n_clicks"),
     Input("paper-fs-exit", "n_clicks"),
+    Input("paper-stock-ls-exit", "n_clicks"),
+    prevent_initial_call=True,
+)
+
+
+# Landscape toggle for the equity chart (generic .ls-box JS).
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("paper-eq-ls-dummy", "data"),
+    Input("paper-eq-ls-enter", "n_clicks"),
+    Input("paper-eq-ls-exit", "n_clicks"),
     prevent_initial_call=True,
 )
 

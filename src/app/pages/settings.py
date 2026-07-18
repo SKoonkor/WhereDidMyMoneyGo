@@ -391,7 +391,7 @@ def layout(**_):
 
     return html.Div(
         [
-            page_header("Settings", "Edit your app configuration.", back=("Home", "/")),
+            page_header("Settings", "Edit your app configuration."),
             # Leave-page guard: change summary + a mirror sink (see settings_guard.js).
             dcc.Store(id="settings-guard"),
             dcc.Store(id="settings-guard-sink"),
@@ -402,6 +402,7 @@ def layout(**_):
                     html.Div([tools_card, privacy_card, language_card],
                              style={"flex": "1", "minWidth": 0}),
                 ],
+                className="mt-split",
                 style={"display": "flex", "alignItems": "flex-start", "gap": "20px"},
             ),
             save_row,   # very bottom of the page, spanning both columns

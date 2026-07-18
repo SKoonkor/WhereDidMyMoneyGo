@@ -97,8 +97,7 @@ def layout(**_):
         [
             page_header("Reconcile Balances",
                         "Register each account's real balance. The gap is recorded "
-                        "as a hidden cost (untracked amount).",
-                        back=("Settings", "/settings")),
+                        "as a hidden cost (untracked amount)."),
             card(
                 [
                     html.P(t("Enter balances as the app shows them — liabilities like "

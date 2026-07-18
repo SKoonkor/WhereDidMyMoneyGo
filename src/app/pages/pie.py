@@ -2,10 +2,11 @@
 
 import dash
 import pandas as pd
-from dash import dcc, html, callback, ctx, Input, Output
+from dash import dcc, html, callback, clientside_callback, ctx, Input, Output
 
 from src.app import theme
-from src.app.components import page_header, money_span, card
+from src.app.components import (page_header, money_span, card, LANDSCAPE_JS,
+                                ls_enter_children, ls_exit_children)
 from src.app.i18n import make_t
 from src.app.data import get_df, default_range, reference_date, currency
 from src.app.figures.pie import build_pie_figure, build_hist_figure
@@ -102,10 +103,51 @@ def layout(**_):
                 ],
                 style={"marginBottom": "16px"},
             ),
-            html.Div(dcc.Graph(id="pie-graph", style={"height": "520px"}),
-                     id="pie-view-pie"),
-            html.Div(dcc.Graph(id="pie-hist-graph", style={"height": "520px"}),
-                     id="pie-view-hist", style={"display": "none"}),
+            # Each mode's graph is its own landscape box (.ls-box); only the visible
+            # view's "⤢ Landscape" button shows (the hidden view is display:none).
+            html.Div(
+                [
+                    html.Div(
+                        html.Button(ls_enter_children(), id="pie-ls-enter",
+                                    n_clicks=0, className="ls-enter"),
+                        className="ls-head",
+                        style={"display": "flex", "justifyContent": "flex-end"},
+                    ),
+                    html.Div(
+                        [
+                            html.Button(ls_exit_children(), id="pie-ls-exit",
+                                        n_clicks=0, className="ls-exit"),
+                            dcc.Graph(id="pie-graph", className="ls-graph",
+                                      style={"height": "520px"},
+                                      config={"responsive": True}),
+                        ],
+                        className="ls-inner",
+                    ),
+                ],
+                id="pie-view-pie", className="ls-box",
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        html.Button(ls_enter_children(), id="hist-ls-enter",
+                                    n_clicks=0, className="ls-enter"),
+                        className="ls-head",
+                        style={"display": "flex", "justifyContent": "flex-end"},
+                    ),
+                    html.Div(
+                        [
+                            html.Button(ls_exit_children(), id="hist-ls-exit",
+                                        n_clicks=0, className="ls-exit"),
+                            dcc.Graph(id="pie-hist-graph", className="ls-graph",
+                                      style={"height": "520px"},
+                                      config={"responsive": True}),
+                        ],
+                        className="ls-inner",
+                    ),
+                ],
+                id="pie-view-hist", className="ls-box", style={"display": "none"},
+            ),
+            dcc.Store(id="pie-ls-dummy"),
             html.Details(
                 [
                     html.Summary(t("Sub-categories"), className="subcat-summary"),
@@ -185,3 +227,32 @@ def _switch_view(_p, _h):
     if hist:
         return ({"display": "none"}, {"display": "block"}, inactive, active)
     return ({"display": "block"}, {"display": "none"}, active, inactive)
+
+
+# Expand whichever chart (pie or histogram) is showing — the shared .ls-box toggle
+# (rotate on phones, fill on computers) covers both views from one callback.
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("pie-ls-dummy", "data"),
+    Input("pie-ls-enter", "n_clicks"),
+    Input("pie-ls-exit", "n_clicks"),
+    Input("hist-ls-enter", "n_clicks"),
+    Input("hist-ls-exit", "n_clicks"),
+    prevent_initial_call=True,
+)
+
+
+# When switching Pie⇄Histogram, the newly shown graph was rendered while its box was
+# display:none (size 0). Nudge Plotly to refit it to the now-visible container.
+clientside_callback(
+    """
+    function (nPie, nHist) {
+        setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 60);
+        return window.dash_clientside.no_update;
+    }
+    """,
+    Output("pie-ls-dummy", "data", allow_duplicate=True),
+    Input("pie-mode-pie", "n_clicks"),
+    Input("pie-mode-hist", "n_clicks"),
+    prevent_initial_call=True,
+)

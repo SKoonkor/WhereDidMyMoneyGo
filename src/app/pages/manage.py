@@ -429,8 +429,7 @@ def layout(**_):
 
     return html.Div(
         [page_header("Manage accounts & categories",
-                     "Tidy up the account and category lists.",
-                     back=("Settings", "/settings")),
+                     "Tidy up the account and category lists."),
          dcc.Store(id="manage-draft", data=draft),
          dcc.Store(id="manage-submove"),
          dcc.Store(id="manage-cat-selected"),

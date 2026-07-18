@@ -6,7 +6,8 @@ import dash
 from dash import dcc, html, callback, clientside_callback, Input, Output, State
 
 from src.app import theme
-from src.app.components import page_header
+from src.app.components import (page_header, LANDSCAPE_JS, ls_enter_children,
+                                ls_exit_children)
 from src.app.i18n import make_t
 from src.app.data import get_df, currency
 from src.app.figures.money_flow import build_money_flow_figure
@@ -22,6 +23,7 @@ _GRAPH_CONFIG = {
     "displaylogo": False,
     "doubleClick": "reset",
     "scrollZoom": True,
+    "responsive": True,
     "modeBarButtonsToRemove": ["select2d", "lasso2d"],
 }
 
@@ -47,35 +49,53 @@ def layout(**_):
                 "(dashed) and 50% / 90% uncertainty bands. Zoom/pan to explore; "
                 "click an account in the legend to show/hide it.",
             ),
-            html.Div(
-                [
-                    html.Span(t("Forecast:"), style={"color": theme.MUTED,
-                                                  "marginRight": "8px"}),
-                    dcc.RadioItems(
-                        id="flow-horizon",
-                        options=[{"label": f"  {t(lbl)}", "value": v} for lbl, v in _HORIZONS],
-                        value="30", inline=True,
-                        inputClassName="sq-tick",
-                        inputStyle={"marginRight": "4px"},
-                        labelStyle={"marginRight": "16px", "cursor": "pointer"},
-                    ),
-                    html.Button(t("Retrain model"), id="flow-retrain", n_clicks=0,
-                                style={**theme.PERIOD_BUTTON_STYLE, "marginLeft": "auto"}),
-                    html.Span(id="flow-trained",
-                              style={"color": theme.MUTED, "fontSize": "13px",
-                                     "marginLeft": "12px"}),
-                ],
-                className="flow-controls",
-            ),
             dcc.Store(id="flow-forecast-refresh", data=0),
             dcc.Store(id="flow-reset-sink"),
+            dcc.Store(id="flow-ls-dummy"),
             dcc.ConfirmDialog(
                 id="flow-retrain-confirm",
                 message=t("Retrain the forecast model on all your current "
                           "transactions? This replaces the saved model."),
             ),
-            dcc.Graph(id="flow-graph", style={"height": "640px"},
-                      config=_GRAPH_CONFIG),
+            html.Div(
+                [
+                    # Controls double as the landscape head (hidden in landscape).
+                    html.Div(
+                        [
+                            html.Span(t("Forecast:"), style={"color": theme.MUTED,
+                                                          "marginRight": "8px"}),
+                            dcc.RadioItems(
+                                id="flow-horizon",
+                                options=[{"label": f"  {t(lbl)}", "value": v}
+                                         for lbl, v in _HORIZONS],
+                                value="30", inline=True,
+                                inputClassName="sq-tick",
+                                inputStyle={"marginRight": "4px"},
+                                labelStyle={"marginRight": "16px", "cursor": "pointer"},
+                            ),
+                            html.Button(t("Retrain model"), id="flow-retrain", n_clicks=0,
+                                        style={**theme.PERIOD_BUTTON_STYLE,
+                                               "marginLeft": "auto"}),
+                            html.Span(id="flow-trained",
+                                      style={"color": theme.MUTED, "fontSize": "13px",
+                                             "marginLeft": "12px"}),
+                            html.Button(ls_enter_children(), id="flow-ls-enter",
+                                        n_clicks=0, className="ls-enter"),
+                        ],
+                        className="flow-controls ls-head",
+                    ),
+                    html.Div(
+                        [
+                            html.Button(ls_exit_children(), id="flow-ls-exit",
+                                        n_clicks=0, className="ls-exit"),
+                            dcc.Graph(id="flow-graph", className="ls-graph",
+                                      style={"height": "640px"}, config=_GRAPH_CONFIG),
+                        ],
+                        className="ls-inner",
+                    ),
+                ],
+                id="flow-graph-box", className="ls-box",
+            ),
         ],
         style=theme.PAGE_STYLE,
     )
@@ -143,5 +163,16 @@ clientside_callback(
     Output("flow-reset-sink", "data"),
     Input("flow-graph", "relayoutData"),
     State("flow-graph", "figure"),
+    prevent_initial_call=True,
+)
+
+
+# Expand the money-flow chart full-screen (rotate on phones, fill on computers) — the
+# shared .ls-box toggle.
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("flow-ls-dummy", "data"),
+    Input("flow-ls-enter", "n_clicks"),
+    Input("flow-ls-exit", "n_clicks"),
     prevent_initial_call=True,
 )

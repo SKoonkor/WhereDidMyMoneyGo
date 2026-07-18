@@ -10,11 +10,13 @@ from datetime import date
 
 import dash
 import pandas as pd
-from dash import dcc, html, callback, Input, Output, State, ctx, no_update, Patch
+from dash import (dcc, html, callback, clientside_callback, Input, Output, State,
+                  ctx, no_update, Patch)
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
-from src.app.components import page_header, card, money_span
+from src.app.components import (page_header, card, money_span, LANDSCAPE_JS,
+                                ls_enter_children, ls_exit_children)
 from src.app.i18n import make_t
 from src.app.data import get_df, currency
 from src.app.figures.budget_pie import build_budget_pie
@@ -333,15 +335,17 @@ def _render_month(month: pd.Period, dark: bool, censor: bool = False):
 def _month_column(side: str, header, graph_id: str, list_id: str) -> html.Div:
     return html.Div(
         [
-            header,
+            html.Div(header, className="budget-month-head"),
             html.Div(
                 [
-                    dcc.Graph(id=graph_id, style={"flex": "1.3", "minWidth": "200px",
-                                                  "height": "240px"},
+                    dcc.Graph(id=graph_id, className="ls-graph",
+                              style={"flex": "1.3", "minWidth": "200px",
+                                     "height": "240px"},
                               config=_PIE_CONFIG),
                     html.Div(id=list_id, className="budget-overflow",
                              style={"flex": "1", "minWidth": "150px"}),
                 ],
+                className="budget-month-body",
                 style={"display": "flex", "gap": "12px", "flexWrap": "wrap",
                        "alignItems": "center"},
             ),
@@ -380,36 +384,76 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
                      "Click a row below to see its monthly trend."),
                    id="budget-spending-desc",
                    style={"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}),
-            # Two monthly pies — shown until a category/sub-category row is clicked.
+            # Two monthly pies (a landscape box) — shown until a row is clicked.
             html.Div(
                 [
-                    _month_column("prev", prev_header, "budget-pie-prev",
-                                  "budget-list-prev"),
-                    _month_column("current", current_header, "budget-pie-current",
-                                  "budget-list-current"),
+                    html.Div(
+                        html.Button(ls_enter_children(), id="budget-pies-ls-enter",
+                                    n_clicks=0, className="ls-enter"),
+                        className="ls-head",
+                        style={"display": "flex", "justifyContent": "flex-end"},
+                    ),
+                    html.Div(
+                        [
+                            html.Button(ls_exit_children(),
+                                        id="budget-pies-ls-exit", n_clicks=0,
+                                        className="ls-exit"),
+                            html.Div(
+                                [
+                                    _month_column("prev", prev_header,
+                                                  "budget-pie-prev", "budget-list-prev"),
+                                    _month_column("current", current_header,
+                                                  "budget-pie-current",
+                                                  "budget-list-current"),
+                                ],
+                                className="budget-pies-row",
+                                style={"display": "flex", "gap": "20px",
+                                       "flexWrap": "wrap", "alignItems": "flex-start"},
+                            ),
+                        ],
+                        className="ls-inner",
+                    ),
                 ],
-                id="budget-view-pies",
-                style={"display": "flex", "gap": "20px", "flexWrap": "wrap",
-                       "alignItems": "flex-start"},
+                id="budget-view-pies", className="ls-box",
             ),
-            # Spending-trend histogram — replaces the pies while rows are selected.
+            # Spending-trend histogram (a landscape box) — replaces the pies while
+            # rows are selected.
             html.Div(
                 [
-                    html.Button("✕", id="budget-trend-close", className="trend-close",
-                                n_clicks=0),
-                    # Home: relayout back to the opening (last-7-months) window.
-                    html.Button("⌂", id="budget-trend-home-btn", className="trend-home",
-                                n_clicks=0, title="Home — last 7 months"),
-                    dcc.Store(id="budget-trend-home"),   # [lo, hi] ISO window for Home
-                    # Only horizontal drag-panning; no wheel zoom, no vertical range,
-                    # no built-in modebar (its Reset autoscales — we use our own Home).
-                    dcc.Graph(id="budget-trend-graph", style={"height": "300px"},
-                              config={"scrollZoom": False, "doubleClick": False,
-                                      "displaylogo": False, "displayModeBar": False}),
+                    html.Div(
+                        html.Button(ls_enter_children(), id="budget-trend-ls-enter",
+                                    n_clicks=0, className="ls-enter"),
+                        className="ls-head",
+                        style={"display": "flex", "justifyContent": "flex-end"},
+                    ),
+                    html.Div(
+                        [
+                            html.Button("✕", id="budget-trend-close",
+                                        className="trend-close", n_clicks=0),
+                            # Home: relayout back to the opening (last-7-months) window.
+                            html.Button("⌂", id="budget-trend-home-btn",
+                                        className="trend-home", n_clicks=0,
+                                        title="Home — last 7 months"),
+                            dcc.Store(id="budget-trend-home"),   # [lo, hi] window
+                            html.Button(ls_exit_children(),
+                                        id="budget-trend-ls-exit", n_clicks=0,
+                                        className="ls-exit"),
+                            # Only horizontal drag-panning; no wheel zoom, no vertical
+                            # range, no built-in modebar (Reset autoscales — we use Home).
+                            dcc.Graph(id="budget-trend-graph", className="ls-graph",
+                                      style={"height": "300px"},
+                                      config={"scrollZoom": False, "doubleClick": False,
+                                              "displaylogo": False,
+                                              "displayModeBar": False}),
+                        ],
+                        className="ls-inner",
+                        style={"position": "relative"},
+                    ),
                 ],
-                id="budget-view-trend",
-                style={"display": "none", "position": "relative"},
+                id="budget-view-trend", className="ls-box",
+                style={"display": "none"},
             ),
+            dcc.Store(id="budget-ls-dummy"),
             html.Details(
                 [
                     html.Summary(t("Sub-category detail"), className="subcat-summary"),
@@ -551,6 +595,7 @@ def layout(**_):
                                "gap": "16px", "flex": "1.55", "minWidth": "460px"},
                     ),
                 ],
+                className="mt-split",
                 style={"display": "flex", "gap": "20px", "flexWrap": "wrap",
                        "alignItems": "flex-start", "marginTop": "16px"},
             ),
@@ -734,8 +779,10 @@ def _render_subcat_detail(prev_value, sort, _refresh, sel):
 
 # ── Spending-trend view (click-to-drill) ─────────────────────────────────────
 
-_PIES_STYLE = {"display": "flex", "gap": "20px", "flexWrap": "wrap",
-               "alignItems": "flex-start"}
+# Box-visibility only; the pies' flex row layout lives on .budget-pies-row and the
+# trend's positioning on its .ls-inner, so these boxes just toggle display (keeping
+# the inline `position` off the .ls-box so .ls-box.landscape's fixed overlay wins).
+_PIES_STYLE = {"display": "block"}
 _DESC_STYLE = {"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}
 
 
@@ -775,7 +822,7 @@ def _render_trend(sel, theme_value, censor, _refresh):
     # Stash the opening window so the Home button can relayout back to it after panning.
     home = home_window(series[0]["months"], len(series))
     return (title, {"display": "none"}, {"display": "none"},
-            {"display": "block", "position": "relative"}, fig, home)
+            {"display": "block"}, fig, home)
 
 
 @callback(
@@ -792,3 +839,16 @@ def _trend_home(n_clicks, window):
     patched["layout"]["xaxis"]["range"] = window
     patched["layout"]["xaxis"]["autorange"] = False
     return patched
+
+
+# Expand whichever Spending-vs-budget chart is showing (monthly pies or trend) — the
+# shared .ls-box toggle (rotate on phones, fill on computers) covers all four buttons.
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("budget-ls-dummy", "data"),
+    Input("budget-pies-ls-enter", "n_clicks"),
+    Input("budget-pies-ls-exit", "n_clicks"),
+    Input("budget-trend-ls-enter", "n_clicks"),
+    Input("budget-trend-ls-exit", "n_clicks"),
+    prevent_initial_call=True,
+)

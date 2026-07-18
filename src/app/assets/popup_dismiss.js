@@ -12,15 +12,47 @@
  * One document listener; survives Dash's client-side navigation.
  */
 (function () {
+  // Close: hide and clear any inline position overrides so the next open
+  // recomputes from the CSS default (absolute, right:0 under the button).
+  function closeMenu(menu) {
+    menu.style.display = "none";
+    menu.style.position = "";
+    menu.style.top = "";
+    menu.style.left = "";
+    menu.style.right = "";
+  }
+
+  // Open: show, then if the natural (right-aligned) dropdown would run off
+  // either screen edge, re-anchor it as a viewport-fixed box clamped to kiss
+  // the nearer edge. No overflow ⇒ no override, so desktop is untouched.
+  function openMenu(menu) {
+    closeMenu(menu);                 // reset overrides before measuring
+    menu.style.display = "block";
+    var btn = document.getElementById("menu-toggle");
+    if (!btn) return;
+    var r = menu.getBoundingClientRect();
+    var m = 8;
+    var vw = document.documentElement.clientWidth;
+    if (r.left < m || r.right > vw - m) {
+      var b = btn.getBoundingClientRect();
+      var left = Math.min(Math.max(b.right - r.width, m), vw - r.width - m);
+      menu.style.position = "fixed";
+      menu.style.top = (b.bottom + 6) + "px";
+      menu.style.left = left + "px";
+      menu.style.right = "auto";
+    }
+  }
+
   document.addEventListener("click", function (e) {
     var menu = document.getElementById("menu-dropdown");
     if (menu) {
       var onToggle = e.target.closest && e.target.closest("#menu-toggle");
       if (onToggle) {
-        menu.style.display = (menu.style.display === "block") ? "none" : "block";
+        if (menu.style.display === "block") { closeMenu(menu); }
+        else { openMenu(menu); }
       } else if (menu.style.display === "block"
                  && !(menu.contains && menu.contains(e.target))) {
-        menu.style.display = "none";
+        closeMenu(menu);
       }
     }
 

@@ -135,20 +135,11 @@ def _menu_link(entry):
 
 
 def menu_widget():
-    """A collapsible "☰ Menu" dropdown for the header (toggled clientside below).
-
-    On phones the header hides its inline theme/privacy/language toggles (CSS
-    ``.header-tools-desktop``); a mirror set (``-m`` ids) lives here at the top of
-    the dropdown inside ``.header-tools-mobile`` (shown only ≤600px) so those
-    controls stay reachable. Both instances are always in the DOM — only CSS hides
-    one — so there are no duplicate ids and the shared callbacks never misfire."""
-    items = [
-        html.Div(
-            [theme_toggle("-m"), censor_toggle("-m"), lang_toggle("-m")],
-            className="header-tools-mobile menu-tools",
-        ),
-        html.Hr(className="menu-divider"),
-    ]
+    """A collapsible "☰ Menu" dropdown of navigation links for the header
+    (toggled clientside below). The theme/privacy/language toggles live in the
+    header bar itself (``.header-tools-desktop`` in ``page_header``) at every
+    screen size, so the menu holds navigation only."""
+    items = []
     for i, group in enumerate(_MENU_GROUPS):
         if i:
             items.append(html.Hr(className="menu-divider"))
@@ -171,7 +162,9 @@ def menu_widget():
 
 def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
                 back: tuple[str, str] | None = None):
-    """Page header with title/subtitle on the left, theme toggle + Home top-right.
+    """Page header: the controls row (Menu + Home, plus the theme/privacy/language
+    toggles on large screens) sits at the very top, with the title/subtitle below —
+    so the page reads like an app, nav first.
 
     ``back`` is an optional (label, href) pair rendered as a "‹ label" button
     above the title — like the mobile-style back navigation in the design.
@@ -192,8 +185,7 @@ def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
     left.append(html.H1(t(title), style=theme.H1_STYLE))
     if subtitle:
         left.append(html.P(t(subtitle), style={"color": theme.MUTED, "marginTop": 0}))
-    # The inline toggles show on desktop; on phones (≤600px) CSS hides this cluster
-    # and their mirror copies inside the ☰ Menu take over (see menu_widget).
+    # The inline theme/privacy/language toggles show at every screen size.
     right = [
         html.Div([theme_toggle(), censor_toggle(), lang_toggle()],
                  className="header-tools-desktop",
@@ -204,18 +196,92 @@ def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
         right.append(home_link())
     return html.Div(
         [
-            html.Div(left),
+            # Controls first (top-right cluster on its own row), title below.
             html.Div(right, className="header-controls",
-                     style={"display": "flex", "gap": "10px",
-                            "alignItems": "center", "flexWrap": "wrap"}),
+                     style={"display": "flex", "gap": "10px", "alignItems": "center",
+                            "flexWrap": "wrap", "justifyContent": "flex-end"}),
+            html.Div(left),
         ],
         className="page-header",
-        style={"display": "flex", "justifyContent": "space-between",
-               "alignItems": "flex-start", "marginBottom": "16px", "gap": "16px",
-               "flexWrap": "wrap"},
+        style={"marginBottom": "16px"},
     )
 
 
 def card(children, style: dict | None = None, className: str | None = None):
     return html.Div(children, style={**theme.CARD_STYLE, **(style or {})},
                     className=className)
+
+
+# ── Landscape / fullscreen chart helper ───────────────────────────────────────
+# Generic clientside body for the chart-expand toggle: finds the enclosing .ls-box
+# from the clicked button and opens it full-screen — ROTATED (.landscape) on a
+# phone/tablet, or a plain FILL (.fullscreen) on a computer (incl. a narrow desktop
+# window). Device test: `(hover: none) and (pointer: coarse)` = touch, no mouse. The
+# same media query drives the CSS label swap, so behaviour and label stay in sync.
+# The JS ignores its args (reads callback_context.triggered), so any number of
+# enter/exit button inputs work with the same body.
+LANDSCAPE_JS = """
+function () {
+    var trig = (window.dash_clientside.callback_context.triggered[0] || {});
+    var id = (trig.prop_id || '').split('.')[0];
+    var btn = id && document.getElementById(id);
+    if (btn) {
+        var box = btn.closest('.ls-box');
+        if (box) {
+            var on = id.indexOf('ls-enter') >= 0;
+            if (on) {
+                var phone = window.matchMedia(
+                    '(hover: none) and (pointer: coarse)').matches;
+                box.classList.add(phone ? 'landscape' : 'fullscreen');
+            } else {
+                box.classList.remove('landscape');
+                box.classList.remove('fullscreen');
+            }
+            document.body.style.overflow = on ? 'hidden' : '';
+            setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 150);
+        }
+    }
+    return window.dash_clientside.no_update;
+}
+"""
+
+
+def ls_enter_children():
+    """Enter-button label: "⤢ Landscape" on phones, "⛶ Full screen" on computers
+    (CSS swaps them by the same media query the JS uses)."""
+    return [html.Span("⤢ " + t("Landscape"), className="ls-lbl-ls"),
+            html.Span("⛶ " + t("Full screen"), className="ls-lbl-fs")]
+
+
+def ls_exit_children():
+    """Exit-button label: "✕ Close landscape" on phones, "✕ Exit full screen" on
+    computers."""
+    return [html.Span("✕ " + t("Close landscape"), className="ls-lbl-ls"),
+            html.Span("✕ " + t("Exit full screen"), className="ls-lbl-fs")]
+
+
+def landscape_chart(graph, prefix: str, head_left: list | None = None):
+    """Wrap a ``dcc.Graph`` in the reusable expand box (``.ls-box``): the button
+    (CSS-shown only ≤900px) opens a locked full-screen view — rotated on phones,
+    filled on computers. ``prefix`` names the buttons (``{prefix}-ls-enter`` /
+    ``{prefix}-ls-exit``) and the box (``{prefix}-ls-box``). ``head_left`` is optional
+    content placed left of the button in the head row (e.g. a Log-y toggle). The
+    passed ``graph`` should carry ``className="ls-graph"`` so it fills the box. Pair
+    with a page-level ``clientside_callback(LANDSCAPE_JS, …)`` listing the buttons."""
+    head = list(head_left or [])
+    head.append(html.Button(ls_enter_children(), id=f"{prefix}-ls-enter",
+                            n_clicks=0, className="ls-enter"))
+    return html.Div(
+        [
+            html.Div(head, className="ls-head",
+                     style={"display": "flex", "justifyContent": "flex-end",
+                            "alignItems": "center", "gap": "10px"}),
+            html.Div(
+                [html.Button(ls_exit_children(), id=f"{prefix}-ls-exit",
+                             n_clicks=0, className="ls-exit"),
+                 graph],
+                className="ls-inner",
+            ),
+        ],
+        id=f"{prefix}-ls-box", className="ls-box",
+    )

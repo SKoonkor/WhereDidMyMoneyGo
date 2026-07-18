@@ -11,11 +11,12 @@ from datetime import date, timedelta
 
 import dash
 import pandas as pd
-from dash import dcc, html, callback, Input, Output, State, ctx, no_update, ALL
+from dash import (dcc, html, callback, clientside_callback, Input, Output, State,
+                  ctx, no_update, ALL)
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
-from src.app.components import page_header, card
+from src.app.components import page_header, card, landscape_chart, LANDSCAPE_JS
 from src.app.i18n import make_t
 from src.app.figures.investment import (build_investment_figure, build_stock_figure,
                                          build_sector_figure, cubehelix_colors)
@@ -25,7 +26,7 @@ dash.register_page(__name__, path="/invest",
                    name="Investing Simulator (Historical Data)", order=8)
 
 _HIDDEN = {"display": "none"}
-_GRAPH_CONFIG = {"scrollZoom": True, "displaylogo": False,
+_GRAPH_CONFIG = {"scrollZoom": True, "displaylogo": False, "responsive": True,
                  "modeBarButtonsToRemove": ["select2d", "lasso2d"]}
 
 
@@ -325,8 +326,11 @@ def layout(**_):
                     ),
                     card(
                         [
-                            dcc.Graph(id="invest-graph", style={"height": "420px"},
-                                      config=_GRAPH_CONFIG),
+                            landscape_chart(
+                                dcc.Graph(id="invest-graph", className="ls-graph",
+                                          style={"height": "420px"},
+                                          config=_GRAPH_CONFIG),
+                                prefix="invest"),
                             html.Div(id="invest-stats", style={"marginTop": "12px"}),
                             html.Div(
                                 [
@@ -355,9 +359,12 @@ def layout(**_):
                                                "width": "100%", "gap": "16px",
                                                "flexWrap": "wrap"},
                                     ),
-                                    dcc.Graph(id="invest-stock-graph",
-                                              style={"height": "300px"},
-                                              config=_GRAPH_CONFIG),
+                                    landscape_chart(
+                                        dcc.Graph(id="invest-stock-graph",
+                                                  className="ls-graph",
+                                                  style={"height": "300px"},
+                                                  config=_GRAPH_CONFIG),
+                                        prefix="invest-stock"),
                                     html.Div(id="invest-stock-metrics",
                                              style={"marginTop": "10px"}),
                                     html.Div(
@@ -377,6 +384,7 @@ def layout(**_):
                 ],
                 id="invest-main", className="invest-main mt-split", style=_HIDDEN,
             ),
+            dcc.Store(id="invest-ls-dummy"),
             # Restart confirmation modal (hidden until the Restart button is clicked).
             html.Div(
                 html.Div(
@@ -775,3 +783,15 @@ def _render(_refresh, selected, sel_sector, sel_metric, stock_range, normalize,
         ticker_opts, _prices_table(game, stock_sel, sel_sector), _holdings_table(game),
         _stats_table(game), fig, stock_wrap, stock_fig, metrics, delete_wrap,
     )
+
+
+# Landscape toggle for the portfolio and per-stock charts (generic .ls-box JS).
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("invest-ls-dummy", "data"),
+    Input("invest-ls-enter", "n_clicks"),
+    Input("invest-ls-exit", "n_clicks"),
+    Input("invest-stock-ls-enter", "n_clicks"),
+    Input("invest-stock-ls-exit", "n_clicks"),
+    prevent_initial_call=True,
+)

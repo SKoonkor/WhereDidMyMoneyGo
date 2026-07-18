@@ -7,11 +7,12 @@ scenarios, and a discount-rate × terminal-growth sensitivity heatmap.
 """
 
 import dash
-from dash import dcc, html, callback, ctx, Input, Output, State, no_update
+from dash import (dcc, html, callback, clientside_callback, ctx, Input, Output,
+                  State, no_update)
 from dash.exceptions import PreventUpdate
 
 from src.app import theme
-from src.app.components import page_header, card
+from src.app.components import page_header, card, landscape_chart, LANDSCAPE_JS
 from src.app.i18n import make_t
 from src.app.figures.valuation import (build_valuation_gauge, build_methods_bar,
                                        build_dcf_breakdown, build_scenarios_bar,
@@ -26,7 +27,7 @@ dash.register_page(__name__, path="/valuation", name="Stock Intrinsic Valuation"
                    order=10)
 
 _HIDDEN = {"display": "none"}
-_GRAPH_CONFIG = {"scrollZoom": True, "displaylogo": False,
+_GRAPH_CONFIG = {"scrollZoom": True, "displaylogo": False, "responsive": True,
                  "modeBarButtonsToRemove": ["select2d", "lasso2d"]}
 _DEFAULT_ERP = 5.0  # %, Damodaran-style implied equity risk premium
 _LABEL = {"color": theme.MUTED, "fontSize": "13px"}
@@ -123,27 +124,41 @@ def layout(**_):
                                                        style={"height": "260px"},
                                                        config=_GRAPH_CONFIG),
                                              style={"flex": "1"}),
-                                    html.Div(dcc.Graph(id="val-methods-bar",
-                                                       style={"height": "260px"},
-                                                       config=_GRAPH_CONFIG),
+                                    html.Div(landscape_chart(
+                                        dcc.Graph(id="val-methods-bar",
+                                                  className="ls-graph",
+                                                  style={"height": "260px"},
+                                                  config=_GRAPH_CONFIG),
+                                        prefix="val-methods"),
                                              style={"flex": "1.3"}),
                                 ],
+                                className="mt-split",
                                 style={"display": "flex", "gap": "12px",
                                        "flexWrap": "wrap"},
                             ),
-                            dcc.Graph(id="val-dcf", style={"height": "300px"},
-                                      config=_GRAPH_CONFIG),
+                            landscape_chart(
+                                dcc.Graph(id="val-dcf", className="ls-graph",
+                                          style={"height": "300px"},
+                                          config=_GRAPH_CONFIG),
+                                prefix="val-dcf"),
                             html.Div(
                                 [
-                                    html.Div(dcc.Graph(id="val-scenarios",
-                                                       style={"height": "300px"},
-                                                       config=_GRAPH_CONFIG),
+                                    html.Div(landscape_chart(
+                                        dcc.Graph(id="val-scenarios",
+                                                  className="ls-graph",
+                                                  style={"height": "300px"},
+                                                  config=_GRAPH_CONFIG),
+                                        prefix="val-scenarios"),
                                              style={"flex": "1", "minWidth": "260px"}),
-                                    html.Div(dcc.Graph(id="val-sensitivity",
-                                                       style={"height": "300px"},
-                                                       config=_GRAPH_CONFIG),
+                                    html.Div(landscape_chart(
+                                        dcc.Graph(id="val-sensitivity",
+                                                  className="ls-graph",
+                                                  style={"height": "300px"},
+                                                  config=_GRAPH_CONFIG),
+                                        prefix="val-sensitivity"),
                                              style={"flex": "1.3", "minWidth": "320px"}),
                                 ],
+                                className="mt-split",
                                 style={"display": "flex", "gap": "12px",
                                        "flexWrap": "wrap"},
                             ),
@@ -153,9 +168,26 @@ def layout(**_):
                 ],
                 id="val-main", className="val-main mt-split", style=_HIDDEN,
             ),
+            dcc.Store(id="val-ls-dummy"),
         ],
         style=theme.PAGE_STYLE,
     )
+
+
+# Landscape toggle for the four analytical charts (generic .ls-box JS).
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("val-ls-dummy", "data"),
+    Input("val-methods-ls-enter", "n_clicks"),
+    Input("val-methods-ls-exit", "n_clicks"),
+    Input("val-dcf-ls-enter", "n_clicks"),
+    Input("val-dcf-ls-exit", "n_clicks"),
+    Input("val-scenarios-ls-enter", "n_clicks"),
+    Input("val-scenarios-ls-exit", "n_clicks"),
+    Input("val-sensitivity-ls-enter", "n_clicks"),
+    Input("val-sensitivity-ls-exit", "n_clicks"),
+    prevent_initial_call=True,
+)
 
 
 # ── Analyze: fetch inputs and auto-fill the assumptions ───────────────────────

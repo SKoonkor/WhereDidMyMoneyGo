@@ -817,6 +817,10 @@ TRANSLATIONS_TH: dict[str, str] = {
         "วางแผนเส้นทางสู่การเกษียณ — คาดการณ์เงินออม ค่าใช้จ่าย "
         "และอายุที่มีอิสรภาพทางการเงินของคุณ",
     " Log y-axis": " แกน y แบบลอการิทึม",
+    "Landscape": "แนวนอน",
+    "Close landscape": "ปิดแนวนอน",
+    "Full screen": "เต็มจอ",
+    "Exit full screen": "ออกจากเต็มจอ",
     "Simple Compound Interest Calculator": "คำนวณดอกเบี้ยทบต้นอย่างง่าย",
     "Retirement Planning": "วางแผนเกษียณ",
     "Principal Amount": "เงินต้น",

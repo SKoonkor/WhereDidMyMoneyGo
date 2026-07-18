@@ -355,6 +355,7 @@ input.sq-tick:checked::after {   /* white check-mark inside the filled square */
     top: 100%;
     margin-top: 6px;
     min-width: 180px;
+    max-width: calc(100vw - 16px);   /* never wider than the viewport (phones) */
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -1509,17 +1510,6 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
    The app is otherwise desktop-first with fixed inline styles, so several rules
    here need !important to override Python inline `flex`/`margin`/`display`. */
 
-/* Header tool clusters: the desktop cluster is inline in the bar; a mirror set
-   (`-m` ids) lives at the top of the ☰ dropdown and only appears on phones. */
-.header-tools-mobile { display: none; }
-.menu-tools {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 4px 8px 8px;
-    flex-wrap: wrap;
-}
-
 /* Reusable horizontal-scroll wrapper for wide content (tables) on the fine-tuning
    pass; also used as a safety net below. */
 .mt-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
@@ -1534,6 +1524,7 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
         flex: 1 1 auto !important;
         width: 100% !important;
         max-width: 100% !important;
+        min-width: 0 !important;      /* defeat large inline min-width floors (e.g. 460px) */
         margin-left: 0 !important;
         margin-right: 0 !important;
     }
@@ -1551,11 +1542,8 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
     }
 }
 
-/* ── ≤600px: phone pass — fold header toggles into the menu, tighten grids ──── */
+/* ── ≤600px: phone pass — tighten grids and type ───────────────────────────── */
 @media (max-width: 600px) {
-    .header-tools-desktop { display: none !important; }
-    .header-tools-mobile { display: flex; }
-
     .page-header h1 { font-size: clamp(1.4rem, 5vw, 2rem); }
 
     .txn-summary-strip { gap: 12px; flex-wrap: wrap; }
@@ -1567,4 +1555,118 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
     /* Month nav + export cluster wrap onto extra rows instead of overflowing. */
     .txn-month-nav { flex-wrap: wrap; gap: 8px; }
     .txn-month-nav .month-label { min-width: 120px; font-size: 17px; }
+
+    /* Budget sub-category detail: shrink the 3 numeric columns so the 4-col grid
+       (name | this | prev | change) fits a phone without overflowing its card. */
+    .subcat-grid { grid-template-columns: 1fr 58px 58px 76px; gap: 4px; }
+    .subcat-grid .subcat-col { font-size: 12px; }
+}
+
+/* ── Landscape full-screen chart view (reusable: any .ls-box) ───────────────── */
+/* Wrap a chart as: .ls-box > (.ls-head with a .ls-enter button) + (.ls-inner with a
+   .ls-exit button and the .ls-graph). A clientside callback toggles `.landscape` on
+   the box. The "⤢ Landscape" button only shows where the chart is cramped (narrow
+   screens); on desktop the chart is already wide. */
+.ls-enter, .ls-exit {
+    background: var(--btn-bg);
+    color: var(--btn-fg);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ls-enter:hover, .ls-exit:hover { filter: brightness(1.08); }
+.ls-enter { display: none; }
+@media (max-width: 900px) { .ls-enter { display: inline-flex; } }
+.ls-exit { display: none; }
+
+/* Button label follows the device (same media query the toggle JS uses): a phone
+   shows the "Landscape" label (rotate), a computer shows "Full screen" (fill). */
+.ls-lbl-ls { display: none; }
+.ls-lbl-fs { display: inline; }
+@media (hover: none) and (pointer: coarse) {
+    .ls-lbl-ls { display: inline; }
+    .ls-lbl-fs { display: none; }
+}
+
+/* Locked full-screen overlay — both modes (phone rotate = .landscape, computer fill
+   = .fullscreen). No scroll, so the page can't drift underneath. */
+.ls-box.landscape, .ls-box.fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 6000;
+    margin: 0 !important;
+    background: var(--bg);
+    overflow: hidden;
+}
+/* !important: the head may carry an inline/class display:flex that would otherwise win. */
+.ls-box.landscape .ls-head, .ls-box.fullscreen .ls-head { display: none !important; }
+.ls-box.landscape .ls-exit, .ls-box.fullscreen .ls-exit {
+    display: inline-flex;
+    position: absolute;
+    top: 10px;
+    left: 14px;
+    z-index: 6001;
+}
+/* Chart fills its box in both modes. */
+.ls-box.landscape .ls-inner .ls-graph, .ls-box.landscape .ls-inner .js-plotly-plot,
+.ls-box.fullscreen .ls-inner .ls-graph, .ls-box.fullscreen .ls-inner .js-plotly-plot {
+    width: 100% !important;
+    height: 100% !important;
+}
+/* Fullscreen (computer): the inner just fills the fixed box — no rotation. */
+.ls-box.fullscreen .ls-inner { position: absolute; inset: 0; }
+/* Landscape (phone): center via absolute + translate (not flex, which would shrink
+   the box below its 100vh/100vw size), then rotate 90°. Orientation-aware so an
+   auto-rotating phone doesn't double-rotate. The exit button lives inside .ls-inner
+   so it rotates with the chart and reads upright. */
+.ls-box.landscape .ls-inner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+}
+@media (orientation: portrait) {
+    .ls-box.landscape .ls-inner {
+        width: 100vh;
+        height: 100vw;
+        transform: translate(-50%, -50%) rotate(90deg);
+    }
+}
+@media (orientation: landscape) {
+    .ls-box.landscape .ls-inner {
+        width: 100vw;
+        height: 100vh;
+        transform: translate(-50%, -50%);
+    }
+}
+/* Budget trend box: hide the drill-down buttons when expanded (either mode). */
+.ls-box.landscape .trend-close, .ls-box.landscape .trend-home,
+.ls-box.fullscreen .trend-close, .ls-box.fullscreen .trend-home { display: none !important; }
+/* Budget pies box (either mode): the two monthly pies sit side by side and fill the
+   area; the month headers and over-budget lists are hidden for a clean view. */
+.ls-box.landscape .budget-pies-row, .ls-box.fullscreen .budget-pies-row {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100%;
+    height: 100%;
+    gap: 10px;
+    margin: 0 !important;
+}
+.ls-box.landscape .budget-month-col, .ls-box.fullscreen .budget-month-col {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    height: 100%;
+    margin: 0 !important;
+}
+.ls-box.landscape .budget-month-head, .ls-box.landscape .budget-overflow,
+.ls-box.fullscreen .budget-month-head, .ls-box.fullscreen .budget-overflow {
+    display: none !important;
+}
+.ls-box.landscape .budget-month-body, .ls-box.fullscreen .budget-month-body {
+    height: 100%;
+    flex-wrap: nowrap !important;
+    gap: 0 !important;
 }

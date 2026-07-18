@@ -77,8 +77,7 @@ def layout(**_):
     return html.Div(
         [
             page_header("Import Data",
-                        "Bring transactions in from another app or a bank export.",
-                        back=("Settings", "/settings")),
+                        "Bring transactions in from another app or a bank export."),
             dcc.Store(id="imp-file-store"),
             dcc.Store(id="imp-backup-store"),
 

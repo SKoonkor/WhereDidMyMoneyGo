@@ -164,7 +164,7 @@ def layout(**_):
                     ),
                     card(
                         dcc.Graph(id="goals-gauge", style={"height": "520px"},
-                                  config={"displayModeBar": False}),
+                                  config={"displayModeBar": False, "responsive": True}),
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],

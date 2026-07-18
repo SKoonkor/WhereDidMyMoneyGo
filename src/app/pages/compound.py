@@ -5,7 +5,8 @@ from dash import (dcc, html, callback, clientside_callback, ctx,
                   Input, Output, State)
 
 from src.app import theme
-from src.app.components import page_header, card
+from src.app.components import (page_header, card, LANDSCAPE_JS, ls_enter_children,
+                                ls_exit_children)
 from src.app.i18n import make_t
 from src.app.data import currency
 from src.app.figures.compound import compute_schedule, build_compound_figure, COMPOUNDING
@@ -133,19 +134,46 @@ def _simple_view():
                         style={"flex": "0 0 320px"},
                     ),
                     card(
-                        [
-                            _logy_toggle("ci-logy"),
-                            dcc.Graph(id="ci-graph", style={"height": "500px"},
-                                      config={"scrollZoom": True, "displaylogo": False,
-                                              "modeBarButtonsToRemove": [
-                                                  "zoom2d", "select2d", "lasso2d"]}),
-                        ],
+                        html.Div(
+                            [
+                                html.Div(
+                                    [
+                                        _logy_toggle("ci-logy"),
+                                        html.Button(ls_enter_children(),
+                                                    id="ci-simple-ls-enter", n_clicks=0,
+                                                    className="ls-enter"),
+                                    ],
+                                    className="ls-head",
+                                    style={"display": "flex",
+                                           "justifyContent": "flex-end",
+                                           "alignItems": "center", "gap": "10px"},
+                                ),
+                                html.Div(
+                                    [
+                                        html.Button(ls_exit_children(),
+                                                    id="ci-simple-ls-exit", n_clicks=0,
+                                                    className="ls-exit"),
+                                        dcc.Graph(id="ci-graph", className="ls-graph",
+                                                  style={"height": "500px"},
+                                                  config={"scrollZoom": True,
+                                                          "displaylogo": False,
+                                                          "responsive": True,
+                                                          "modeBarButtonsToRemove": [
+                                                              "zoom2d", "select2d",
+                                                              "lasso2d"]}),
+                                    ],
+                                    className="ls-inner",
+                                ),
+                            ],
+                            id="ci-graph-box", className="ls-box",
+                        ),
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],
                 className="mt-split",
                 style={"display": "flex", "alignItems": "stretch"},
             ),
+            dcc.Store(id="ci-ls-dummy"),
             card(
                 html.Div(
                     [
@@ -374,13 +402,39 @@ def _retire_view():
         style={"flex": "0 0 300px", "minWidth": 0},
     )
     graph_card = card(
-        [
-            _logy_toggle("ci-ret-logy"),
-            dcc.Graph(id="ci-ret-graph", style={"height": "460px"},
-                      config={"scrollZoom": True, "displaylogo": False,
-                              "modeBarButtonsToRemove": [
-                                  "zoom2d", "select2d", "lasso2d"]}),
-        ],
+        html.Div(
+            [
+                # Header row: Log y-axis toggle + a Landscape button (mobile only)
+                # that opens the chart full-screen and rotated (see the clientside
+                # callback + .landscape CSS).
+                html.Div(
+                    [
+                        _logy_toggle("ci-ret-logy"),
+                        html.Button(ls_enter_children(), id="ci-ret-ls-enter",
+                                    n_clicks=0, className="ls-enter"),
+                    ],
+                    className="ls-head",
+                    style={"display": "flex", "justifyContent": "flex-end",
+                           "alignItems": "center", "gap": "10px"},
+                ),
+                html.Div(
+                    [
+                        html.Button(ls_exit_children(),
+                                    id="ci-ret-ls-exit", n_clicks=0,
+                                    className="ls-exit"),
+                        dcc.Graph(id="ci-ret-graph", className="ls-graph",
+                                  style={"height": "460px"},
+                                  config={"scrollZoom": True, "displaylogo": False,
+                                          "responsive": True,
+                                          "modeBarButtonsToRemove": [
+                                              "zoom2d", "select2d", "lasso2d"]}),
+                    ],
+                    className="ls-inner",
+                ),
+                dcc.Store(id="ci-ret-ls-dummy"),
+            ],
+            id="ci-ret-graph-box", className="ls-box",
+        ),
         style={"flex": "1", "marginLeft": "20px"},
     )
     goals_graph = html.Div(
@@ -584,6 +638,27 @@ clientside_callback(
     Input("ci-graph", "relayoutData"),
     State("ci-graph", "figure"),
     State("ci-goal-arrows", "data"),
+    prevent_initial_call=True,
+)
+
+
+# Expand the retirement chart full-screen (rotate on phones, fill on computers) — the
+# shared .ls-box toggle that drives every chart.
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("ci-ret-ls-dummy", "data"),
+    Input("ci-ret-ls-enter", "n_clicks"),
+    Input("ci-ret-ls-exit", "n_clicks"),
+    prevent_initial_call=True,
+)
+
+
+# Same toggle for the Simple Compound Interest Calculator chart.
+clientside_callback(
+    LANDSCAPE_JS,
+    Output("ci-ls-dummy", "data"),
+    Input("ci-simple-ls-enter", "n_clicks"),
+    Input("ci-simple-ls-exit", "n_clicks"),
     prevent_initial_call=True,
 )
 

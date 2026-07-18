@@ -26,7 +26,7 @@ t = make_t("home")
 
 dash.register_page(__name__, path="/", name="Home", order=0)
 
-_SNAPSHOT_CONFIG = {"displayModeBar": False, "staticPlot": False}
+_SNAPSHOT_CONFIG = {"displayModeBar": False, "staticPlot": False, "responsive": True}
 
 
 def _linked_graph(graph_id, href, height="300px"):
@@ -214,6 +214,16 @@ def layout(**_):
             reminder_banner(),
             html.Div(
                 [
+                    # Controls first (top-right cluster), title/subtitle below.
+                    html.Div(
+                        [html.Div([theme_toggle(), censor_toggle(), lang_toggle()],
+                                  className="header-tools-desktop",
+                                  style={"display": "flex", "gap": "10px",
+                                         "alignItems": "center"}),
+                         menu_widget(), home_link()],
+                        className="header-controls",
+                        style={"display": "flex", "gap": "10px", "alignItems": "center",
+                               "flexWrap": "wrap", "justifyContent": "flex-end"}),
                     html.Div(
                         [
                             html.H1(get_config().get("settings", {}).get("general", {})
@@ -223,19 +233,9 @@ def layout(**_):
                                    style={"color": theme.MUTED}),
                         ]
                     ),
-                    html.Div(
-                        [html.Div([theme_toggle(), censor_toggle(), lang_toggle()],
-                                  className="header-tools-desktop",
-                                  style={"display": "flex", "gap": "10px",
-                                         "alignItems": "center"}),
-                         menu_widget(), home_link()],
-                        className="header-controls",
-                        style={"display": "flex", "gap": "10px",
-                               "alignItems": "center", "flexWrap": "wrap"}),
                 ],
                 className="page-header",
-                style={"display": "flex", "justifyContent": "space-between",
-                       "alignItems": "flex-start", "flexWrap": "wrap", "gap": "16px"},
+                style={"marginBottom": "16px"},
             ),
             html.Div([content, sidebar], className="mt-split",
                      style={"display": "flex", "alignItems": "flex-start"}),
