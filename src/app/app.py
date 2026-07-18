@@ -79,6 +79,11 @@ def create_app() -> Dash:
         pages_folder=_PAGES_DIR,
         assets_folder=_ASSETS_DIR,
         suppress_callback_exceptions=True,
+        # Without this, mobile browsers render at ~980px and zoom out, so no CSS
+        # media query can take effect. viewport-fit=cover handles notched phones.
+        meta_tags=[{"name": "viewport",
+                    "content": "width=device-width, initial-scale=1, "
+                               "viewport-fit=cover"}],
         title=get_config().get("settings", {}).get("general", {}).get("app_name", "Money Tracker"),
     )
     app.index_string = _INDEX_STRING
@@ -95,11 +100,14 @@ def create_app() -> Dash:
 
     # The toggle button remounts with n_clicks=0 on every page change; only a
     # real click (truthy n_clicks) flips the theme, otherwise we just re-sync.
+    # Two inputs: the desktop header button and the mobile menu mirror (``-m``);
+    # a click on either flips, identified via the clientside callback context.
     clientside_callback(
         """
-        function (n_clicks, current) {
+        function (n_desktop, n_mobile, current) {
             var dark = current !== "light";
-            if (n_clicks) { dark = !dark; }
+            var trig = (window.dash_clientside.callback_context.triggered || [])[0];
+            if (trig && trig.value) { dark = !dark; }
             var next = dark ? "dark" : "light";
             document.documentElement.setAttribute("data-theme", next);
             return next;
@@ -107,6 +115,7 @@ def create_app() -> Dash:
         """,
         Output("theme-store", "data"),
         Input("theme-toggle", "n_clicks"),
+        Input("theme-toggle-m", "n_clicks"),
         State("theme-store", "data"),
     )
 
@@ -114,15 +123,17 @@ def create_app() -> Dash:
     # (CSS masks amounts instantly); figure callbacks also read the store value.
     clientside_callback(
         """
-        function (n_clicks, current) {
+        function (n_desktop, n_mobile, current) {
             var on = current === true;
-            if (n_clicks) { on = !on; }
+            var trig = (window.dash_clientside.callback_context.triggered || [])[0];
+            if (trig && trig.value) { on = !on; }
             document.documentElement.setAttribute("data-censor", on ? "on" : "off");
             return on;
         }
         """,
         Output("censor-store", "data"),
         Input("censor-toggle", "n_clicks"),
+        Input("censor-toggle-m", "n_clicks"),
         State("censor-store", "data"),
     )
 
@@ -132,16 +143,20 @@ def create_app() -> Dash:
     # language (page layouts/callbacks read the cookie via src/app/i18n.get_lang).
     clientside_callback(
         """
-        function (n_clicks, current) {
+        function (n_desktop, n_mobile, current) {
             // The `lang` cookie is the single source of truth (the server reads
             // it too); read the current value from it, not from the store, so a
             // reload racing the store write can't desync the toggle.
             var m = document.cookie.match(/(?:^|; )lang=(en|th)/);
             var lang = m ? m[1] : "en";
-            var btn = document.getElementById("lang-toggle");
-            if (n_clicks && btn && btn.getAttribute("data-locked") === "1") {
+            // Which instance fired (desktop "lang-toggle" or mobile "lang-toggle-m")?
+            var trig = (window.dash_clientside.callback_context.triggered || [])[0];
+            var clicked = trig && trig.value;
+            var sfx = (trig && trig.prop_id.indexOf("lang-toggle-m") === 0) ? "-m" : "";
+            var btn = document.getElementById("lang-toggle" + sfx);
+            if (clicked && btn && btn.getAttribute("data-locked") === "1") {
                 // Toggling is disabled in Settings: show the inline notice, keep lang.
-                var msg = document.getElementById("lang-lock-msg");
+                var msg = document.getElementById("lang-lock-msg" + sfx);
                 if (msg) {
                     msg.classList.add("show");
                     setTimeout(function () { msg.classList.remove("show"); }, 3000);
@@ -149,7 +164,7 @@ def create_app() -> Dash:
                 document.documentElement.setAttribute("data-lang", lang);
                 return window.dash_clientside.no_update;
             }
-            if (n_clicks) {
+            if (clicked) {
                 lang = (lang === "en") ? "th" : "en";
                 document.cookie = "lang=" + lang + ";path=/;max-age=31536000;samesite=lax";
                 document.documentElement.setAttribute("data-lang", lang);
@@ -162,6 +177,7 @@ def create_app() -> Dash:
         """,
         Output("lang-store", "data"),
         Input("lang-toggle", "n_clicks"),
+        Input("lang-toggle-m", "n_clicks"),
         State("lang-store", "data"),
     )
     return app

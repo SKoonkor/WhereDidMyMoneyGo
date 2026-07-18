@@ -168,6 +168,7 @@ def layout(**_):
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],
+                className="mt-split",
                 style={"display": "flex", "alignItems": "stretch"},
             ),
         ],

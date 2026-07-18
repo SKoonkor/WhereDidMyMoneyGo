@@ -58,6 +58,11 @@ html, body {
     margin: 0;
 }
 
+/* Global reset so padding never expands an element past its width (critical for
+   fluid layouts) and inline media can't force horizontal page scroll. */
+*, *::before, *::after { box-sizing: border-box; }
+img, svg, table { max-width: 100%; }
+
 /* ── Reconcile reminder banner ───────────────────────────────────────────── */
 .reminder-banner {
     display: flex;
@@ -1498,3 +1503,68 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
 .budget-bar-fill.good { background: #2ecc71; }
 .budget-bar-fill.warn { background: #f39c12; }
 .budget-bar-fill.bad  { background: #e74c3c; }
+
+/* ══ Responsive foundation ═══════════════════════════════════════════════════
+   Global breakpoints: 900px stacks two-column layouts, 600px is the phone pass.
+   The app is otherwise desktop-first with fixed inline styles, so several rules
+   here need !important to override Python inline `flex`/`margin`/`display`. */
+
+/* Header tool clusters: the desktop cluster is inline in the bar; a mirror set
+   (`-m` ids) lives at the top of the ☰ dropdown and only appears on phones. */
+.header-tools-mobile { display: none; }
+.menu-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 8px 8px;
+    flex-wrap: wrap;
+}
+
+/* Reusable horizontal-scroll wrapper for wide content (tables) on the fine-tuning
+   pass; also used as a safety net below. */
+.mt-scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+
+/* ── ≤900px: collapse the fixed side-column / chart rows to a single column ── */
+@media (max-width: 900px) {
+    .mt-split {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    .mt-split > * {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    .mt-split > * + * { margin-top: 16px; }
+}
+
+/* ── ≤700px: let the widest hand-built tables scroll instead of pushing the page
+   wide (paper-chain already has its own scroller). ─────────────────────────── */
+@media (max-width: 700px) {
+    .invest-table, .val-methods-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* ── ≤600px: phone pass — fold header toggles into the menu, tighten grids ──── */
+@media (max-width: 600px) {
+    .header-tools-desktop { display: none !important; }
+    .header-tools-mobile { display: flex; }
+
+    .page-header h1 { font-size: clamp(1.4rem, 5vw, 2rem); }
+
+    .txn-summary-strip { gap: 12px; flex-wrap: wrap; }
+    .budget-cols, .manage-cols { flex-direction: column; }
+    .cat-grid { grid-template-columns: repeat(2, 1fr); }
+    .txn-row { flex-wrap: wrap; }
+    .txn-row .txn-cat, .txn-row .txn-amount { flex-basis: auto; }
+
+    /* Month nav + export cluster wrap onto extra rows instead of overflowing. */
+    .txn-month-nav { flex-wrap: wrap; gap: 8px; }
+    .txn-month-nav .month-label { min-width: 120px; font-size: 17px; }
+}

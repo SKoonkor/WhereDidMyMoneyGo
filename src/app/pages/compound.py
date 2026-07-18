@@ -143,6 +143,7 @@ def _simple_view():
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],
+                className="mt-split",
                 style={"display": "flex", "alignItems": "stretch"},
             ),
             card(
@@ -384,6 +385,7 @@ def _retire_view():
     )
     goals_graph = html.Div(
         [goals_card, graph_card],
+        className="mt-split",
         style={"display": "flex", "alignItems": "stretch", "marginTop": "20px"},
     )
     # Summary table: full width, below the graph (no longer boxed into a narrow

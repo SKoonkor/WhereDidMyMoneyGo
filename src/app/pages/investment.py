@@ -375,7 +375,7 @@ def layout(**_):
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],
-                id="invest-main", className="invest-main", style=_HIDDEN,
+                id="invest-main", className="invest-main mt-split", style=_HIDDEN,
             ),
             # Restart confirmation modal (hidden until the Restart button is clicked).
             html.Div(

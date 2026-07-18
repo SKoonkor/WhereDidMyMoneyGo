@@ -1055,7 +1055,7 @@ def layout(**_):
                                "flexDirection": "column", "gap": "20px"},
                     ),
                 ],
-                id="paper-main", className="invest-main", style=_HIDDEN,
+                id="paper-main", className="invest-main mt-split", style=_HIDDEN,
             ),
             # Transaction confirmation modal (guardrail before any money moves).
             html.Div(

@@ -104,7 +104,9 @@ def gauge_bands(dark: bool) -> list[str]:
 
 PAGE_STYLE = {
     "fontFamily": FONT_FAMILY,
-    "padding": "24px 32px",
+    # Horizontal padding is fluid (clamp is valid in inline styles), so every page
+    # tightens toward the edges on phones without a per-page media query.
+    "padding": "20px clamp(14px, 4vw, 32px)",
     "maxWidth": "1280px",
     "margin": "0 auto",
     "color": INK,

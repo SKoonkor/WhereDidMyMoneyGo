@@ -42,27 +42,29 @@ def home_link():
     )
 
 
-def theme_toggle():
+def theme_toggle(id_suffix: str = ""):
     """Light/dark mode toggle — a sliding pill switch (clientside in app.py).
 
     The knob slides and the icon/colours swap purely in CSS off ``data-theme``;
-    the button just relays the click to the theme callback."""
+    the button just relays the click to the theme callback. ``id_suffix`` lets a
+    second instance (e.g. the mobile menu copy, ``-m``) coexist without duplicate
+    ids; both feed the same callback."""
     return html.Button(html.Span(className="tt-knob"),
-                       id="theme-toggle", n_clicks=0,
+                       id="theme-toggle" + id_suffix, n_clicks=0,
                        className="theme-switch", title=t("Toggle light/dark mode"))
 
 
-def censor_toggle():
+def censor_toggle(id_suffix: str = ""):
     """Privacy toggle — a minimalist eye / eye-off icon (clientside in app.py).
 
     The glyph is a CSS mask so it takes the theme ink colour and flips to the
-    slashed eye under ``data-censor="on"``."""
+    slashed eye under ``data-censor="on"``. See ``theme_toggle`` for ``id_suffix``."""
     return html.Button(html.Span(className="ct-eye"),
-                       id="censor-toggle", n_clicks=0,
+                       id="censor-toggle" + id_suffix, n_clicks=0,
                        className="censor-toggle", title=t("Hide/show amounts"))
 
 
-def lang_toggle():
+def lang_toggle(id_suffix: str = ""):
     """Language toggle — a compact ``EN / <native>`` pill (clientside in app.py).
 
     Both codes are always rendered; CSS highlights the active one off ``data-lang``
@@ -70,19 +72,20 @@ def lang_toggle():
     flips the stored value. The second code shows the chosen language's native
     script (e.g. ``ไทย``). ``data-locked`` mirrors the Settings "disable toggling"
     option; when locked, a click reveals the sibling ``lang-lock-msg`` instead of
-    switching (see the clientside callback in ``app.py``)."""
+    switching (see the clientside callback in ``app.py``). ``id_suffix`` lets a
+    second instance (the mobile menu copy, ``-m``) coexist without duplicate ids."""
     lc = language_config()
     button = html.Button(
         [html.Span("EN", className="lang-en"),
          html.Span("/", className="lang-sep"),
          html.Span(second_lang_native(lc["second_language"]), className="lang-th")],
-        id="lang-toggle", n_clicks=0, className="lang-switch",
+        id="lang-toggle" + id_suffix, n_clicks=0, className="lang-switch",
         title=t("Switch language"),
         **{"data-locked": "1" if lc["toggle_disabled"] else "0"})
     return html.Div(
         [button,
          html.Span(t("No language toggle allowed, enable in Settings"),
-                   id="lang-lock-msg", className="lang-lock-msg")],
+                   id="lang-lock-msg" + id_suffix, className="lang-lock-msg")],
         className="lang-switch-wrap")
 
 
@@ -132,8 +135,20 @@ def _menu_link(entry):
 
 
 def menu_widget():
-    """A collapsible "☰ Menu" dropdown for the header (toggled clientside below)."""
-    items = []
+    """A collapsible "☰ Menu" dropdown for the header (toggled clientside below).
+
+    On phones the header hides its inline theme/privacy/language toggles (CSS
+    ``.header-tools-desktop``); a mirror set (``-m`` ids) lives here at the top of
+    the dropdown inside ``.header-tools-mobile`` (shown only ≤600px) so those
+    controls stay reachable. Both instances are always in the DOM — only CSS hides
+    one — so there are no duplicate ids and the shared callbacks never misfire."""
+    items = [
+        html.Div(
+            [theme_toggle("-m"), censor_toggle("-m"), lang_toggle("-m")],
+            className="header-tools-mobile menu-tools",
+        ),
+        html.Hr(className="menu-divider"),
+    ]
     for i, group in enumerate(_MENU_GROUPS):
         if i:
             items.append(html.Hr(className="menu-divider"))
@@ -177,17 +192,27 @@ def page_header(title: str, subtitle: str | None = None, show_home: bool = True,
     left.append(html.H1(t(title), style=theme.H1_STYLE))
     if subtitle:
         left.append(html.P(t(subtitle), style={"color": theme.MUTED, "marginTop": 0}))
-    right = [theme_toggle(), censor_toggle(), lang_toggle(), menu_widget()]
+    # The inline toggles show on desktop; on phones (≤600px) CSS hides this cluster
+    # and their mirror copies inside the ☰ Menu take over (see menu_widget).
+    right = [
+        html.Div([theme_toggle(), censor_toggle(), lang_toggle()],
+                 className="header-tools-desktop",
+                 style={"display": "flex", "gap": "10px", "alignItems": "center"}),
+        menu_widget(),
+    ]
     if show_home:
         right.append(home_link())
     return html.Div(
         [
             html.Div(left),
-            html.Div(right, style={"display": "flex", "gap": "10px",
-                                   "alignItems": "center"}),
+            html.Div(right, className="header-controls",
+                     style={"display": "flex", "gap": "10px",
+                            "alignItems": "center", "flexWrap": "wrap"}),
         ],
+        className="page-header",
         style={"display": "flex", "justifyContent": "space-between",
-               "alignItems": "flex-start", "marginBottom": "16px", "gap": "16px"},
+               "alignItems": "flex-start", "marginBottom": "16px", "gap": "16px",
+               "flexWrap": "wrap"},
     )
 
 

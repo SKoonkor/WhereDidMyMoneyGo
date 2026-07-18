@@ -202,7 +202,7 @@ def layout(**_):
             page_header("Income Tax",
                         "Estimate your Thailand personal income tax for the year. "
                         "Set your tax-payment subcategory in Settings."),
-            html.Div([input_card, deductions_card],
+            html.Div([input_card, deductions_card], className="mt-split",
                      style={"display": "flex", "alignItems": "flex-start"}),
             html.Div(id="tax-breakdown"),
             paid_modal,

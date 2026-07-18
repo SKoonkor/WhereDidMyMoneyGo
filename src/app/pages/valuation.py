@@ -151,7 +151,7 @@ def layout(**_):
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],
-                id="val-main", className="val-main", style=_HIDDEN,
+                id="val-main", className="val-main mt-split", style=_HIDDEN,
             ),
         ],
         style=theme.PAGE_STYLE,
