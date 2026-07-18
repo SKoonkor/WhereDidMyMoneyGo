@@ -14,8 +14,11 @@ Pending orders fill when a live-price tick crosses their trigger (:func:`process
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -47,6 +50,21 @@ OPTION_MULT = 100
 
 class TradeError(Exception):
     """Invalid trade/order action (bad symbol, insufficient funds, etc.)."""
+
+
+# Serializes every load→mutate→save cycle so a slow auto-tick can never
+# overwrite a user action made mid-tick (Dash handles callbacks on multiple
+# threads). Single-process app → a thread lock suffices; multi-process serving
+# would need file locks instead. RLock so helpers that save internally can be
+# called from an already-locked callback.
+_STATE_LOCK = threading.RLock()
+
+
+@contextmanager
+def locked():
+    """Hold the account-state lock around a read-modify-write cycle."""
+    with _STATE_LOCK:
+        yield
 
 
 # ── Time helpers ──────────────────────────────────────────────────────────────
@@ -103,8 +121,12 @@ def save_state(state: dict, path: str | Path | None = None) -> None:
         path = _account_path(state["id"])
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    # Atomic replace: concurrent readers never see a partially written file.
+    # The temp name is per-thread so even unlocked writers can't collide.
+    tmp = path.with_name(f"{path.name}.{threading.get_ident()}.tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(state, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
 
 
 def _read(path: Path) -> dict | None:
@@ -162,7 +184,9 @@ def selected_id() -> str | None:
 
 def select_account(acct_id: str) -> None:
     ACCOUNTS_DIR.mkdir(parents=True, exist_ok=True)
-    POINTER_PATH.write_text(json.dumps({"id": acct_id}))
+    tmp = POINTER_PATH.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps({"id": acct_id}))
+    os.replace(tmp, POINTER_PATH)
 
 
 def clear_selection() -> None:
@@ -853,13 +877,42 @@ def _snapshot(state: dict, force: bool = False) -> None:
             del curve[: len(curve) - MAX_CURVE]
 
 
-def refresh(state: dict) -> dict:
-    """Re-mark positions, fill triggered orders and snapshot equity (one tick)."""
-    mark_all(state)
-    process(state)
-    _snapshot(state)
-    save_state(state)
-    return state
+def tick() -> dict | None:
+    """One auto-refresh tick, race-safe in two phases.
+
+    Phase 1 (no lock): prefetch every quote the marking pass will need — the
+    slow network I/O — which only warms Q's TTL caches. Phase 2 (locked):
+    reload the state FRESH, mark/fill/snapshot against the warm caches
+    (milliseconds) and save. Because the state is re-read inside the lock,
+    user actions that landed during the prefetch are never overwritten."""
+    snap = load_state()
+    if not snap:
+        return None
+    tickers = set(snap.get("watchlist", []))
+    options = []
+    for pf in snap["portfolios"]:
+        for pos in pf["positions"].values():
+            if pos.get("kind") == "option":
+                options.append(dict(pos))
+            else:
+                tickers.add(pos["symbol"])
+    for sym in tickers:                      # warm Q.quote_details' cache
+        try:
+            Q.quote_details(sym)
+        except S.StockError:
+            continue
+    for pos in options:                      # warm the option-price cache
+        mark_price(pos)
+
+    with locked():
+        state = load_state()
+        if not state:
+            return None
+        mark_all(state)
+        process(state)
+        _snapshot(state)
+        save_state(state)
+        return state
 
 
 def positions_rows(state: dict, pf_idx: int) -> list[dict]:

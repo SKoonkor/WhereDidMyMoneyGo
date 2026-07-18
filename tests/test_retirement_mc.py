@@ -86,10 +86,16 @@ def test_events_ordered_and_prob_in_unit_interval():
                  goals=[("Car", 500_000, 2), ("House", 3_000_000, 1)])
     mc = simulate_retirement_mc(**plan, vol_return=0.15, vol_inflation=0.01,
                                 vol_deposit=0.02, n_mc=800)
-    for ev in [mc["freedom"], mc["depletion"], *mc["goal_events"]]:
+    for ev in [mc["freedom"], mc["depletion"], mc["depletion_plain"],
+               *mc["goal_events"]]:
         if ev is None or ev.get("prob", 0) == 0:
             continue
-        assert ev["p16"] <= ev["p50"] <= ev["p84"]
+        # Depletion percentiles may be censored (None = past life expectancy);
+        # the non-censored ones must be ordered and Nones only appear at the top.
+        vals = [ev["p16"], ev["p50"], ev["p84"]]
+        known = [v for v in vals if v is not None]
+        assert known == sorted(known)
+        assert all(v is None for v in vals[len(known):])
         assert 0.0 <= ev["prob"] <= 1.0
 
 
@@ -113,11 +119,13 @@ def test_higher_volatility_widens_freedom_range():
 
 
 def test_higher_volatility_widens_depletion_range():
-    # An underfunded plan runs out in most runs, so the depletion band exists at both vols.
-    plan = _plan(monthly_deposit=8_000, expense=30_000)
+    # A deeply underfunded plan runs out in (almost) every run at both vols, so
+    # the 16th and 84th percentiles stay within the horizon (not censored).
+    plan = _plan(monthly_deposit=5_000, expense=40_000)
     lo = simulate_retirement_mc(**plan, vol_return=0.05, n_mc=1500)
     hi = simulate_retirement_mc(**plan, vol_return=0.25, n_mc=1500)
     assert lo["depletion"] is not None and hi["depletion"] is not None
+    assert lo["depletion"]["p84"] is not None and hi["depletion"]["p84"] is not None
     assert (hi["depletion"]["p84"] - hi["depletion"]["p16"]) > \
            (lo["depletion"]["p84"] - lo["depletion"]["p16"])
 
@@ -159,7 +167,38 @@ def test_depletion_event_within_horizon_or_none():
     mc = simulate_retirement_mc(**_plan(), vol_return=0.15, n_mc=500)
     dep = mc["depletion"]
     if dep is not None:
-        assert 60 <= dep["p16"] <= dep["p50"] <= dep["p84"] <= 85
+        known = [v for v in (dep["p16"], dep["p50"], dep["p84"]) if v is not None]
+        assert known == sorted(known)
+        assert all(60 <= v <= 85 for v in known)
+
+
+def test_depletion_percentiles_match_band_zero_crossings():
+    """The whole point of the all-runs statistic: the table's 16%/50% funds-out ages
+    must equal (within a month) where the chart band's p16/p50 curves reach zero."""
+    plan = _plan()                       # underfunded defaults: most runs deplete
+    mc = simulate_retirement_mc(**plan, vol_return=0.15, vol_inflation=0.01,
+                                vol_deposit=0.02, n_mc=1000)
+    ages = mc["ages"]
+    ret_idx = int((plan["retirement_age"] - plan["current_age"]) * 12)
+    for key in ("p16", "p50"):
+        assert mc["depletion"][key] is not None
+        curve = mc["nominal"][key][ret_idx:]
+        assert (curve <= 0).any()
+        zero_age = ages[ret_idx + int(np.argmax(curve <= 0))]
+        assert abs(zero_age - mc["depletion"][key]) <= 1.0 / 12 + 1e-9
+
+
+def test_depletion_censored_past_life_expectancy():
+    # A well-funded plan: more than 16% of runs never deplete, so the 84th
+    # percentile is censored (None → shown as "85+"), while prob stays the
+    # depleted fraction.
+    mc = simulate_retirement_mc(**_plan(monthly_deposit=25_000, expense=12_000),
+                                vol_return=0.15, n_mc=800)
+    assert mc["success_prob"] > 0.16
+    dep = mc["depletion"]
+    if dep is not None:                  # some run must fail for the event to exist
+        assert dep["p84"] is None
+        assert 0.0 < dep["prob"] < 1.0
 
 
 # ── Reproducibility ──────────────────────────────────────────────────────────────

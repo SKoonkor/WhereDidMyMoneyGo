@@ -1313,7 +1313,9 @@ def _preview(_p, _c, _d, _w, _pf, asset, symbol, expiry, right, strike, otype,
     trig = ctx.triggered_id
     try:
         if trig == "paper-add-pf":               # new portfolios open empty ($0)
-            P.add_portfolio(state, 0)
+            with P.locked():
+                state = P.load_state()           # fresh read under the lock
+                P.add_portfolio(state, 0)
             return _HIDDEN, no_update, None, "", "", "", (refresh or 0) + 1
         elif trig == "paper-close-pos":
             # Close the whole position exactly (sell a long / buy back a short),
@@ -1377,18 +1379,19 @@ def _confirm(_yes, _no, pend, refresh):
     if ctx.triggered_id == "paper-confirm-no" or not pend:
         return (_HIDDEN, no_update, no_update, no_update, None,
                 no_update, no_update, no_update)
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
     is_cash = pend["kind"] == "cash"
     try:
-        if is_cash:
-            fn = P.deposit if pend["op"] == "deposit" else P.withdraw
-            fn(state, state["active"], pend["amount"])
-            verb = t("Deposited") if pend["op"] == "deposit" else t("Withdrew")
-            msg = f"{verb} {pend['amount']:,.2f}"
-        else:                                    # trade
-            msg = P.place_order(state, pend["spec"])
+        with P.locked():
+            state = P.load_state()
+            if not state:
+                raise PreventUpdate
+            if is_cash:
+                fn = P.deposit if pend["op"] == "deposit" else P.withdraw
+                fn(state, state["active"], pend["amount"])
+                verb = t("Deposited") if pend["op"] == "deposit" else t("Withdrew")
+                msg = f"{verb} {pend['amount']:,.2f}"
+            else:                                # trade
+                msg = P.place_order(state, pend["spec"])
     except P.TradeError as exc:
         err = _err(str(exc))
         return (_HIDDEN, no_update, no_update if is_cash else err,
@@ -1415,11 +1418,12 @@ def _confirm(_yes, _no, pend, refresh):
     prevent_initial_call=True,
 )
 def _rename(_n, name, refresh):
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
     try:
-        P.rename_portfolio(state, state["active"], name)
+        with P.locked():
+            state = P.load_state()
+            if not state:
+                raise PreventUpdate
+            P.rename_portfolio(state, state["active"], name)
     except P.TradeError as exc:
         return no_update, _err(str(exc)), no_update
     return (refresh or 0) + 1, "", ""
@@ -1432,10 +1436,11 @@ def _rename(_n, name, refresh):
     prevent_initial_call=True,
 )
 def _set_active(idx, refresh):
-    state = P.load_state()
-    if not state or idx is None or idx == state.get("active"):
-        raise PreventUpdate
-    P.set_active(state, int(idx))
+    with P.locked():
+        state = P.load_state()
+        if not state or idx is None or idx == state.get("active"):
+            raise PreventUpdate
+        P.set_active(state, int(idx))
     return (refresh or 0) + 1
 
 
@@ -1448,11 +1453,12 @@ def _set_active(idx, refresh):
     prevent_initial_call=True,
 )
 def _add_watch(_n, symbol, refresh):
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
     try:
-        P.add_watch(state, symbol)
+        with P.locked():
+            state = P.load_state()
+            if not state:
+                raise PreventUpdate
+            P.add_watch(state, symbol)
     except P.TradeError as exc:
         return no_update, _err(str(exc))
     return (refresh or 0) + 1, _ok(t("Added {symbol} to watchlist.").format(
@@ -1468,10 +1474,11 @@ def _add_watch(_n, symbol, refresh):
 def _cancel(clicks, refresh):
     if not any(clicks or []):
         raise PreventUpdate
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
-    P.cancel_order(state, ctx.triggered_id["oid"])
+    with P.locked():
+        state = P.load_state()
+        if not state:
+            raise PreventUpdate
+        P.cancel_order(state, ctx.triggered_id["oid"])
     return (refresh or 0) + 1
 
 
@@ -1569,19 +1576,21 @@ def _delete_pf_prompt(_n):
 def _delete_confirm(_yes, _no, pend, refresh):
     if ctx.triggered_id == "paper-delete-no" or not pend:
         return _HIDDEN, no_update, no_update, no_update, None, no_update
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
     is_watch = pend["kind"] == "watch"
     try:
-        if is_watch:
-            P.remove_watch(state, pend["ticker"])
-            msg = t("Removed {ticker} from watchlist").format(ticker=pend['ticker'])
-            sel = None if pend.get("was_selected") else no_update
-        else:                                    # portfolio → message under Manage
-            P.delete_portfolio(state, pend["idx"])
-            msg = t("Deleted portfolio {name}").format(name=pend['name'])
-            sel = no_update
+        with P.locked():
+            state = P.load_state()
+            if not state:
+                raise PreventUpdate
+            if is_watch:
+                P.remove_watch(state, pend["ticker"])
+                msg = t("Removed {ticker} from watchlist").format(
+                    ticker=pend['ticker'])
+                sel = None if pend.get("was_selected") else no_update
+            else:                                # portfolio → message under Manage
+                P.delete_portfolio(state, pend["idx"])
+                msg = t("Deleted portfolio {name}").format(name=pend['name'])
+                sel = no_update
     except P.TradeError as exc:
         err = _err(str(exc))
         return (_HIDDEN, no_update, err if is_watch else no_update,
@@ -1802,18 +1811,19 @@ def _hours_help_toggle(_open, _close):
     prevent_initial_call=True,
 )
 def _set_hours(value, refresh):
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
     on = "on" in (value or [])
-    if not on and state.get("market_hours_only"):
-        # Turning off with pending orders: confirm first — they'd fill at the
-        # very next tick. Setting stays ON until the user confirms.
-        pending = any(o["status"] == "open"
-                      for pf in state["portfolios"] for o in pf["orders"])
-        if pending:
-            return {"display": "flex"}, no_update
-    P.set_market_hours(state, on)
+    with P.locked():
+        state = P.load_state()
+        if not state:
+            raise PreventUpdate
+        if not on and state.get("market_hours_only"):
+            # Turning off with pending orders: confirm first — they'd fill at
+            # the very next tick. Setting stays ON until the user confirms.
+            pending = any(o["status"] == "open"
+                          for pf in state["portfolios"] for o in pf["orders"])
+            if pending:
+                return {"display": "flex"}, no_update
+        P.set_market_hours(state, on)
     return _HIDDEN, (refresh or 0) + 1
 
 
@@ -1831,11 +1841,12 @@ def _hours_confirm(_yes, _no, refresh):
         # Stay in market-hours mode: re-tick the box (its _set_hours re-fire
         # lands in the turning-on path, a harmless no-op persist).
         return _HIDDEN, ["on"], no_update
-    state = P.load_state()
-    if not state:
-        raise PreventUpdate
-    P.set_market_hours(state, False)
-    P.process(state)          # fill the queued orders straight away, as promised
+    with P.locked():
+        state = P.load_state()
+        if not state:
+            raise PreventUpdate
+        P.set_market_hours(state, False)
+        P.process(state)      # fill the queued orders straight away, as promised
     return _HIDDEN, no_update, (refresh or 0) + 1
 
 
@@ -2001,10 +2012,8 @@ def _help_toggle(_open, _close):
     prevent_initial_call=True,
 )
 def _tick(_n, refresh):
-    state = P.load_state()
-    if not state:
+    if P.tick() is None:
         raise PreventUpdate
-    P.refresh(state)
     return (refresh or 0) + 1
 
 

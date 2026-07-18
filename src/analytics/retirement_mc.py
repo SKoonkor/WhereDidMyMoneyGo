@@ -54,6 +54,26 @@ def _event_pcts(months: np.ndarray, current_age: float) -> dict | None:
             "prob": float(occurred.size / months.size)}
 
 
+def _depletion_pcts(months: np.ndarray, current_age: float,
+                    life_expectancy: float) -> dict | None:
+    """Funds-out percentiles over **all** paths, so they line up with the balance
+    band's zero-crossings (the band's p16 curve reaches 0 exactly when 16% of all
+    paths have depleted). Paths that never deplete count as depleting beyond life
+    expectancy; a percentile that lands past the horizon is reported as ``None``
+    (shown as "85+"). ``prob`` is the fraction of paths that deplete. Returns
+    ``None`` when no path depletes at all."""
+    if not (months >= 0).any():
+        return None
+    ages = np.where(months >= 0, current_age + months / 12.0, np.inf)
+    # method="lower" picks actual sample values, so censored paths stay inf
+    # instead of poisoning interpolation with inf-inf.
+    p = np.percentile(ages, [16, 50, 84], method="lower")
+    out = {k: (float(v) if v <= life_expectancy else None)
+           for k, v in zip(("p16", "p50", "p84"), p)}
+    out["prob"] = float(np.mean(months >= 0))
+    return out
+
+
 def simulate_retirement_mc(current_age: float, retirement_age: float,
                            life_expectancy: float, principal: float,
                            monthly_deposit: float, increasement: float,
@@ -214,10 +234,13 @@ def simulate_retirement_mc(current_age: float, retirement_age: float,
         f_targets = np.array([float(a) * float(f) for _n, a, f in goals])
         p_targets = amounts.copy()
         f_nom, f_dep, f_depleted, f_hits = _run(f_targets, amounts)
-        p_nom, _pd, _pdep, _ph = _run(p_targets, amounts)
+        p_nom, p_dep, p_depleted, _ph = _run(p_targets, amounts)
         result["factor_nominal"] = _pct(f_nom)
         result["factor_real"] = _pct(f_nom / price_index)
         result["plain_nominal"] = _pct(p_nom)
+        result["depletion_plain"] = _depletion_pcts(p_dep, current_age,
+                                                    life_expectancy)
+        result["success_prob_plain"] = float(np.mean(~p_depleted))
         dep_month, depleted = f_dep, f_depleted          # ×factor is the primary plan
         # Per-goal achievement age spread (×factor plan), aligned to the goal order.
         result["goal_events"] = [
@@ -229,10 +252,11 @@ def simulate_retirement_mc(current_age: float, retirement_age: float,
         dep_month, depleted = base_dep, base_depleted
         freedom_targets, freedom_amounts = empty, empty
 
-    # Probability the money lasts to life expectancy, and the age spreads of the
-    # freedom / depletion events (16–84th percentile over the paths where they occur).
+    # Probability the money lasts to life expectancy, the funds-out age spread over
+    # all paths (censored past life expectancy), and the freedom-age spread over the
+    # paths where freedom is reached.
     result["success_prob"] = float(np.mean(~depleted))
-    result["depletion"] = _event_pcts(dep_month, current_age)
+    result["depletion"] = _depletion_pcts(dep_month, current_age, life_expectancy)
     result["freedom"] = _event_pcts(
         _freedom_months(freedom_targets, freedom_amounts), current_age)
     return result

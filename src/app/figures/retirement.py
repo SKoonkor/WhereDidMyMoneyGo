@@ -45,15 +45,26 @@ def _band(fig, x, lo, hi, fill):
 def _event_band(fig, ev, color, ages, label, y_paper):
     """Draw a Monte Carlo event (freedom / depletion / a goal) as a vertical shaded band
     spanning its 16th–84th-percentile age, with a dashed median line and a label at the
-    median. ``ev`` is ``{"p16","p50","p84",...}``; a no-op when ``ev`` is falsy."""
-    if not ev:
+    median. ``ev`` is ``{"p16","p50","p84",...}``; a no-op when ``ev`` is falsy.
+
+    The funds-out event reports its percentiles over ALL runs, so any of them may be
+    ``None`` — "past life expectancy". The band is then clipped to the chart's right
+    edge, and a censored median gets a "{life}+" label at the edge instead of a line."""
+    if not ev or ev.get("p16") is None:
         return
-    p16, p50, p84 = ev["p16"], ev["p50"], ev["p84"]
+    x0, x1 = float(ages[0]), float(ages[-1])
+    p16, p50 = ev["p16"], ev.get("p50")
+    p84 = ev["p84"] if ev.get("p84") is not None else x1
     if p84 > p16:
         fig.add_vrect(x0=p16, x1=p84, line_width=0, fillcolor=_rgba(color, 0.12),
                       layer="below")
+    if p50 is None:
+        fig.add_annotation(x=x1, yref="paper", y=y_paper, yanchor="top",
+                           xanchor="right", xshift=-4, showarrow=False,
+                           text=f"{label} · {x1:.0f}+",
+                           font=dict(color=color, size=12))
+        return
     fig.add_vline(x=p50, line=dict(color=color, dash="dash", width=1.5))
-    x0, x1 = float(ages[0]), float(ages[-1])
     frac = (p50 - x0) / (x1 - x0) if x1 > x0 else 0.0
     xa, xs = ("right", -4) if frac > 0.6 else ("left", 4)
     fig.add_annotation(x=p50, yref="paper", y=y_paper, yanchor="top", xanchor=xa,
@@ -221,7 +232,8 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
         y_floor = max(1.0, top_all / 1e4)
         yaxis = dict(type="log", title=t("Value ({currency})").format(currency=currency),
                      range=[float(np.log10(y_floor)),
-                            float(np.log10(max(top_all, y_floor * 10)))])
+                            float(np.log10(max(top_all, y_floor * 10)))],
+                     fixedrange=True)
     else:
         baseline_at_retire = float(res.get("balance_at_retirement") or 0.0)
         if has_goals and baseline_at_retire > 0:
@@ -230,7 +242,7 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
             y_top = max((float(np.max(s)) for s in drawn if s.size),
                         default=1.0) * 1.08
         yaxis = dict(title=t("Value ({currency})").format(currency=currency),
-                     range=[0, y_top or 1.0])
+                     range=[0, y_top or 1.0], fixedrange=True)
 
     fig.update_layout(
         template=ft.template,

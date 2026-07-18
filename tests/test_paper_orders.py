@@ -144,3 +144,52 @@ def test_setting_on_crypto_fills_anytime(state):
                                 "side": "buy", "otype": "market",
                                 "mode": "shares", "qty": 0.1})
     assert msg.startswith("Filled:")
+
+
+# ── Auto-tick vs. user-action race ───────────────────────────────────────────
+
+def test_save_state_is_atomic(tmp_path):
+    p = tmp_path / "acct.json"
+    P.save_state({"id": "x", "name": "T", "active": 0, "portfolios": []}, p)
+    assert p.exists()
+    assert not list(tmp_path.glob("*.tmp"))      # no temp leftovers
+    assert P.load_state(p)["name"] == "T"
+
+
+def test_tick_never_swallows_user_actions(tmp_path, monkeypatch):
+    """Deposits made while a slow auto-tick is in flight must survive it.
+
+    The old refresh() held a pre-loaded state across the network fetches and
+    then saved it wholesale, clobbering anything written in between. tick()
+    re-reads the state inside the lock, so every user write survives."""
+    import threading
+    import time as _time
+    monkeypatch.chdir(tmp_path)          # config/paper_accounts lands here
+    monkeypatch.setattr(
+        P.Q, "quote_details",
+        lambda sym: (_time.sleep(0.15),
+                     {"last": PRICE, "prev_close": PRICE})[1])
+    monkeypatch.setattr(P, "mark_price", lambda meta: PRICE)
+
+    acct = P.create_account("Race", 1000.0)
+    P.select_account(acct)
+    with P.locked():
+        s = P.load_state()
+        P.place_order(s, {"kind": "stock", "symbol": "AAPL", "side": "buy",
+                          "otype": "market", "mode": "shares", "qty": 1})
+
+    th = threading.Thread(target=lambda: [P.tick() for _ in range(3)])
+    th.start()
+    deposits = 0
+    while th.is_alive():
+        with P.locked():
+            s = P.load_state()
+            P.deposit(s, s["active"], 10)
+        deposits += 1
+        _time.sleep(0.03)
+    th.join()
+
+    final = P.load_state()
+    cash = final["portfolios"][final["active"]]["cash"]
+    assert deposits > 0                  # the race window was actually exercised
+    assert cash == pytest.approx(1000.0 - PRICE + 10 * deposits)

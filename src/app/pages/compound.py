@@ -34,17 +34,30 @@ def _field(label, component):
     return html.Div([html.Label(t(label), style=_LABEL_STYLE), component])
 
 
-def _goal_options() -> list[dict]:
+def _short_amt(amt: float) -> str:
+    """A compact money amount: 1,250,000 → "1.2M", 800,000 → "800.0k"."""
+    if abs(amt) >= 1_000_000:
+        return f"{amt / 1_000_000:.1f}M"
+    if abs(amt) >= 1_000:
+        return f"{amt / 1_000:.1f}k"
+    return f"{amt:,.0f}"
+
+
+def _goal_options(compact: bool = False) -> list[dict]:
     """Selectable goal targets, sourced from Financial Goals (no Emergency Fund).
-    The label shows the xTimes factor when set (the goal is reached at amount×factor).
+    ``compact`` shortens the amount (e.g. "800.0k") and drops the xTimes factor so the
+    list fits a narrow column; the full form keeps the factor (reached at amount×factor).
     """
     opts = []
     for name, amt in load_goals().items():
         if name == EMERGENCY_FUND:
             continue
-        f = goal_factor(name)
-        label = (f" {name} ({amt:,.0f} {currency()} × {f:g})" if f > 1
-                 else f" {name} ({amt:,.0f} {currency()})")
+        if compact:
+            label = f" {name} ({_short_amt(amt)} {currency()})"
+        else:
+            f = goal_factor(name)
+            label = (f" {name} ({amt:,.0f} {currency()} × {f:g})" if f > 1
+                     else f" {name} ({amt:,.0f} {currency()})")
         opts.append({"label": label, "value": name})
     return opts
 
@@ -253,23 +266,6 @@ def _retire_view():
                 ],
                 style={"display": "flex", "gap": "20px", "flexWrap": "wrap"},
             ),
-            html.Div(
-                [
-                    html.Button(t("RESET"), id="ci-ret-reset", n_clicks=0,
-                                style={**theme.PERIOD_BUTTON_STYLE, "marginRight": "10px"}),
-                    html.Button(t("CALCULATE"), id="ci-ret-calc", n_clicks=0,
-                                style=theme.BUTTON_STYLE),
-                    dcc.Checklist(
-                        id="ci-ret-showreal",
-                        options=[{"label": t(" Show today's money (real)"), "value": "real"}],
-                        value=["real"], inline=True,
-                        labelStyle={"cursor": "pointer", "whiteSpace": "nowrap"},
-                        style={"display": "inline-block", "marginLeft": "24px"},
-                    ),
-                ],
-                style={"marginTop": "16px", "display": "flex", "alignItems": "center",
-                       "flexWrap": "wrap"},
-            ),
             # ── Uncertainty (Monte Carlo) ────────────────────────────────────────
             html.Div(
                 [
@@ -327,55 +323,73 @@ def _retire_view():
                 style={"marginTop": "16px", "paddingTop": "16px",
                        "borderTop": "1px solid var(--border)"},
             ),
-        ],
-    )
-    goals_card = card(
-        html.Div(
-            [
-                # The title stays visible in privacy mode; only the checklist (goal
-                # names/amounts) is hidden via .ci-goals-block. The hint span reveals
-                # itself only when censored (CSS in style.css).
-                html.Span(t("Financial Goals to achieve"), style={"fontWeight": 600,
-                                                               "marginRight": "8px"}),
-                html.Span(t("(unhide to see goals)"), className="goals-hidden-hint",
-                          style={"color": theme.MUTED, "marginRight": "12px"}),
-                html.Div(
-                    dcc.Checklist(
-                        id="ci-ret-goals", options=_goal_options(), value=[],
-                        inline=True,
-                        labelStyle={"marginRight": "18px", "cursor": "pointer"},
-                    ),
-                    className="ci-goals-block",
-                    style={"display": "flex", "alignItems": "center",
-                           "flexWrap": "wrap", "gap": "6px"},
-                ),
-            ],
-            className="ci-goals-bar",
-            style={"display": "flex", "alignItems": "center", "flexWrap": "wrap",
-                   "gap": "6px"},
-        ),
-        style={"marginTop": "20px"},
-    )
-    results_graph = html.Div(
-        [
-            # Fixed width (minWidth:0 stops the two-column goals table from expanding
-            # the flex item), so the box stays the same size with or without goals.
-            card(html.Div(id="ci-ret-results"),
-                 style={"flex": "0 0 400px", "minWidth": 0}),
-            card(
+            html.Div(
                 [
-                    _logy_toggle("ci-ret-logy"),
-                    dcc.Graph(id="ci-ret-graph", style={"height": "460px"},
-                              config={"scrollZoom": True, "displaylogo": False,
-                                      "modeBarButtonsToRemove": [
-                                          "zoom2d", "select2d", "lasso2d"]}),
+                    html.Button(t("RESET"), id="ci-ret-reset", n_clicks=0,
+                                style={**theme.PERIOD_BUTTON_STYLE, "marginRight": "10px"}),
+                    html.Button(t("CALCULATE"), id="ci-ret-calc", n_clicks=0,
+                                style=theme.BUTTON_STYLE),
+                    dcc.Checklist(
+                        id="ci-ret-showreal",
+                        options=[{"label": t(" Show today's money (real)"), "value": "real"}],
+                        value=["real"], inline=True,
+                        labelStyle={"cursor": "pointer", "whiteSpace": "nowrap"},
+                        style={"display": "inline-block", "marginLeft": "24px"},
+                    ),
                 ],
-                style={"flex": "1", "marginLeft": "20px"},
+                style={"marginTop": "16px", "display": "flex", "alignItems": "center",
+                       "flexWrap": "wrap"},
             ),
         ],
+    )
+    # Goals selector — a narrow vertical list that sits to the left of the graph
+    # (the summary table's old spot). Amounts are shortened and the ×factor dropped
+    # to keep the column narrow; the factor lives on the Financial Goals page.
+    goals_card = card(
+        [
+            # The title stays visible in privacy mode; only the checklist (goal
+            # names/amounts) is hidden via .ci-goals-block. The hint span reveals
+            # itself only when censored (CSS in style.css).
+            html.Div(
+                [
+                    html.Span(t("Financial Goals to achieve"),
+                              style={"fontWeight": 600}),
+                    html.Span(t("(unhide to see goals)"),
+                              className="goals-hidden-hint",
+                              style={"color": theme.MUTED, "fontSize": "12px",
+                                     "marginLeft": "8px"}),
+                ],
+                style={"marginBottom": "10px"},
+            ),
+            html.Div(
+                dcc.Checklist(
+                    id="ci-ret-goals", options=_goal_options(compact=True), value=[],
+                    labelStyle={"display": "block", "cursor": "pointer",
+                                "marginBottom": "6px"},
+                ),
+                className="ci-goals-block",
+            ),
+        ],
+        style={"flex": "0 0 300px", "minWidth": 0},
+    )
+    graph_card = card(
+        [
+            _logy_toggle("ci-ret-logy"),
+            dcc.Graph(id="ci-ret-graph", style={"height": "460px"},
+                      config={"scrollZoom": True, "displaylogo": False,
+                              "modeBarButtonsToRemove": [
+                                  "zoom2d", "select2d", "lasso2d"]}),
+        ],
+        style={"flex": "1", "marginLeft": "20px"},
+    )
+    goals_graph = html.Div(
+        [goals_card, graph_card],
         style={"display": "flex", "alignItems": "stretch", "marginTop": "20px"},
     )
-    return html.Div([plan_card, goals_card, results_graph], id="ci-retire-view",
+    # Summary table: full width, below the graph (no longer boxed into a narrow
+    # column, so its strategy table can never overflow).
+    results_card = card(html.Div(id="ci-ret-results"), style={"marginTop": "20px"})
+    return html.Div([plan_card, goals_graph, results_card], id="ci-retire-view",
                     style={"display": "block"})
 
 
@@ -614,25 +628,61 @@ def _outcome_text(summary, life):
             theme.EXPENSE_COLOR)
 
 
+# Monte Carlo funds-out percentiles are taken over ALL runs (runs that never fail
+# count as failing past life expectancy), so the quoted 16/50/84% ages coincide
+# exactly with where the chart band's lower/median edges reach zero.
+
+def _dep_age(v, life):
+    """An age as text, or "85+" when the percentile is past life expectancy."""
+    return f"{life:.0f}+" if v is None else f"{v:.0f}"
+
+
+def _mc_prob_color(prob):
+    return (theme.INCOME_COLOR if prob >= 0.85 else
+            "#f39c12" if prob >= 0.6 else theme.EXPENSE_COLOR)
+
+
+def _mc_outcome_text(dep, prob, life):
+    """(text, colour) for an Outcome cell in Monte Carlo mode: the median run's
+    verdict with the 16–84% spread, coloured by the success probability."""
+    color = _mc_prob_color(prob)
+    if not dep or dep["p50"] is None:
+        return (t("Lasts to {age} ({prob})").format(age=f"{life:.0f}",
+                                                    prob=f"{prob:.0%}"), color)
+    return (t("Runs out {age} ({p16}–{p84})").format(
+        age=_dep_age(dep["p50"], life), p16=_dep_age(dep["p16"], life),
+        p84=_dep_age(dep["p84"], life)), color)
+
+
 def _strategy_table(res, money, mc=None):
     """Two-column (×factor | plain) comparison of the goal-affected figures. When ``mc``
     is given, each goal's ×factor age cell shows the 16–84% achievement range."""
     life = res["life_expectancy"]
     sf, sp = res["summary_factor"], res["summary_plain"]
-    f_out, f_col = _outcome_text(sf, life)
-    p_out, p_col = _outcome_text(sp, life)
+    if mc is not None:
+        f_out, f_col = _mc_outcome_text(mc.get("depletion"), mc["success_prob"], life)
+        p_out, p_col = _mc_outcome_text(
+            mc.get("depletion_plain"),
+            mc.get("success_prob_plain", mc["success_prob"]), life)
+    else:
+        f_out, f_col = _outcome_text(sf, life)
+        p_out, p_col = _outcome_text(sp, life)
 
     th = {"padding": "6px 8px", "fontSize": "12px", "fontWeight": 600,
           "borderBottom": "1px solid var(--border)", "textAlign": "right"}
     td = {"padding": "6px 8px", "borderBottom": "1px solid var(--border-soft)",
           "textAlign": "right", "whiteSpace": "nowrap"}
-    lab = {**td, "textAlign": "left", "color": theme.MUTED}
+    # Labels wrap (the value columns stay nowrap) so a long label like
+    # "Pot at retirement (median)" can't push the table past its card.
+    lab = {**td, "textAlign": "left", "color": theme.MUTED, "whiteSpace": "normal"}
 
     def row(label, fcell, pcell, fcolor=theme.INK, pcolor=theme.INK,
-            border=True, topline=False):
+            border=True, topline=False, wrap=False):
         bd = {} if border else {"borderBottom": "none"}
         if topline:
             bd = {**bd, "borderTop": "1px solid var(--border-soft)"}
+        if wrap:   # long MC outcome text must wrap instead of widening the column
+            bd = {**bd, "whiteSpace": "normal"}
         return html.Tr([
             html.Td(label, style={**lab, **bd}),
             html.Td(fcell, style={**td, **bd, "color": fcolor, "fontWeight": 600}),
@@ -674,20 +724,36 @@ def _strategy_table(res, money, mc=None):
 
     goal_rows = [goal_row(name) for name in res.get("goal_names", [])]
 
+    # In Monte Carlo mode the pot/ending figures are the medians of the simulated
+    # paths (labelled so), keeping every row consistent with the chart's band.
+    if mc is not None:
+        ret_idx = min(int(round((float(res["retirement_age"])
+                                 - float(mc["ages"][0])) * 12)),
+                      len(mc["factor_nominal"]["p50"]) - 1)
+        pot_lbl = t("Pot at retirement") + t(" (median)")
+        end_lbl = t("Ending balance") + t(" (median)")
+        pot_f = float(mc["factor_nominal"]["p50"][ret_idx])
+        pot_p = float(mc["plain_nominal"]["p50"][ret_idx])
+        end_f = float(mc["factor_nominal"]["p50"][-1])
+        end_p = float(mc["plain_nominal"]["p50"][-1])
+    else:
+        pot_lbl, end_lbl = t("Pot at retirement"), t("Ending balance")
+        pot_f, pot_p = sf["pot_at_retirement"], sp["pot_at_retirement"]
+        end_f, end_p = sf["ending_nominal"], sp["ending_nominal"]
+
     header = html.Tr([
         html.Th("", style={**th, "textAlign": "left"}),
-        html.Th(t("×factor"), style={**th, "color": theme.INCOME_COLOR}),
-        html.Th(t("plain"), style={**th, "color": "#e84393"}),
+        html.Th(t("×Time rule"), style={**th, "color": theme.INCOME_COLOR}),
+        html.Th(t("buy immediately"), style={**th, "color": "#e84393"}),
     ])
     body = [
-        row(t("Pot at retirement"), money(sf["pot_at_retirement"]),
-            money(sp["pot_at_retirement"])),
+        row(pot_lbl, money(pot_f), money(pot_p)),
         row(t("Spent on goals"), money(sf["total_spent"]), money(sp["total_spent"]),
             border=False),
         *goal_rows,
-        row(t("Outcome"), f_out, p_out, f_col, p_col, topline=True),
-        row(t("Ending balance"), money(sf["ending_nominal"]),
-            money(sp["ending_nominal"])),
+        row(t("Outcome"), f_out, p_out, f_col, p_col, topline=True,
+            wrap=(mc is not None)),
+        row(end_lbl, money(end_f), money(end_p)),
     ]
     return html.Table([html.Thead(header), html.Tbody(body)],
                       style={"width": "100%", "borderCollapse": "collapse",
@@ -695,44 +761,36 @@ def _strategy_table(res, money, mc=None):
 
 
 def _range_txt(ev):
-    """A "med (16–84%: a–b)" string for a Monte Carlo event dict, or "—" if it never
-    happened."""
+    """A compact "median (16th–84th)" age string for a Monte Carlo event dict, or
+    "—" if it never happened."""
     if not ev:
         return "—"
-    return t("age {p50} (16–84%: {p16}–{p84})").format(
-        p50=f"{ev['p50']:.0f}", p16=f"{ev['p16']:.0f}", p84=f"{ev['p84']:.0f}")
+    return f"{ev['p50']:.0f} ({ev['p16']:.0f}–{ev['p84']:.0f})"
 
 
-def _mc_summary_rows(mc, cur):
-    """Monte Carlo headline: the probability the plan's money lasts to life expectancy,
-    plus the 16–84% age range over the runs where it runs out."""
+def _mc_summary_rows(mc):
+    """Monte Carlo headline: the probability the plan's money lasts to life
+    expectancy. The funds-out age range lives in the Outcome row."""
     prob = mc["success_prob"]
-    color = (theme.INCOME_COLOR if prob >= 0.85 else
-             "#f39c12" if prob >= 0.6 else theme.EXPENSE_COLOR)
-    rows = [html.Div(
+    color = _mc_prob_color(prob)
+    return [html.Div(
         [html.Span(t("Plan succeeds"), style={"color": theme.MUTED}),
          html.Span(t("{prob} of {n} runs").format(prob=f"{prob:.0%}",
                                                   n=f"{mc['n_mc']:,}"),
                    style={"fontWeight": 700, "color": color, "whiteSpace": "nowrap"})],
         style=theme.RESULT_ROW_STYLE)]
-    dep = mc.get("depletion")
-    if dep is not None:
-        rows.append(_result_row("Funds-out age (16–84%)",
-                                t("{p16}–{p84} (med {p50})").format(
-                                    p16=f"{dep['p16']:.0f}", p84=f"{dep['p84']:.0f}",
-                                    p50=f"{dep['p50']:.0f}")))
-    return rows
 
 
 def _ret_results_block(res, cur, mc=None):
     money = lambda v: f"{v:,.0f} {cur}"
+    life = res["life_expectancy"]
     if mc is not None:
         # Freedom age becomes a 16–84% range across the simulated futures.
         ff_txt = _range_txt(mc.get("freedom"))
     else:
         ff = res.get("financial_freedom_age")
         ff_txt = t("age {age}").format(age=f"{ff:.0f}") if ff is not None else "—"
-    mc_rows = _mc_summary_rows(mc, cur) if mc is not None else []
+    mc_rows = _mc_summary_rows(mc) if mc is not None else []
     shared = [
         _result_row("Monthly expense at retirement", money(res["expense_at_retirement"])),
         _result_row("Pension (monthly)", money(res["pension"])),
@@ -747,18 +805,29 @@ def _ret_results_block(res, cur, mc=None):
         return html.Div(mc_rows + shared + [_strategy_table(res, money, mc)],
                         style={"marginTop": "4px"})
 
-    rows = mc_rows + [_result_row("Pot at retirement",
-                                  money(res["balance_at_retirement"]))] + shared
-    if res["covered"]:
-        word = t("Funds last through age {age}").format(
-            age=f"{res['life_expectancy']:.0f}")
-        color = theme.INCOME_COLOR
-        tail = _result_row("Ending balance", money(res["ending_nominal"]))
+    if mc is not None:
+        # Pot / outcome / ending from the simulated medians, matching the chart.
+        p50 = mc["nominal"]["p50"]
+        ret_idx = min(int(round((float(res["retirement_age"])
+                                 - float(mc["ages"][0])) * 12)), len(p50) - 1)
+        pot_row = _result_row(t("Pot at retirement") + t(" (median)"),
+                              money(float(p50[ret_idx])))
+        word, color = _mc_outcome_text(mc.get("depletion"), mc["success_prob"], life)
+        end_med = float(p50[-1])
+        tail = (_result_row(t("Ending balance") + t(" (median)"), money(end_med))
+                if end_med > 0 else None)
     else:
-        word = t("Funds run out at age {age}").format(
-            age=f"{res['depletion_age']:.0f}")
-        color = theme.EXPENSE_COLOR
-        tail = None
+        pot_row = _result_row("Pot at retirement", money(res["balance_at_retirement"]))
+        if res["covered"]:
+            word = t("Funds last through age {age}").format(age=f"{life:.0f}")
+            color = theme.INCOME_COLOR
+            tail = _result_row("Ending balance", money(res["ending_nominal"]))
+        else:
+            word = t("Funds run out at age {age}").format(
+                age=f"{res['depletion_age']:.0f}")
+            color = theme.EXPENSE_COLOR
+            tail = None
+    rows = mc_rows + [pot_row] + shared
     outcome = html.Div(
         [html.Span(t("Outcome"), style={"color": theme.MUTED}),
          html.Span(word, style={"fontWeight": 700, "color": color,

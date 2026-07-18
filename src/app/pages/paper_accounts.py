@@ -243,7 +243,8 @@ def _create(_n, name, cash, refresh):
         return no_update, "", no_update, no_update, {"display": "flex"}, body, \
             {"name": name, "cash": amount}
     try:                                          # $0 → create straight away
-        P.create_account(name, cash)
+        with P.locked():
+            P.create_account(name, cash)
     except P.TradeError as exc:
         return no_update, str(exc), no_update, no_update, no_update, no_update, no_update
     return (refresh or 0) + 1, "", None, None, no_update, no_update, no_update
@@ -266,7 +267,8 @@ def _acct_confirm(_yes, _no, pending, refresh):
     if ctx.triggered_id == "paper-acct-confirm-no" or not pending:
         return _HIDDEN, no_update, no_update, no_update, no_update, None
     try:
-        P.create_account(pending["name"], pending["cash"])
+        with P.locked():
+            P.create_account(pending["name"], pending["cash"])
     except P.TradeError as exc:
         return _HIDDEN, no_update, str(exc), no_update, no_update, None
     return _HIDDEN, (refresh or 0) + 1, "", None, None, None
@@ -280,7 +282,8 @@ def _acct_confirm(_yes, _no, pending, refresh):
 def _select(clicks):
     if not any(clicks or []):
         raise PreventUpdate
-    P.select_account(ctx.triggered_id["id"])
+    with P.locked():
+        P.select_account(ctx.triggered_id["id"])
     return "/paper/trade"
 
 
@@ -311,7 +314,8 @@ def _del_open(clicks):
 )
 def _del_confirm(_yes, _no, target, refresh):
     if ctx.triggered_id == "paper-del-yes" and target:
-        P.delete_account(target)
+        with P.locked():
+            P.delete_account(target)
         return _HIDDEN, (refresh or 0) + 1
     return _HIDDEN, no_update
 
@@ -326,7 +330,8 @@ def _restore(clicks, refresh):
     if not any(clicks or []):
         raise PreventUpdate
     try:
-        P.restore_account(ctx.triggered_id["file"])
+        with P.locked():
+            P.restore_account(ctx.triggered_id["file"])
     except P.TradeError:
         raise PreventUpdate
     return (refresh or 0) + 1
