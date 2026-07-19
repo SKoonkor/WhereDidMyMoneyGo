@@ -1982,27 +1982,23 @@ clientside_callback(
 )
 
 
-# ── Adaptive fullscreen for the stock chart ──────────────────────────────────
-# The ⛶ button is width-aware: on wide screens it maximizes (in-app overlay that
-# keeps all controls, .maximized on #paper-stock-wrap); on narrow screens it opens
-# the rotated landscape view (.landscape on #paper-stock-ls-box) instead. Exit comes
-# from ✕ Exit-Full-Screen (maximize) or ✕ Close-landscape (landscape).
+# ── Fullscreen for the stock chart ───────────────────────────────────────────
+# The ⛶ button maximizes the whole stock box to a viewport-filling in-app overlay
+# (.maximized on #paper-stock-wrap) that keeps the range chips, Line/Candle box and
+# multiples table usable — on every device. (Phones used to get a rotated landscape
+# view instead, but CSS-rotating the chart broke Plotly's pan/zoom, so it now fills
+# upright like everywhere else; turning the phone gives a true wide view.) Exit comes
+# from ✕ Exit-Full-Screen.
 clientside_callback(
     """
     function (nEnter, nExit, nLsExit) {
         var trig = (window.dash_clientside.callback_context.triggered[0] || {});
         var id = (trig.prop_id || '').split('.')[0];
         var wrap = document.getElementById('paper-stock-wrap');
-        var box = document.getElementById('paper-stock-ls-box');
         if (id === 'paper-fs-enter') {
-            if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) {
-                if (box) box.classList.add('landscape');   // phone → rotate
-                document.body.style.overflow = 'hidden';
-            } else if (wrap) {
-                wrap.classList.add('maximized');            // computer → fill
-            }
+            if (wrap) wrap.classList.add('maximized');
+            document.body.style.overflow = 'hidden';
         } else {   // paper-fs-exit or paper-stock-ls-exit
-            if (box) box.classList.remove('landscape');
             if (wrap) wrap.classList.remove('maximized');
             document.body.style.overflow = '';
         }

@@ -214,12 +214,14 @@ def card(children, style: dict | None = None, className: str | None = None):
 
 # ── Landscape / fullscreen chart helper ───────────────────────────────────────
 # Generic clientside body for the chart-expand toggle: finds the enclosing .ls-box
-# from the clicked button and opens it full-screen — ROTATED (.landscape) on a
-# phone/tablet, or a plain FILL (.fullscreen) on a computer (incl. a narrow desktop
-# window). Device test: `(hover: none) and (pointer: coarse)` = touch, no mouse. The
-# same media query drives the CSS label swap, so behaviour and label stay in sync.
-# The JS ignores its args (reads callback_context.triggered), so any number of
-# enter/exit button inputs work with the same body.
+# from the clicked button and opens it full-screen as a plain viewport FILL
+# (.fullscreen) — no CSS rotation. Rotating the chart 90° (the old phone path) broke
+# Plotly's pan/zoom, which reads raw screen coordinates and can't account for the
+# transform (worst on rotation-locked phones, where the device never turns to match).
+# So every device now just fills the screen upright; a phone gets a true wide view by
+# physically turning (auto-rotate). The device-based CSS label swap still shows
+# "Landscape" on phones vs "Full screen" on computers. The JS ignores its args (reads
+# callback_context.triggered), so any number of enter/exit button inputs share it.
 LANDSCAPE_JS = """
 function () {
     var trig = (window.dash_clientside.callback_context.triggered[0] || {});
@@ -230,11 +232,8 @@ function () {
         if (box) {
             var on = id.indexOf('ls-enter') >= 0;
             if (on) {
-                var phone = window.matchMedia(
-                    '(hover: none) and (pointer: coarse)').matches;
-                box.classList.add(phone ? 'landscape' : 'fullscreen');
+                box.classList.add('fullscreen');
             } else {
-                box.classList.remove('landscape');
                 box.classList.remove('fullscreen');
             }
             document.body.style.overflow = on ? 'hidden' : '';

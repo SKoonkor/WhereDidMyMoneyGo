@@ -1296,7 +1296,9 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
 .budget-chip:hover { border-color: var(--accent); }
 .budget-chip:active { cursor: grabbing; }
 .budget-chip.dragging { opacity: 0.4; }
-.budget-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Wide screens: show the full category name (wrap long ones — never truncate).
+   Narrow screens cap it with an ellipsis instead (see the ≤600px pass). */
+.budget-chip-name { min-width: 0; overflow-wrap: anywhere; }
 .budget-chip-pct {
     color: var(--muted);
     font-variant-numeric: tabular-nums;
@@ -1529,6 +1531,12 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
         margin-right: 0 !important;
     }
     .mt-split > * + * { margin-top: 16px; }
+    /* Goals page: when stacked, show the Savings Pool gauge above the goals list
+       (wide screens keep the list on the left via normal DOM order). `order` only
+       reshuffles the visual position, so move the 16px gap onto the list (now the
+       lower card) and clear it from the gauge (now the top card). */
+    .goals-gauge-card { order: -1; margin-top: 0 !important; }
+    .goals-list-card { margin-top: 16px !important; }
 }
 
 /* ── ≤700px: let the widest hand-built tables scroll instead of pushing the page
@@ -1547,7 +1555,14 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
     .page-header h1 { font-size: clamp(1.4rem, 5vw, 2rem); }
 
     .txn-summary-strip { gap: 12px; flex-wrap: wrap; }
-    .budget-cols, .manage-cols { flex-direction: column; }
+    .manage-cols { flex-direction: column; }
+    /* Keep the Needs/Wants buckets side by side even on phones; cap long category
+       names with an ellipsis so the two columns stay tidy. */
+    .budget-chip-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
     .cat-grid { grid-template-columns: repeat(2, 1fr); }
     .txn-row { flex-wrap: wrap; }
     .txn-row .txn-cat, .txn-row .txn-amount { flex-basis: auto; }
@@ -1564,9 +1579,10 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
 
 /* ── Landscape full-screen chart view (reusable: any .ls-box) ───────────────── */
 /* Wrap a chart as: .ls-box > (.ls-head with a .ls-enter button) + (.ls-inner with a
-   .ls-exit button and the .ls-graph). A clientside callback toggles `.landscape` on
-   the box. The "⤢ Landscape" button only shows where the chart is cramped (narrow
-   screens); on desktop the chart is already wide. */
+   .ls-exit button and the .ls-graph). A clientside callback toggles `.fullscreen` on
+   the box (a plain viewport fill — no rotation, so Plotly pan/zoom stays correct).
+   The button only shows where the chart is cramped (narrow screens); on desktop the
+   chart is already wide. */
 .ls-enter, .ls-exit {
     background: var(--btn-bg);
     color: var(--btn-fg);
@@ -1592,9 +1608,9 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
     .ls-lbl-fs { display: none; }
 }
 
-/* Locked full-screen overlay — both modes (phone rotate = .landscape, computer fill
-   = .fullscreen). No scroll, so the page can't drift underneath. */
-.ls-box.landscape, .ls-box.fullscreen {
+/* Locked full-screen overlay — a plain viewport fill (no rotation, so Plotly's
+   pan/zoom stays correct). No scroll, so the page can't drift underneath. */
+.ls-box.fullscreen {
     position: fixed;
     inset: 0;
     z-index: 6000;
@@ -1603,51 +1619,28 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
     overflow: hidden;
 }
 /* !important: the head may carry an inline/class display:flex that would otherwise win. */
-.ls-box.landscape .ls-head, .ls-box.fullscreen .ls-head { display: none !important; }
-.ls-box.landscape .ls-exit, .ls-box.fullscreen .ls-exit {
+.ls-box.fullscreen .ls-head { display: none !important; }
+/* Exit button centered at the top so it clears the chart (Plotly modebar sits at
+   the top-right, annotations at the top-left). */
+.ls-box.fullscreen .ls-exit {
     display: inline-flex;
     position: absolute;
     top: 10px;
-    left: 14px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 6001;
 }
-/* Chart fills its box in both modes. */
-.ls-box.landscape .ls-inner .ls-graph, .ls-box.landscape .ls-inner .js-plotly-plot,
+/* Chart fills the screen-filling inner box. */
 .ls-box.fullscreen .ls-inner .ls-graph, .ls-box.fullscreen .ls-inner .js-plotly-plot {
     width: 100% !important;
     height: 100% !important;
 }
-/* Fullscreen (computer): the inner just fills the fixed box — no rotation. */
 .ls-box.fullscreen .ls-inner { position: absolute; inset: 0; }
-/* Landscape (phone): center via absolute + translate (not flex, which would shrink
-   the box below its 100vh/100vw size), then rotate 90°. Orientation-aware so an
-   auto-rotating phone doesn't double-rotate. The exit button lives inside .ls-inner
-   so it rotates with the chart and reads upright. */
-.ls-box.landscape .ls-inner {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-}
-@media (orientation: portrait) {
-    .ls-box.landscape .ls-inner {
-        width: 100vh;
-        height: 100vw;
-        transform: translate(-50%, -50%) rotate(90deg);
-    }
-}
-@media (orientation: landscape) {
-    .ls-box.landscape .ls-inner {
-        width: 100vw;
-        height: 100vh;
-        transform: translate(-50%, -50%);
-    }
-}
-/* Budget trend box: hide the drill-down buttons when expanded (either mode). */
-.ls-box.landscape .trend-close, .ls-box.landscape .trend-home,
+/* Budget trend box: hide the drill-down buttons when expanded. */
 .ls-box.fullscreen .trend-close, .ls-box.fullscreen .trend-home { display: none !important; }
-/* Budget pies box (either mode): the two monthly pies sit side by side and fill the
-   area; the month headers and over-budget lists are hidden for a clean view. */
-.ls-box.landscape .budget-pies-row, .ls-box.fullscreen .budget-pies-row {
+/* Budget pies box: the two monthly pies sit side by side and fill the area; the
+   month headers and over-budget lists are hidden for a clean view. */
+.ls-box.fullscreen .budget-pies-row {
     display: flex !important;
     flex-wrap: nowrap !important;
     width: 100%;
@@ -1655,17 +1648,16 @@ html[data-theme="light"] .paper-mkt-open { color: #1e8449; }
     gap: 10px;
     margin: 0 !important;
 }
-.ls-box.landscape .budget-month-col, .ls-box.fullscreen .budget-month-col {
+.ls-box.fullscreen .budget-month-col {
     flex: 1 1 0 !important;
     min-width: 0 !important;
     height: 100%;
     margin: 0 !important;
 }
-.ls-box.landscape .budget-month-head, .ls-box.landscape .budget-overflow,
 .ls-box.fullscreen .budget-month-head, .ls-box.fullscreen .budget-overflow {
     display: none !important;
 }
-.ls-box.landscape .budget-month-body, .ls-box.fullscreen .budget-month-body {
+.ls-box.fullscreen .budget-month-body {
     height: 100%;
     flex-wrap: nowrap !important;
     gap: 0 !important;

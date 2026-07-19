@@ -5,11 +5,10 @@ import pandas as pd
 from dash import dcc, html, callback, clientside_callback, ctx, Input, Output
 
 from src.app import theme
-from src.app.components import (page_header, money_span, card, LANDSCAPE_JS,
-                                ls_enter_children, ls_exit_children)
+from src.app.components import page_header, money_span, card
 from src.app.i18n import make_t
 from src.app.data import get_df, default_range, reference_date, currency
-from src.app.figures.pie import build_pie_figure, build_hist_figure
+from src.app.figures.pie import build_pie_figure, build_hist_single
 from src.analytics import budget as B
 
 t = make_t("pie")
@@ -18,6 +17,12 @@ dash.register_page(__name__, path="/pie", name="Income / Expense", order=2)
 
 PRESETS = {"30": 30, "120": 120, "365": 365}
 _START, _END = default_range(120)
+
+# Interaction is locked on both views (no zoom/pan/toolbar); a tap/hover still
+# shows a slice's or bar's value. Graphs stay responsive so they refit their box.
+_PIE_CONFIG = {"displayModeBar": False, "responsive": True}
+_HIST_CONFIG = {"displayModeBar": False, "scrollZoom": False,
+                "doubleClick": False, "responsive": True}
 
 
 def _subcat_children(title: str, groups: list) -> list:
@@ -103,51 +108,32 @@ def layout(**_):
                 ],
                 style={"marginBottom": "16px"},
             ),
-            # Each mode's graph is its own landscape box (.ls-box); only the visible
-            # view's "⤢ Landscape" button shows (the hidden view is display:none).
+            # Pie view (two donuts). The mode buttons show/hide this vs the histogram.
             html.Div(
-                [
-                    html.Div(
-                        html.Button(ls_enter_children(), id="pie-ls-enter",
-                                    n_clicks=0, className="ls-enter"),
-                        className="ls-head",
-                        style={"display": "flex", "justifyContent": "flex-end"},
-                    ),
-                    html.Div(
-                        [
-                            html.Button(ls_exit_children(), id="pie-ls-exit",
-                                        n_clicks=0, className="ls-exit"),
-                            dcc.Graph(id="pie-graph", className="ls-graph",
-                                      style={"height": "520px"},
-                                      config={"responsive": True}),
-                        ],
-                        className="ls-inner",
-                    ),
-                ],
-                id="pie-view-pie", className="ls-box",
+                dcc.Graph(id="pie-graph", style={"height": "520px"},
+                          config=_PIE_CONFIG),
+                id="pie-view-pie",
             ),
+            # Histogram view: Income and Expense as separate charts — side by side on
+            # wide screens, stacked (Income above Expense) on narrow ones via .mt-split.
             html.Div(
-                [
-                    html.Div(
-                        html.Button(ls_enter_children(), id="hist-ls-enter",
-                                    n_clicks=0, className="ls-enter"),
-                        className="ls-head",
-                        style={"display": "flex", "justifyContent": "flex-end"},
-                    ),
-                    html.Div(
-                        [
-                            html.Button(ls_exit_children(), id="hist-ls-exit",
-                                        n_clicks=0, className="ls-exit"),
-                            dcc.Graph(id="pie-hist-graph", className="ls-graph",
-                                      style={"height": "520px"},
-                                      config={"responsive": True}),
-                        ],
-                        className="ls-inner",
-                    ),
-                ],
-                id="pie-view-hist", className="ls-box", style={"display": "none"},
+                html.Div(
+                    [
+                        dcc.Graph(id="pie-hist-income",
+                                  style={"height": "400px", "flex": "1 1 0",
+                                         "minWidth": "0"},
+                                  config=_HIST_CONFIG),
+                        dcc.Graph(id="pie-hist-expense",
+                                  style={"height": "400px", "flex": "1 1 0",
+                                         "minWidth": "0"},
+                                  config=_HIST_CONFIG),
+                    ],
+                    className="mt-split",
+                    style={"display": "flex", "gap": "20px"},
+                ),
+                id="pie-view-hist", style={"display": "none"},
             ),
-            dcc.Store(id="pie-ls-dummy"),
+            dcc.Store(id="pie-resize-dummy"),
             html.Details(
                 [
                     html.Summary(t("Sub-categories"), className="subcat-summary"),
@@ -171,7 +157,8 @@ def layout(**_):
 
 @callback(
     Output("pie-graph", "figure"),
-    Output("pie-hist-graph", "figure"),
+    Output("pie-hist-income", "figure"),
+    Output("pie-hist-expense", "figure"),
     Output("pie-dates", "disabled"),
     Output("pie-subcats-income", "children"),
     Output("pie-subcats-expense", "children"),
@@ -196,11 +183,14 @@ def _update(preset, start, end, expense_order, theme_value, censor):
         disabled = False
 
     censored = theme.is_censored(censor)
-    # Same data drives both views; the mode buttons just show/hide the two graphs.
+    # Same data drives every view; the mode buttons just show/hide the pie vs the two
+    # histogram charts (Income + Expense are separate figures so they can stack).
     fig = build_pie_figure(df, s, e, currency(), dark=dark, expense_order=expense_order,
                            censor=censored)
-    hist = build_hist_figure(df, s, e, currency(), dark=dark, expense_order=expense_order,
-                             censor=censored)
+    hist_income = build_hist_single(df, s, e, "Income", currency(), dark=dark,
+                                    expense_order=expense_order, censor=censored)
+    hist_expense = build_hist_single(df, s, e, "Expense", currency(), dark=dark,
+                                     expense_order=expense_order, censor=censored)
 
     # Sub-category breakdown over the same window (end day inclusive, as the pie).
     e_excl = pd.Timestamp(e).normalize() + pd.Timedelta(days=1)
@@ -208,7 +198,7 @@ def _update(preset, start, end, expense_order, theme_value, censor):
         "Income", B.subcategory_breakdown(df, pd.Timestamp(s), e_excl, "Income"))
     expense_children = _subcat_children(
         "Expense", B.subcategory_breakdown(df, pd.Timestamp(s), e_excl, "Expense"))
-    return fig, hist, disabled, income_children, expense_children
+    return fig, hist_income, hist_expense, disabled, income_children, expense_children
 
 
 @callback(
@@ -229,19 +219,6 @@ def _switch_view(_p, _h):
     return ({"display": "block"}, {"display": "none"}, active, inactive)
 
 
-# Expand whichever chart (pie or histogram) is showing — the shared .ls-box toggle
-# (rotate on phones, fill on computers) covers both views from one callback.
-clientside_callback(
-    LANDSCAPE_JS,
-    Output("pie-ls-dummy", "data"),
-    Input("pie-ls-enter", "n_clicks"),
-    Input("pie-ls-exit", "n_clicks"),
-    Input("hist-ls-enter", "n_clicks"),
-    Input("hist-ls-exit", "n_clicks"),
-    prevent_initial_call=True,
-)
-
-
 # When switching Pie⇄Histogram, the newly shown graph was rendered while its box was
 # display:none (size 0). Nudge Plotly to refit it to the now-visible container.
 clientside_callback(
@@ -251,7 +228,7 @@ clientside_callback(
         return window.dash_clientside.no_update;
     }
     """,
-    Output("pie-ls-dummy", "data", allow_duplicate=True),
+    Output("pie-resize-dummy", "data"),
     Input("pie-mode-pie", "n_clicks"),
     Input("pie-mode-hist", "n_clicks"),
     prevent_initial_call=True,

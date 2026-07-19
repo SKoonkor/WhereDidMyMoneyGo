@@ -1,12 +1,14 @@
 """Income/Expense composition histogram (bar-chart twin of the donuts).
 
-``build_hist_figure`` is Dash-free — it takes a ledger DataFrame — so these tests build a
-small ledger with ``make_df`` and assert the bars mirror the pie's data prep and colours.
+``build_hist_single`` is Dash-free — it takes a ledger DataFrame and a side ("Income"
+or "Expense") and returns one bar figure (Income and Expense are separate figures so
+narrow screens can stack them). These tests build a small ledger with ``make_df`` and
+assert the bars mirror the pie's data prep and colours.
 """
 
 import pandas as pd
 
-from src.app.figures.pie import (build_hist_figure, _category_breakdown, _shade,
+from src.app.figures.pie import (build_hist_single, _category_breakdown, _shade,
                                  _HIDDEN_COLOR)
 from src.analytics import budget as B
 from tests.conftest import make_df
@@ -33,38 +35,47 @@ def _bars(fig):
     return [t for t in fig.data if t.type == "bar"]
 
 
-def test_two_bar_traces_income_and_expense():
-    fig = build_hist_figure(_ledger(), _START, _END)
-    bars = _bars(fig)
-    assert len(bars) == 2
+def test_one_bar_trace_per_side():
+    inc = build_hist_single(_ledger(), _START, _END, "Income")
+    exp = build_hist_single(_ledger(), _START, _END, "Expense")
+    assert len(_bars(inc)) == 1
+    assert len(_bars(exp)) == 1
+
+
+def test_interaction_is_locked():
+    # No zoom/pan: both axes fixedrange, dragmode disabled — only hover/tap remains.
+    fig = build_hist_single(_ledger(), _START, _END, "Income")
+    assert fig.layout.xaxis.fixedrange is True
+    assert fig.layout.yaxis.fixedrange is True
+    assert fig.layout.dragmode is False
 
 
 def test_bar_categories_and_order_match_category_breakdown():
     df = _ledger()
-    fig = build_hist_figure(df, _START, _END, expense_order="amount")
+    inc_fig = build_hist_single(df, _START, _END, "Income", expense_order="amount")
+    exp_fig = build_hist_single(df, _START, _END, "Expense", expense_order="amount")
     data = df[(df["Period"] >= pd.Timestamp(_START))]
     inc = _category_breakdown(data, "Income")
     exp = _category_breakdown(data, "Expense")
-    income_bar, expense_bar = _bars(fig)
-    assert list(income_bar.x) == list(inc["Category"])       # amount-desc, like the pie
-    assert list(expense_bar.x) == list(exp["Category"])
+    assert list(_bars(inc_fig)[0].x) == list(inc["Category"])   # amount-desc, like the pie
+    assert list(_bars(exp_fig)[0].x) == list(exp["Category"])
 
 
 def test_bar_colours_match_pie_shade():
-    fig = build_hist_figure(_ledger(), _START, _END, expense_order="amount")
-    income_bar, expense_bar = _bars(fig)
-    assert list(income_bar.marker.color) == _shade(len(income_bar.x), "Greens")
-    assert list(expense_bar.marker.color) == _shade(len(expense_bar.x), "Reds")
+    inc_bar = _bars(build_hist_single(_ledger(), _START, _END, "Income"))[0]
+    exp_bar = _bars(build_hist_single(_ledger(), _START, _END, "Expense"))[0]
+    assert list(inc_bar.marker.color) == _shade(len(inc_bar.x), "Greens")
+    assert list(exp_bar.marker.color) == _shade(len(exp_bar.x), "Reds")
 
 
 def test_bucket_mode_orders_needs_before_wants():
-    fig = build_hist_figure(_ledger(), _START, _END, expense_order="bucket")
-    expense_bar = _bars(fig)[1]
+    fig = build_hist_single(_ledger(), _START, _END, "Expense", expense_order="bucket")
+    expense_bar = _bars(fig)[0]
     cats = list(expense_bar.x)
     # Food + Bills are Needs; Social Life is Wants — Needs come first.
     assert cats.index("Food") < cats.index("Social Life")
     assert cats.index("Bills") < cats.index("Social Life")
-    # Needs blue, Wants orange (first Needs bar vs the Wants bar).
+    # Needs blue, Wants orange (the Wants bar).
     colors = list(expense_bar.marker.color)
     assert colors[cats.index("Social Life")] in _shade(1, "Oranges")
 
@@ -76,14 +87,14 @@ def test_hidden_cost_adds_slate_bar():
         {"Period": "2026-06-06", "Income/Expense": "Adjustment-Out", "Category": "x",
          "Amount": 1_200},
     ])
-    fig = build_hist_figure(df, _START, _END)
-    expense_bar = next(t for t in _bars(fig)
-                       if "Hidden cost (untracked)" in list(t.x))
+    fig = build_hist_single(df, _START, _END, "Expense")
+    expense_bar = _bars(fig)[0]
+    assert "Hidden cost (untracked)" in list(expense_bar.x)
     assert list(expense_bar.marker.color)[-1] == _HIDDEN_COLOR
 
 
 def test_censor_masks_values():
-    fig = build_hist_figure(_ledger(), _START, _END, censor=True)
+    fig = build_hist_single(_ledger(), _START, _END, "Income", censor=True)
     income_bar = _bars(fig)[0]
     assert "*****" in income_bar.hovertemplate
     assert all(t == "" for t in income_bar.text)          # no printed amounts
@@ -91,7 +102,8 @@ def test_censor_masks_values():
 
 
 def test_empty_data_has_no_bars_but_notes_it():
-    fig = build_hist_figure(make_df([]), _START, _END)
-    assert _bars(fig) == []
-    texts = [a.text for a in fig.layout.annotations]
-    assert texts.count("No data") == 2
+    for side in ("Income", "Expense"):
+        fig = build_hist_single(make_df([]), _START, _END, side)
+        assert _bars(fig) == []
+        texts = [a.text for a in fig.layout.annotations]
+        assert texts.count("No data") == 1

@@ -64,10 +64,9 @@ TRANSLATIONS_TH: dict[str, str] = {
 
     # ── Money Flow page + figure ───────────────────────────────────────────────
     "Running balance across your accounts, with a forward forecast "
-    "(dashed) and 50% / 90% uncertainty bands. Zoom/pan to explore; "
-    "click an account in the legend to show/hide it.":
+    "(dashed) and 50% / 90% uncertainty bands. Zoom/pan to explore.":
         "ยอดคงเหลือสะสมของทุกบัญชีพร้อมการพยากรณ์ล่วงหน้า (เส้นประ) "
-        "   ซูม/เลื่อนเพื่อดูกราฟย้อนหลัง คลิกชื่อบัญชีพื่อแสดง/ซ่อน",
+        "   ซูม/เลื่อนเพื่อดูกราฟย้อนหลัง",
     "Forecast:": "พยากรณ์:",
     "30 d": "30 วัน",
     "90 d": "90 วัน",

@@ -404,36 +404,19 @@ def _retire_view():
     graph_card = card(
         html.Div(
             [
-                # Header row: Log y-axis toggle + a Landscape button (mobile only)
-                # that opens the chart full-screen and rotated (see the clientside
-                # callback + .landscape CSS).
+                # Header row: Log y-axis toggle (right-aligned).
                 html.Div(
-                    [
-                        _logy_toggle("ci-ret-logy"),
-                        html.Button(ls_enter_children(), id="ci-ret-ls-enter",
-                                    n_clicks=0, className="ls-enter"),
-                    ],
-                    className="ls-head",
+                    _logy_toggle("ci-ret-logy"),
                     style={"display": "flex", "justifyContent": "flex-end",
                            "alignItems": "center", "gap": "10px"},
                 ),
-                html.Div(
-                    [
-                        html.Button(ls_exit_children(),
-                                    id="ci-ret-ls-exit", n_clicks=0,
-                                    className="ls-exit"),
-                        dcc.Graph(id="ci-ret-graph", className="ls-graph",
-                                  style={"height": "460px"},
-                                  config={"scrollZoom": True, "displaylogo": False,
-                                          "responsive": True,
-                                          "modeBarButtonsToRemove": [
-                                              "zoom2d", "select2d", "lasso2d"]}),
-                    ],
-                    className="ls-inner",
-                ),
-                dcc.Store(id="ci-ret-ls-dummy"),
+                dcc.Graph(id="ci-ret-graph",
+                          style={"height": "460px"},
+                          config={"scrollZoom": True, "displaylogo": False,
+                                  "responsive": True,
+                                  "modeBarButtonsToRemove": [
+                                      "zoom2d", "select2d", "lasso2d"]}),
             ],
-            id="ci-ret-graph-box", className="ls-box",
         ),
         style={"flex": "1", "marginLeft": "20px"},
     )
@@ -642,18 +625,7 @@ clientside_callback(
 )
 
 
-# Expand the retirement chart full-screen (rotate on phones, fill on computers) — the
-# shared .ls-box toggle that drives every chart.
-clientside_callback(
-    LANDSCAPE_JS,
-    Output("ci-ret-ls-dummy", "data"),
-    Input("ci-ret-ls-enter", "n_clicks"),
-    Input("ci-ret-ls-exit", "n_clicks"),
-    prevent_initial_call=True,
-)
-
-
-# Same toggle for the Simple Compound Interest Calculator chart.
+# Landscape/full-screen toggle for the Simple Compound Interest Calculator chart.
 clientside_callback(
     LANDSCAPE_JS,
     Output("ci-ls-dummy", "data"),

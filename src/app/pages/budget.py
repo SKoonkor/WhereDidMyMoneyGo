@@ -400,11 +400,11 @@ def _spending_card(prev_options: list, prev_default: str, current_label: str) ->
                                         className="ls-exit"),
                             html.Div(
                                 [
-                                    _month_column("prev", prev_header,
-                                                  "budget-pie-prev", "budget-list-prev"),
                                     _month_column("current", current_header,
                                                   "budget-pie-current",
                                                   "budget-list-current"),
+                                    _month_column("prev", prev_header,
+                                                  "budget-pie-prev", "budget-list-prev"),
                                 ],
                                 className="budget-pies-row",
                                 style={"display": "flex", "gap": "20px",
@@ -781,7 +781,7 @@ def _render_subcat_detail(prev_value, sort, _refresh, sel):
 
 # Box-visibility only; the pies' flex row layout lives on .budget-pies-row and the
 # trend's positioning on its .ls-inner, so these boxes just toggle display (keeping
-# the inline `position` off the .ls-box so .ls-box.landscape's fixed overlay wins).
+# the inline `position` off the .ls-box so .ls-box.fullscreen's fixed overlay wins).
 _PIES_STYLE = {"display": "block"}
 _DESC_STYLE = {"color": theme.MUTED, "marginTop": "4px", "fontSize": "13px"}
 

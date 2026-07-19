@@ -73,6 +73,24 @@ def _event_band(fig, ev, color, ages, label, y_paper):
     # NB: ``label`` is already translated (or a user goal name) at the call site.
 
 
+def _stagger_y(items, x_of, ages, y_start: float, y_step: float,
+               threshold: float = 0.10) -> list:
+    """Pair each item with a paper y-position for its label, sorted by x. When two
+    consecutive items sit within ``threshold`` of each other (as a fraction of the
+    age span) — e.g. goals of similar cost bought at similar ages — the label steps
+    down one level so the text doesn't stack; a comfortable gap resets to ``y_start``.
+    Returns ``[(item, y), …]``."""
+    x0, x1 = float(ages[0]), float(ages[-1])
+    span = (x1 - x0) or 1.0
+    out, last_x, level = [], None, 0
+    for it in sorted(items, key=x_of):
+        x = float(x_of(it))
+        level = level + 1 if (last_x is not None and (x - last_x) / span < threshold) else 0
+        last_x = x
+        out.append((it, y_start - level * y_step))
+    return out
+
+
 def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                             show_real: bool = True, logy: bool = False,
                             mc: dict | None = None) -> go.Figure:
@@ -212,15 +230,36 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                                age=f"{freedom_age:.0f}"),
                            font=dict(color=FREEDOM_COLOR, size=12))
 
+    # Goal purchases (plain projection, no Monte Carlo): a vertical line + label at
+    # each goal's ×factor buy age — the same guide the MC mode shows, so goals are
+    # visible without running the simulation. Labels stagger downward when goals are
+    # bought close together (similar cost → similar age) so they don't overlap.
+    if mc is None and has_goals:
+        hits = res.get("goal_hits_factor") or []
+        x0, x1 = float(ages[0]), float(ages[-1])
+        for h, y in _stagger_y(hits, lambda g: g["age"], ages, 0.76, 0.08):
+            x = float(h["age"])
+            frac = (x - x0) / (x1 - x0) if x1 > x0 else 0.0
+            xa, xs = ("right", -4) if frac > 0.6 else ("left", 4)
+            fig.add_vline(x=x, line=dict(color=GOAL_COLOR, dash="dot", width=1))
+            fig.add_annotation(x=x, yref="paper", y=y, yanchor="top", xanchor=xa,
+                               xshift=xs, showarrow=False,
+                               text=f"{h['name']} · {x:.0f}",
+                               font=dict(color=GOAL_COLOR, size=12))
+
     # Monte Carlo event spreads: each drawn as a vertical 16–84% band + median line.
     if mc is not None:
         _event_band(fig, mc.get("depletion"), theme.EXPENSE_COLOR, ages,
                     t("Funds depleted"), 0.92)
         _event_band(fig, mc.get("freedom"), FREEDOM_COLOR, ages,
                     t("Financial freedom"), 0.84)
-        for ev in (mc.get("goal_events") or []):
-            if ev.get("prob", 0) > 0:
-                _event_band(fig, ev, GOAL_COLOR, ages, ev["name"], 0.76)
+        # Stagger goal labels by median age so similar-age goals don't stack.
+        goal_evs = [ev for ev in (mc.get("goal_events") or []) if ev.get("prob", 0) > 0]
+        for ev, y in _stagger_y(
+                goal_evs,
+                lambda e: e["p50"] if e.get("p50") is not None else ages[-1],
+                ages, 0.76, 0.08):
+            _event_band(fig, ev, GOAL_COLOR, ages, ev["name"], y)
 
     # Y-axis. On a log scale, show the full span (small→large is what log is for) with
     # a floor a few decades below the peak; annotations/vlines are paper/x-referenced
@@ -247,8 +286,6 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     fig.update_layout(
         template=ft.template,
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        title=dict(text=t("Retirement projection"), x=0.5, xanchor="center",
-                   y=0.97, yanchor="top"),
         xaxis=dict(title=t("Age"), range=[float(ages[0]), float(ages[-1])]),
         yaxis=yaxis,
         hovermode="x unified",
@@ -256,6 +293,6 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                         font=dict(color=ft.ink)),
         dragmode="pan",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
-        margin=dict(t=90, b=40, l=60, r=20),
+        margin=dict(t=64, b=40, l=60, r=20),
     )
     return fig

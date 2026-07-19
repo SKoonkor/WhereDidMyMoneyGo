@@ -134,7 +134,7 @@ def build_money_flow_figure(
         ], axis=-1)
         fig.add_trace(go.Bar(
             x=sub["x"], y=sub["height"], base=sub["base"], width=sub["width_ms"],
-            name=account,
+            name=account, showlegend=False,   # bars still drawn; legend shows forecast only
             marker=dict(color=theme.account_color(account, i),
                         line=dict(color=ft.bar_outline, width=line_widths)),
             customdata=customdata,
@@ -237,8 +237,9 @@ def build_money_flow_figure(
         # leave the compact home snapshot alone so its click-to-navigate still works.
         dragmode=(None if compact else "pan"),
         uirevision="flow",  # keep zoom/pan when the theme toggles
-        legend=dict(title=t("Accounts (click to toggle)"), orientation="h",
-                    yanchor="bottom", y=1.02, x=0),
+        # Only the forecast (line + 50%/90% bands) appears in the legend; the
+        # per-account bars are drawn but hidden from the legend to keep it clean.
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0),
         xaxis=dict(range=[x0, x1], showgrid=False, type="date"),
         # Privacy mode: hide the y tick labels so exact balances aren't readable.
         # `fixedrange` locks the y-axis on the interactive page chart so pan and

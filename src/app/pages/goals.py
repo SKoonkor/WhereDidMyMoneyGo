@@ -160,11 +160,13 @@ def layout(**_):
                                      style={"color": theme.ACCENT, "marginTop": "10px",
                                             "fontSize": "13px"}),
                         ],
+                        className="goals-list-card",
                         style={"flex": "0 0 320px"},
                     ),
                     card(
                         dcc.Graph(id="goals-gauge", style={"height": "520px"},
                                   config={"displayModeBar": False, "responsive": True}),
+                        className="goals-gauge-card",
                         style={"flex": "1", "marginLeft": "20px"},
                     ),
                 ],

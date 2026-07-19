@@ -46,8 +46,7 @@ def layout(**_):
             page_header(
                 "Money Flow",
                 "Running balance across your accounts, with a forward forecast "
-                "(dashed) and 50% / 90% uncertainty bands. Zoom/pan to explore; "
-                "click an account in the legend to show/hide it.",
+                "(dashed) and 50% / 90% uncertainty bands. Zoom/pan to explore.",
             ),
             dcc.Store(id="flow-forecast-refresh", data=0),
             dcc.Store(id="flow-reset-sink"),
