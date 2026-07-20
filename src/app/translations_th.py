@@ -984,13 +984,10 @@ TRANSLATIONS_TH: dict[str, str] = {
     "Today's money": "มูลค่าเงินวันนี้",
     "Age": "อายุ",
     "{name} bought · age {age}": "ซื้อ {name} · อายุ {age}",
-    "Retire · {age}": "เกษียณ · {age}",
-    "Funds depleted · age {age}": "เงินหมด · อายุ {age}",
-    "Funds depleted · age {age} →": "เงินหมด · อายุ {age} →",
-    "Funds depleted · 100+ yr →": "เงินหมด · 100+ ปี →",
-    "Financial freedom · age {age}": "อิสรภาพทางการเงิน · อายุ {age}",
+    "Retire": "เกษียณ",
     "Funds depleted": "เงินหมด",
-    "Retirement projection": "การคาดการณ์การเกษียณ",
+    # Age suffix appended to every "<label>: <age>" marker (e.g. "31yo" / "31 ปี").
+    "yo": " ปี",
 
     # ── Investing Simulator page + figures ──────────────────────────────────────
     " · CLOSED": " · ปิดแล้ว",

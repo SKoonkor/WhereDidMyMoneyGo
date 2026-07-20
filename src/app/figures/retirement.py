@@ -24,12 +24,34 @@ t = make_t("compound")
 PLAIN_COLOR = "#e84393"   # matches the Simple calculator's no-factor line
 FREEDOM_COLOR = "#f1c40f"  # gold vertical line for the financial-freedom age
 GOAL_COLOR = "#8e44ad"    # purple vertical band for goal-achievement age (MC mode)
+GOAL_COLOR_DARK = "#5b2c6f"  # darker purple — goal lines alternate the two by order
+# Goal-achievement lines/labels swap between these two shades in the order they
+# appear along the x-axis (1st purple, 2nd dark, 3rd purple, …) so adjacent goals
+# read as distinct even when their labels sit close together.
+GOAL_COLORS = [GOAL_COLOR, GOAL_COLOR_DARK]
 
 
 def _rgba(hex_color: str, alpha: float) -> str:
     h = hex_color.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
+
+
+def _leader_label(fig, x, y_paper, text, color, to_right: bool):
+    """Goal label with a short 30°-down leader linking it to its vertical line at
+    ``x``. The label floats up and to the side (right when ``to_right`` else left) and
+    Plotly draws the connector from the text-box edge — near the 3rd / last-3 letters —
+    down onto the line, so it never strikes through the text. Pixel offsets keep the
+    30° angle constant at any chart height."""
+    dx = 34 if to_right else -34          # horizontal offset (text sits beside the line)
+    dy = -abs(dx) * 0.5774                # tan(30°): text floats above the on-line head
+    fig.add_annotation(
+        x=x, y=y_paper, xref="x", yref="paper",
+        ax=dx, ay=dy, axref="pixel", ayref="pixel",
+        text=text, showarrow=True, arrowhead=0, arrowwidth=1.2, arrowcolor=color,
+        xanchor=("left" if to_right else "right"), yanchor="bottom",
+        font=dict(color=color, size=12),
+    )
 
 
 def _band(fig, x, lo, hi, fill):
@@ -42,10 +64,12 @@ def _band(fig, x, lo, hi, fill):
                              showlegend=False))
 
 
-def _event_band(fig, ev, color, ages, label, y_paper):
+def _event_band(fig, ev, color, ages, label, y_paper, age_suffix, connector=False):
     """Draw a Monte Carlo event (freedom / depletion / a goal) as a vertical shaded band
     spanning its 16th–84th-percentile age, with a dashed median line and a label at the
-    median. ``ev`` is ``{"p16","p50","p84",...}``; a no-op when ``ev`` is falsy.
+    median. ``ev`` is ``{"p16","p50","p84",...}``; a no-op when ``ev`` is falsy. The
+    label reads ``"<label>: <age><age_suffix>"`` (e.g. "iPad Pro: 31yo"). ``connector``
+    adds the short 30° leader linking the label to its line (goals only).
 
     The funds-out event reports its percentiles over ALL runs, so any of them may be
     ``None`` — "past life expectancy". The band is then clipped to the chart's right
@@ -61,15 +85,19 @@ def _event_band(fig, ev, color, ages, label, y_paper):
     if p50 is None:
         fig.add_annotation(x=x1, yref="paper", y=y_paper, yanchor="top",
                            xanchor="right", xshift=-4, showarrow=False,
-                           text=f"{label} · {x1:.0f}+",
+                           text=f"{label}: {x1:.0f}+{age_suffix}",
                            font=dict(color=color, size=12))
         return
     fig.add_vline(x=p50, line=dict(color=color, dash="dash", width=1.5))
     frac = (p50 - x0) / (x1 - x0) if x1 > x0 else 0.0
-    xa, xs = ("right", -4) if frac > 0.6 else ("left", 4)
-    fig.add_annotation(x=p50, yref="paper", y=y_paper, yanchor="top", xanchor=xa,
-                       xshift=xs, showarrow=False, text=f"{label} · {p50:.0f}",
-                       font=dict(color=color, size=12))
+    text = f"{label}: {p50:.0f}{age_suffix}"
+    if connector:   # goals: label floats with a 30° leader down to the line
+        _leader_label(fig, p50, y_paper, text, color, to_right=(frac <= 0.6))
+    else:
+        xa, xs = ("right", -4) if frac > 0.6 else ("left", 4)
+        fig.add_annotation(x=p50, yref="paper", y=y_paper, yanchor="top", xanchor=xa,
+                           xshift=xs, showarrow=False, text=text,
+                           font=dict(color=color, size=12))
     # NB: ``label`` is already translated (or a user goal name) at the call site.
 
 
@@ -99,6 +127,9 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     ret_age = float(res["retirement_age"])
     life = float(res["life_expectancy"])
     has_goals = res.get("has_goals")
+    # Age suffix for every "<label>: <age>…" marker (e.g. "iPad Pro: 31yo"); localised
+    # ("yo" in English, " ปี" in Thai) so all age labels read consistently.
+    age_suffix = t("yo")
 
     fig = go.Figure()
 
@@ -184,7 +215,7 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     fig.add_vline(x=ret_age, line=dict(color=ft.muted, dash="dot", width=1.5))
     fig.add_annotation(x=ret_age, yref="paper", y=1.0, yanchor="bottom",
                        showarrow=False,
-                       text=t("Retire · {age}").format(age=f"{ret_age:g}"),
+                       text=f"{t('Retire')}: {ret_age:g}{age_suffix}",
                        font=dict(color=ft.ink, size=12))
 
     # Savings-running-out marker. Within life expectancy it's a red line at the
@@ -201,15 +232,14 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
         fig.add_annotation(x=float(depletion_age), yref="paper", y=0.92,
                            yanchor="top", xanchor=xanchor, xshift=xshift,
                            showarrow=False,
-                           text=t("Funds depleted · age {age}").format(
-                               age=f"{depletion_age:.0f}"),
+                           text=f"{t('Funds depleted')}: {depletion_age:.0f}{age_suffix}",
                            font=dict(color=theme.EXPENSE_COLOR, size=12))
     elif mc is None:
         # Funds last through life expectancy — note when they'd eventually deplete.
         # (Skipped in Monte Carlo mode, where the success probability carries this.)
-        txt = (t("Funds depleted · age {age} →").format(age=f"{late_dep:.0f}")
+        txt = (f"{t('Funds depleted')}: {late_dep:.0f}{age_suffix} →"
                if late_dep is not None
-               else t("Funds depleted · 100+ yr →"))
+               else f"{t('Funds depleted')}: 100+{age_suffix} →")
         fig.add_annotation(xref="paper", x=0.995, xanchor="right",
                            yref="paper", y=0.92, yanchor="top", showarrow=False,
                            text=txt, font=dict(color=ft.muted, size=12))
@@ -226,8 +256,7 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
                       line=dict(color=FREEDOM_COLOR, dash="dash", width=1.5))
         fig.add_annotation(x=float(freedom_age), yref="paper", y=0.84,
                            yanchor="top", xanchor=fxa, xshift=fxs, showarrow=False,
-                           text=t("Financial freedom · age {age}").format(
-                               age=f"{freedom_age:.0f}"),
+                           text=f"{t('Financial freedom')}: {freedom_age:.0f}{age_suffix}",
                            font=dict(color=FREEDOM_COLOR, size=12))
 
     # Goal purchases (plain projection, no Monte Carlo): a vertical line + label at
@@ -237,29 +266,29 @@ def build_retirement_figure(res: dict, currency: str = "THB", dark: bool = True,
     if mc is None and has_goals:
         hits = res.get("goal_hits_factor") or []
         x0, x1 = float(ages[0]), float(ages[-1])
-        for h, y in _stagger_y(hits, lambda g: g["age"], ages, 0.76, 0.08):
+        for i, (h, y) in enumerate(_stagger_y(hits, lambda g: g["age"], ages, 0.76, 0.08)):
             x = float(h["age"])
+            color = GOAL_COLORS[i % 2]   # alternate purple / dark purple by x-order
             frac = (x - x0) / (x1 - x0) if x1 > x0 else 0.0
-            xa, xs = ("right", -4) if frac > 0.6 else ("left", 4)
-            fig.add_vline(x=x, line=dict(color=GOAL_COLOR, dash="dot", width=1))
-            fig.add_annotation(x=x, yref="paper", y=y, yanchor="top", xanchor=xa,
-                               xshift=xs, showarrow=False,
-                               text=f"{h['name']} · {x:.0f}",
-                               font=dict(color=GOAL_COLOR, size=12))
+            fig.add_vline(x=x, line=dict(color=color, dash="dot", width=1))
+            _leader_label(fig, x, y, f"{h['name']}: {x:.0f}{age_suffix}", color,
+                          to_right=(frac <= 0.6))
 
     # Monte Carlo event spreads: each drawn as a vertical 16–84% band + median line.
     if mc is not None:
         _event_band(fig, mc.get("depletion"), theme.EXPENSE_COLOR, ages,
-                    t("Funds depleted"), 0.92)
+                    t("Funds depleted"), 0.92, age_suffix)
         _event_band(fig, mc.get("freedom"), FREEDOM_COLOR, ages,
-                    t("Financial freedom"), 0.84)
-        # Stagger goal labels by median age so similar-age goals don't stack.
+                    t("Financial freedom"), 0.84, age_suffix)
+        # Stagger goal labels by median age so similar-age goals don't stack; alternate
+        # the two purple shades by order along the x-axis.
         goal_evs = [ev for ev in (mc.get("goal_events") or []) if ev.get("prob", 0) > 0]
-        for ev, y in _stagger_y(
+        for i, (ev, y) in enumerate(_stagger_y(
                 goal_evs,
                 lambda e: e["p50"] if e.get("p50") is not None else ages[-1],
-                ages, 0.76, 0.08):
-            _event_band(fig, ev, GOAL_COLOR, ages, ev["name"], y)
+                ages, 0.76, 0.08)):
+            _event_band(fig, ev, GOAL_COLORS[i % 2], ages, ev["name"], y,
+                        age_suffix, connector=True)
 
     # Y-axis. On a log scale, show the full span (small→large is what log is for) with
     # a floor a few decades below the peak; annotations/vlines are paper/x-referenced
