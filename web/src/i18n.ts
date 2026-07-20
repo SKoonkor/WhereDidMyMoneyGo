@@ -114,6 +114,18 @@ const TH: Record<string, string> = {
   'That file is not valid JSON.': 'ไฟล์นี้ไม่ใช่ JSON ที่ถูกต้อง',
   "This doesn't look like a Money Tracker backup file.":
     'ไฟล์นี้ดูเหมือนจะไม่ใช่ไฟล์สำรองของ Money Tracker',
+  // General settings.
+  General: 'ทั่วไป',
+  'App name': 'ชื่อแอป',
+  'Base currency': 'สกุลเงินหลัก',
+  'Month start day': 'วันเริ่มต้นเดือน',
+  'Shown in the header and on the home screen icon label.':
+    'แสดงในส่วนหัวและป้ายไอคอนบนหน้าจอหลัก',
+  'Stamped on new transactions and shown across the app.':
+    'ประทับบนธุรกรรมใหม่และแสดงทั่วทั้งแอป',
+  'The day each budgeting month begins (1–28). Used by Budget.':
+    'วันที่แต่ละเดือนงบประมาณเริ่มต้น (1–28) ใช้โดยงบประมาณ',
+  'Changes are saved automatically.': 'บันทึกการเปลี่ยนแปลงโดยอัตโนมัติ',
 }
 
 export function getLang(): Lang {

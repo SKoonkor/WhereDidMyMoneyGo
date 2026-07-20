@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, getAccounts, getCategories } from '../../db'
-import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, type Categories } from '../../data/defaults'
+import { getAccounts, getCategories, getSettings } from '../../db'
+import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, DEFAULT_SETTINGS, type Categories, type Settings } from '../../data/defaults'
 
 // Live accounts list (re-renders when Manage edits it).
 export function useAccounts(): string[] {
@@ -12,13 +12,17 @@ export function useCategories(): Categories {
   return useLiveQuery(() => getCategories(), [], DEFAULT_CATEGORIES) ?? DEFAULT_CATEGORIES
 }
 
+// Live full settings object.
+export function useSettings(): Settings {
+  return useLiveQuery(() => getSettings(), [], DEFAULT_SETTINGS) ?? DEFAULT_SETTINGS
+}
+
 // Live settings-derived base currency (for display).
 export function useBaseCurrency(): string {
-  return (
-    useLiveQuery(
-      async () => ((await db.config.get('settings'))?.value as { baseCurrency?: string })?.baseCurrency ?? 'THB',
-      [],
-      'THB',
-    ) ?? 'THB'
-  )
+  return useSettings().baseCurrency
+}
+
+// Live app name (drives the header brand + document title).
+export function useAppName(): string {
+  return useSettings().appName
 }

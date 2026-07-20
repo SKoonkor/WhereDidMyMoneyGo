@@ -1,7 +1,9 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { HashRouter, NavLink, Routes, Route } from 'react-router-dom'
 import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
+import { useAppName } from './features/transactions/useConfig'
+import { DEFAULT_SETTINGS } from './data/defaults'
 import { Home } from './features/Home'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
@@ -20,10 +22,15 @@ function Header() {
   const [theme, toggleTheme] = useTheme()
   const [censor, toggleCensor] = useCensor()
   const [lang, toggleLang] = useLang()
+  const appName = useAppName()
+  // Keep the default name translatable (Thai title), but show a custom name
+  // verbatim. Mirror the chosen name into the browser/tab title too.
+  const brand = appName === DEFAULT_SETTINGS.appName ? t('Where Did My Money Go') : appName
+  useEffect(() => { document.title = brand }, [brand])
   return (
     <header className="app-header">
       <NavLink to="/" className="brand">
-        {t('Where Did My Money Go')}
+        {brand}
         <span className="dot">.</span>
       </NavLink>
       <div className="header-tools">
