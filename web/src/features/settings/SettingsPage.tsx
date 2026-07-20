@@ -23,8 +23,8 @@ function GeneralSettings() {
   }
 
   return (
-    <section className="manage-section">
-      <h2 className="manage-h2">{t('General')}</h2>
+    <section className="set-card">
+      <h2 className="set-card-title">{t('General')}</h2>
 
       <div className="set-field">
         <label>{t('App name')}</label>
@@ -76,21 +76,20 @@ export function SettingsPage() {
 
       <GeneralSettings />
 
-      <div className="settings-links">
-        <Link to="/manage" className="settings-link">
-          <span className="settings-link-title">{t('Manage accounts & categories')}</span>
-          <span className="settings-link-desc">{t('Add, rename, reorder, or remove accounts and categories.')}</span>
-        </Link>
-        <Link to="/import" className="settings-link">
-          <span className="settings-link-title">{t('Import')}</span>
-          <span className="settings-link-desc">{t('Bring in a CSV or Excel export from another money app.')}</span>
-        </Link>
-        <Link to="/backup" className="settings-link">
-          <span className="settings-link-title">{t('Export & backup')}</span>
-          <span className="settings-link-desc">{t('Export a spreadsheet, or back up and restore all your data.')}</span>
-        </Link>
-      </div>
-      <p className="muted" style={{ marginTop: 20 }}>
+      <Link to="/manage" className="set-card set-card-link">
+        <span className="set-card-title">{t('Manage accounts & categories')}</span>
+        <span className="set-card-desc">{t('Add, rename, reorder, or remove accounts and categories.')}</span>
+      </Link>
+      <Link to="/import" className="set-card set-card-link">
+        <span className="set-card-title">{t('Import')}</span>
+        <span className="set-card-desc">{t('Bring in a CSV or Excel export from another money app.')}</span>
+      </Link>
+      <Link to="/backup" className="set-card set-card-link">
+        <span className="set-card-title">{t('Export & backup')}</span>
+        <span className="set-card-desc">{t('Export a spreadsheet, or back up and restore all your data.')}</span>
+      </Link>
+
+      <p className="muted" style={{ marginTop: 4 }}>
         {t('Your data is stored on this device only.')}
       </p>
     </div>

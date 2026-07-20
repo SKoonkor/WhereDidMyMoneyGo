@@ -48,36 +48,140 @@
   filter: brightness(1.08);
 }
 
-/* Primary nav — a horizontal bar that scrolls on narrow screens. */
-.app-nav {
-  display: flex;
-  gap: 4px;
-  padding: 6px clamp(12px, 4vw, 28px);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border-soft);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.app-nav a {
-  white-space: nowrap;
-  text-decoration: none;
-  color: var(--muted);
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-}
-.app-nav a.active {
-  color: var(--ink);
-  background: var(--surface-2);
-}
-
 .app-main {
   flex: 1;
   padding: 20px clamp(12px, 4vw, 28px);
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  /* Clear the fixed bottom tab bar (~64px) + the iPhone home indicator. */
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
   max-width: 900px;
   width: 100%;
   margin: 0 auto;
+}
+
+/* Bottom tab bar — the primary navigation. */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  gap: 2px;
+  padding: 8px 6px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border-soft);
+}
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  min-width: 0;
+}
+.bottom-nav-item svg {
+  width: 24px;
+  height: 24px;
+}
+.bottom-nav-item span {
+  white-space: nowrap;
+}
+.bottom-nav-item.active {
+  color: var(--accent);
+}
+/* Center ＋ action — a raised accent circle. */
+.bottom-nav-add {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  margin-top: -20px;
+  border-radius: 50%;
+  border: 4px solid var(--surface);
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.bottom-nav-add svg {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.4;
+}
+
+/* Apps launcher grid. */
+.apps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+.app-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  text-decoration: none;
+  color: var(--ink);
+}
+.app-tile:hover {
+  filter: brightness(1.05);
+}
+.app-tile-icon {
+  font-size: 26px;
+}
+.app-tile-label {
+  font-weight: 600;
+}
+.app-tile-desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Settings boxed sections (mirrors the Dash CARD_STYLE). */
+.set-card {
+  display: block;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  margin-bottom: 14px;
+}
+.set-card-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+.set-card-link {
+  text-decoration: none;
+  color: var(--ink);
+}
+.set-card-link .set-card-title {
+  margin-bottom: 2px;
+}
+.set-card-link:hover {
+  filter: brightness(1.05);
+}
+.set-card-desc {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .h1 {
@@ -173,24 +277,6 @@
   font-size: 12px;
   padding: 10px 4px 2px;
   border-bottom: 1px solid var(--border-soft);
-}
-
-/* Floating add button. */
-.fab {
-  position: fixed;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent);
-  color: #fff;
-  font-size: 28px;
-  line-height: 1;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-  z-index: 30;
 }
 
 /* Modal (bottom sheet on phones). */
@@ -348,36 +434,6 @@
   flex-basis: 100%;
   color: var(--expense);
   font-size: 12px;
-}
-
-/* Settings hub links. */
-.settings-links {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-}
-.settings-link {
-  display: block;
-  padding: 14px 16px;
-  border-radius: 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-soft);
-  text-decoration: none;
-  color: var(--ink);
-}
-.settings-link:hover {
-  filter: brightness(1.05);
-}
-.settings-link-title {
-  display: block;
-  font-weight: 600;
-}
-.settings-link-desc {
-  display: block;
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 2px;
 }
 
 /* Import wizard. */

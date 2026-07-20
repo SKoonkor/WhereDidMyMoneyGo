@@ -41,7 +41,6 @@ export function TransactionsPage() {
   const currency = useBaseCurrency()
   const [month, setMonth] = useState(currentMonthKey())
   const [editing, setEditing] = useState<Txn | null>(null)
-  const [adding, setAdding] = useState(false)
 
   const monthTxns = useMemo(() => filterByMonth(all, month), [all, month])
   const summary = useMemo(() => monthSummary(monthTxns), [monthTxns])
@@ -85,14 +84,9 @@ export function TransactionsPage() {
         ))
       )}
 
-      <button className="fab" onClick={() => setAdding(true)} aria-label={t('Add')}>＋</button>
-
-      {(adding || editing) && (
-        <Modal
-          title={editing ? t('Edit transaction') : t('Add transaction')}
-          onClose={() => { setAdding(false); setEditing(null) }}
-        >
-          <TxnForm editing={editing} onClose={() => { setAdding(false); setEditing(null) }} />
+      {editing && (
+        <Modal title={t('Edit transaction')} onClose={() => setEditing(null)}>
+          <TxnForm editing={editing} onClose={() => setEditing(null)} />
         </Modal>
       )}
     </div>
