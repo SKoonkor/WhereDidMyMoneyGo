@@ -1,0 +1,145 @@
+/* App shell layout — responsive header + nav, mirroring the Dash app's structure. */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px clamp(12px, 4vw, 28px);
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+.brand {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+  text-decoration: none;
+  margin-right: auto;
+}
+.brand .dot {
+  color: var(--accent);
+}
+
+.header-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.tool-btn {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.tool-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* Primary nav — a horizontal bar that scrolls on narrow screens. */
+.app-nav {
+  display: flex;
+  gap: 4px;
+  padding: 6px clamp(12px, 4vw, 28px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border-soft);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.app-nav a {
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--muted);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.app-nav a.active {
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+.app-main {
+  flex: 1;
+  padding: 20px clamp(12px, 4vw, 28px);
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  max-width: 900px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.h1 {
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  margin: 0 0 4px;
+}
+.muted {
+  color: var(--muted);
+}
+
+/* Simple form row used by the demo transactions feature. */
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.field {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.field label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.field input,
+.field select {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.txn-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+}
+.txn-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.txn-item .cat {
+  flex: 1;
+}
+.txn-item .amt.income {
+  color: var(--income);
+}
+.txn-item .amt.expense {
+  color: var(--expense);
+}
+.txn-item .del {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+}

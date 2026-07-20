@@ -1,0 +1,16 @@
+# Netlify deploy config (alternative to GitHub Pages).
+# In Netlify: "Add new site" → pick this repo → base directory = web.
+# Netlify serves at the site root, so no BASE_PATH override is needed.
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA fallback (harmless with HashRouter; future-proofs a switch to history routing).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

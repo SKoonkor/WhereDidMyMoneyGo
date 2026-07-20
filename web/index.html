@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <!-- viewport-fit=cover handles notched phones (matches the Dash app). -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#1abc9c" />
+    <meta name="description" content="Personal finance tracker — your data stays on your device." />
+
+    <!-- iOS "Add to Home Screen": open standalone (no Safari chrome) with an icon. -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MoneyGo" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+    <title>Where Did My Money Go</title>
+    <script>
+      // Apply saved theme before first paint to avoid a flash of the wrong
+      // background (mirrors the Dash app's inline head script).
+      (function () {
+        try {
+          var t = localStorage.getItem('pref-theme');
+          document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+          var c = localStorage.getItem('pref-censor');
+          document.documentElement.setAttribute('data-censor', c === 'on' ? 'on' : 'off');
+          var l = localStorage.getItem('pref-lang');
+          document.documentElement.setAttribute('data-lang', l === 'th' ? 'th' : 'en');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
