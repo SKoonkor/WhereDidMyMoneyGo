@@ -379,3 +379,73 @@
   color: var(--muted);
   margin-top: 2px;
 }
+
+/* Import wizard. */
+.file-drop {
+  display: block;
+  margin-top: 14px;
+  padding: 22px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  text-align: center;
+  cursor: pointer;
+}
+.file-drop input {
+  display: none;
+}
+.import-preset {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  font-size: 14px;
+}
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.import-issues {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+.import-unknown {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}
+.import-unknown .row {
+  margin-top: 6px;
+}
+.import-table-wrap {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.import-table th,
+.import-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+  text-align: left;
+}
+.import-table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+.import-done {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}

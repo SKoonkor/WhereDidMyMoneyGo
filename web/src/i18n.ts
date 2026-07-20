@@ -50,6 +50,48 @@ const TH: Record<string, string> = {
   'Delete "{name}"?': 'ลบ "{name}"?',
   'In use by {n} transaction(s) — reassign those first.':
     'ถูกใช้โดย {n} ธุรกรรม — โปรดย้ายธุรกรรมเหล่านั้นก่อน',
+  // Import.
+  Import: 'นำเข้า',
+  Type: 'ประเภท',
+  Inflow: 'เงินเข้า',
+  Outflow: 'เงินออก',
+  Description: 'รายละเอียด',
+  Currency: 'สกุลเงิน',
+  Id: 'รหัส',
+  TransferId: 'รหัสการโอน',
+  Preview: 'ตัวอย่าง',
+  Decimal: 'ทศนิยม',
+  Auto: 'อัตโนมัติ',
+  none: 'ไม่มี',
+  'Bring in a CSV or Excel export from another money app.':
+    'นำเข้าไฟล์ CSV หรือ Excel จากแอปการเงินอื่น',
+  'Import a CSV or Excel export from another money app. Your file is read on this device only.':
+    'นำเข้าไฟล์ CSV หรือ Excel จากแอปการเงินอื่น ไฟล์ของคุณถูกอ่านบนอุปกรณ์นี้เท่านั้น',
+  'Choose a .csv or .xlsx file': 'เลือกไฟล์ .csv หรือ .xlsx',
+  'Choose a different file': 'เลือกไฟล์อื่น',
+  'Could not read any columns from this file.': 'ไม่พบคอลัมน์ในไฟล์นี้',
+  'Could not read this file. Use a .csv or .xlsx export.':
+    'อ่านไฟล์นี้ไม่ได้ กรุณาใช้ไฟล์ .csv หรือ .xlsx',
+  'Detected format: {name}': 'รูปแบบที่ตรวจพบ: {name}',
+  'No preset matched — check the column mapping below.':
+    'ไม่พบรูปแบบสำเร็จรูป — โปรดตรวจสอบการจับคู่คอลัมน์ด้านล่าง',
+  'Column mapping': 'การจับคู่คอลัมน์',
+  'Date order': 'ลำดับวันที่',
+  '{n} ready': 'พร้อม {n} รายการ',
+  '{n} skipped': 'ข้าม {n} รายการ',
+  'New accounts in this file': 'บัญชีใหม่ในไฟล์นี้',
+  'Create new': 'สร้างใหม่',
+  'Map to {name}': 'จับคู่กับ {name}',
+  'New categories to be created: {list}': 'หมวดหมู่ใหม่ที่จะสร้าง: {list}',
+  '…and {n} more': '…และอีก {n} รายการ',
+  'Import {n} transactions': 'นำเข้า {n} ธุรกรรม',
+  'Importing…': 'กำลังนำเข้า…',
+  'Imported {n} transactions.': 'นำเข้า {n} ธุรกรรมแล้ว',
+  'New accounts added: {list}': 'เพิ่มบัญชีใหม่: {list}',
+  'New categories added: {list}': 'เพิ่มหมวดหมู่ใหม่: {list}',
+  'View transactions': 'ดูธุรกรรม',
+  'Import another file': 'นำเข้าไฟล์อื่น',
+  'Loading…': 'กำลังโหลด…',
 }
 
 export function getLang(): Lang {

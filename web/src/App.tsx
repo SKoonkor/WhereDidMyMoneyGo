@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { HashRouter, NavLink, Routes, Route } from 'react-router-dom'
 import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
@@ -7,6 +8,12 @@ import { SettingsPage } from './features/settings/SettingsPage'
 import { ManagePage } from './features/manage/ManagePage'
 import { Placeholder } from './features/Placeholder'
 import './App.css'
+
+// Code-split the importer: it pulls in SheetJS (~500 kB), which shouldn't sit in
+// the initial bundle since import is an occasional action.
+const ImportPage = lazy(() =>
+  import('./features/import/ImportPage').then((m) => ({ default: m.ImportPage })),
+)
 
 function Header() {
   const [theme, toggleTheme] = useTheme()
@@ -72,6 +79,14 @@ export default function App() {
             <Route path="/goals" element={<Placeholder title="Goals" />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/manage" element={<ManagePage />} />
+            <Route
+              path="/import"
+              element={
+                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
+                  <ImportPage />
+                </Suspense>
+              }
+            />
           </Routes>
         </main>
       </div>
