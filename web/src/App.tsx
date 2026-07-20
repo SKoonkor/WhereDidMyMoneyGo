@@ -4,7 +4,7 @@ import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
 import { useAppName } from './features/transactions/useConfig'
 import { DEFAULT_SETTINGS } from './data/defaults'
-import { Home } from './features/Home'
+import { HomePage } from './features/home/HomePage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { ManagePage } from './features/manage/ManagePage'
@@ -61,7 +61,7 @@ export default function App() {
         <Header />
         <main className="app-main">
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/apps" element={<AppsPage />} />
             <Route path="/budget" element={<Placeholder title="Budget" />} />

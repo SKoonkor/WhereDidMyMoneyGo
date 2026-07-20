@@ -39,8 +39,22 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // Cache the built app shell so it opens offline once installed.
+        // Precache the app shell so it opens offline once installed. Plotly
+        // (~4.6 MB, lazy-loaded only on dashboards) is excluded from the
+        // precache to keep installs lean and instead runtime-cached on first
+        // use, so charts still work offline after they've been viewed once.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globIgnores: ['**/plotly*.js'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/plotly.*\.js$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'plotly-lib',
+              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 90 },
+            },
+          },
+        ],
       },
       devOptions: { enabled: true },
     }),

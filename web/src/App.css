@@ -58,6 +58,45 @@
   margin: 0 auto;
 }
 
+/* Home dashboard. */
+.dash-card {
+  margin-top: 16px;
+}
+.dash-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nw-hero {
+  margin-top: 12px;
+}
+.nw-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.nw-value {
+  font-size: 34px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+.nw-cur {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.acct-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.acct-row:last-child {
+  border-bottom: none;
+}
+
 /* Bottom tab bar — the primary navigation. */
 .bottom-nav {
   position: fixed;

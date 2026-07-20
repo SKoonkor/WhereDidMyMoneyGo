@@ -35,6 +35,9 @@ const TH: Record<string, string> = {
   'Edit transaction': 'แก้ไขธุรกรรม',
   'Delete this transaction?': 'ลบธุรกรรมนี้?',
   'No transactions yet': 'ยังไม่มีธุรกรรม',
+  'Net worth': 'มูลค่าสุทธิ',
+  'Net worth · last 6 months': 'มูลค่าสุทธิ · 6 เดือนล่าสุด',
+  'Net worth trend': 'แนวโน้มมูลค่าสุทธิ',
   'Your data is stored on this device only.':
     'ข้อมูลของคุณถูกเก็บไว้ในอุปกรณ์นี้เท่านั้น',
   // Manage accounts & categories.
