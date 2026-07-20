@@ -2,13 +2,15 @@
 // settings as one JSON document. Restore is a full replace (guarded by a
 // confirm in the UI). Nothing here talks to a server.
 import {
-  db, listTxns, getAccounts, getCategories, getSettings,
-  saveAccounts, saveCategories, saveSettings, type Txn,
+  db, listTxns, getAccounts, getCategories, getSettings, getBudget, getGoals, getReconcileState,
+  saveAccounts, saveCategories, saveSettings, saveBudget, saveGoals, saveReconcileState, type Txn,
 } from '../../db'
-import type { Categories, Settings } from '../../data/defaults'
+import type { BudgetCfg, Categories, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
 
 const APP_TAG = 'where-did-my-money-go'
-const BACKUP_VERSION = 1
+// v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals
+// config. Older v1 files still restore (the new keys are optional and left as-is).
+const BACKUP_VERSION = 2
 
 export interface Backup {
   app: typeof APP_TAG
@@ -18,6 +20,9 @@ export interface Backup {
   accounts: string[]
   categories: Categories
   settings: Settings
+  budget?: BudgetCfg
+  goals?: GoalsCfg
+  reconcile?: ReconcileState
 }
 
 export async function makeBackup(): Promise<Backup> {
@@ -29,6 +34,9 @@ export async function makeBackup(): Promise<Backup> {
     accounts: await getAccounts(),
     categories: await getCategories(),
     settings: await getSettings(),
+    budget: await getBudget(),
+    goals: await getGoals(),
+    reconcile: await getReconcileState(),
   }
 }
 
@@ -65,6 +73,11 @@ export async function restoreBackup(b: Backup): Promise<RestoreResult> {
     await saveAccounts(b.accounts)
     await saveCategories(b.categories)
     if (b.settings) await saveSettings(b.settings)
+    // v2 keys — only overwrite when the backup carries them, so restoring an
+    // older v1 file leaves the current budget/goals config untouched.
+    if (b.budget) await saveBudget(b.budget)
+    if (b.goals) await saveGoals(b.goals)
+    if (b.reconcile) await saveReconcileState(b.reconcile)
   })
   return { transactions: b.transactions.length, accounts: b.accounts.length }
 }

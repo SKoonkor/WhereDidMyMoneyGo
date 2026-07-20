@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts } from '../../db'
+import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts, getBudget, getGoals, saveBudget, saveGoals } from '../../db'
 import { toExportRecords, toCsv } from './exporter'
 import { makeBackup, parseBackup, restoreBackup } from './backup'
 
@@ -61,6 +61,36 @@ describe('backup / restore', () => {
     const legs = (await listTxns()).filter((r) => r.type.startsWith('Transfer'))
     expect(legs[0].transferId).toBeTruthy()
     expect(legs[0].transferId).toBe(legs[1].transferId)
+  })
+
+  it('round-trips budget + goals config (v2)', async () => {
+    await saveBudget({ ...(await getBudget()), mode: 'rolling', fixedIncome: 12345, assignments: { Food: 'Wants' } })
+    await saveGoals({ goals: { Car: 300000 }, factors: { Car: 2 }, selected: ['Car'] })
+
+    const backup = await makeBackup()
+    expect(backup.version).toBe(2)
+    expect(backup.budget?.mode).toBe('rolling')
+    expect(backup.goals?.selected).toEqual(['Car'])
+
+    await db.transactions.clear()
+    await db.config.clear()
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+
+    expect((await getBudget()).fixedIncome).toBe(12345)
+    expect((await getBudget()).assignments.Food).toBe('Wants')
+    expect((await getGoals()).factors.Car).toBe(2)
+    expect((await getGoals()).selected).toEqual(['Car'])
+  })
+
+  it('restores an older v1 file (no budget/goals) without wiping current config', async () => {
+    await saveGoals({ goals: { Trip: 50000 }, factors: {}, selected: [] })
+    const v1 = {
+      app: 'where-did-my-money-go', version: 1, exportedAt: new Date().toISOString(),
+      transactions: [], accounts: ['Cash'], categories: { income: {}, expense: {} },
+    }
+    await restoreBackup(parseBackup(JSON.stringify(v1)))
+    // The v1 file had no goals key → the existing goals config is left intact.
+    expect((await getGoals()).goals.Trip).toBe(50000)
   })
 
   it('rejects a non-backup file', () => {

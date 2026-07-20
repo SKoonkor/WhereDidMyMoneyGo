@@ -771,3 +771,72 @@
   cursor: pointer;
 }
 .choice-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Goal drag-to-reorder handle + pinned base row. */
+.goal-drag {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none; /* let the pointer drag instead of scrolling */
+  padding: 0 2px;
+  user-select: none;
+}
+.goal-row.dragging {
+  background: var(--surface-2);
+  border-radius: 8px;
+  opacity: 0.9;
+}
+.goal-pin { flex: 0 0 auto; font-size: 13px; opacity: 0.7; }
+
+/* ── Reconcile ─────────────────────────────────────────────────────────────── */
+.recon-head, .recon-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 2px;
+}
+.recon-head {
+  color: var(--muted);
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.recon-row { border-bottom: 1px solid var(--border-soft); }
+.recon-acct { flex: 1.3; min-width: 0; font-weight: 600; }
+.recon-num {
+  flex: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+.recon-head .recon-acct { font-weight: 400; }
+.recon-input {
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+  text-align: right;
+}
+.recon-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 2px 2px;
+  margin-top: 6px;
+  border-top: 2px solid var(--border);
+  font-weight: 600;
+  font-size: 16px;
+}
+.recon-actions { display: flex; gap: 14px; margin-top: 16px; }
+.recon-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.recon-due { color: #f39c12; font-weight: 600; }

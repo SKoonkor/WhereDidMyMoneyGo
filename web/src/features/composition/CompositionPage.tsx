@@ -3,7 +3,7 @@ import { useLiveTxns } from '../useLiveTxns'
 import { useBaseCurrency } from '../transactions/useConfig'
 import { useTheme, useCensor } from '../../prefs'
 import { addMonths, currentMonthKey, monthLabel, filterByMonth } from '../transactions/month'
-import { categoryBreakdown, sliceTotal } from '../../lib/analytics/composition'
+import { categoryBreakdown, hiddenCost, sliceTotal, HIDDEN_LABEL } from '../../lib/analytics/composition'
 import { buildDonutFigure, buildBarsFigure, type UiColors } from './figure'
 import { Plot } from '../../components/Plot'
 import { t } from '../../i18n'
@@ -25,7 +25,13 @@ export function CompositionPage() {
 
   const monthTxns = useMemo(() => filterByMonth(all, month), [all, month])
   const income = useMemo(() => categoryBreakdown(monthTxns, 'Income', 12, t('Other')), [monthTxns])
-  const expense = useMemo(() => categoryBreakdown(monthTxns, 'Expense', 12, t('Other')), [monthTxns])
+  // Append the reconciliation "Hidden cost" as an extra Expense slice (0 until
+  // Reconcile writes Adjustment rows, so it simply doesn't appear before then).
+  const expense = useMemo(() => {
+    const base = categoryBreakdown(monthTxns, 'Expense', 12, t('Other'))
+    const hidden = hiddenCost(monthTxns)
+    return hidden > 0 ? [...base, { category: t(HIDDEN_LABEL), amount: hidden, hidden: true }] : base
+  }, [monthTxns])
 
   const ui: UiColors = useMemo(
     () => ({

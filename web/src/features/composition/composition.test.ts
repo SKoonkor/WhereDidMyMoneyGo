@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Txn } from '../../db'
-import { categoryBreakdown, sliceTotal } from '../../lib/analytics/composition'
+import { categoryBreakdown, hiddenCost, sliceTotal } from '../../lib/analytics/composition'
 import { shade, buildDonutFigure, buildBarsFigure, RAMP } from './figure'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -38,6 +38,31 @@ describe('categoryBreakdown', () => {
 
   it('returns nothing when the type is absent', () => {
     expect(categoryBreakdown([T({ type: 'Income', category: 'Salary', amount: 10 })], 'Expense')).toEqual([])
+  })
+})
+
+describe('hiddenCost', () => {
+  it('is Σ Adjustment-Out − Σ Adjustment-In, clamped ≥ 0', () => {
+    const rows = [
+      T({ type: 'Adjustment-Out', amount: 200 }),
+      T({ type: 'Adjustment-In', amount: 50 }),
+      T({ type: 'Expense', amount: 999 }), // ignored
+    ]
+    expect(hiddenCost(rows)).toBe(150)
+    expect(hiddenCost([T({ type: 'Adjustment-In', amount: 30 })])).toBe(0) // net-positive → 0
+  })
+})
+
+describe('hidden-cost slice colour', () => {
+  it('paints a hidden slice slate, not from the expense ramp', () => {
+    const slices = [
+      { category: 'Food', amount: 150 },
+      { category: 'Hidden cost', amount: 40, hidden: true },
+    ]
+    const fig = buildDonutFigure(slices, { total: 190, currency: 'THB', kind: 'expense', censor: false, ui, noData: 'No data' })
+    const colors = (fig.data[0].marker as { colors: string[] }).colors
+    expect(colors[1]).toBe('#5a6472') // slate for the hidden slice
+    expect(colors[0]).not.toBe('#5a6472')
   })
 })
 

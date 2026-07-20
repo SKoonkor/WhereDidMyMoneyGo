@@ -4,9 +4,24 @@
 // single "Other" slice. Pure + testable; the figure builder handles colours.
 import type { Txn } from '../../db'
 
-export interface Slice { category: string; amount: number }
+export interface Slice { category: string; amount: number; hidden?: boolean }
 
 export const MAX_SLICES = 12 // 11 named categories + "Other"
+export const HIDDEN_LABEL = 'Hidden cost'
+
+// Untracked spending recorded by reconciliation in this set of rows:
+// Σ Adjustment-Out − Σ Adjustment-In, clamped ≥ 0 (only untracked *spending*
+// counts). Shown as an extra slate slice on the Expense side. 0 until Reconcile
+// has written any Adjustment rows.
+export function hiddenCost(txns: Txn[]): number {
+  let out = 0
+  let inc = 0
+  for (const t of txns) {
+    if (t.type === 'Adjustment-Out') out += t.amount
+    else if (t.type === 'Adjustment-In') inc += t.amount
+  }
+  return Math.max(0, out - inc)
+}
 
 export function categoryBreakdown(
   txns: Txn[],

@@ -13,10 +13,12 @@ import {
   DEFAULT_BUDGET,
   DEFAULT_CATEGORIES,
   DEFAULT_GOALS,
+  DEFAULT_RECONCILE,
   DEFAULT_SETTINGS,
   type BudgetCfg,
   type Categories,
   type GoalsCfg,
+  type ReconcileState,
   type Settings,
 } from './data/defaults'
 
@@ -49,7 +51,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile'
   value: unknown
 }
 
@@ -78,6 +80,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('settings')) puts.push({ key: 'settings', value: DEFAULT_SETTINGS })
   if (!existing.has('budget')) puts.push({ key: 'budget', value: DEFAULT_BUDGET })
   if (!existing.has('goals')) puts.push({ key: 'goals', value: DEFAULT_GOALS })
+  if (!existing.has('reconcile')) puts.push({ key: 'reconcile', value: DEFAULT_RECONCILE })
   if (puts.length) await db.config.bulkPut(puts)
 }
 
@@ -257,6 +260,41 @@ export async function getGoals(): Promise<GoalsCfg> {
 }
 export async function saveGoals(cfg: GoalsCfg): Promise<void> {
   await db.config.put({ key: 'goals', value: cfg })
+}
+
+export async function getReconcileState(): Promise<ReconcileState> {
+  return { ...DEFAULT_RECONCILE, ...((await db.config.get('reconcile'))?.value as ReconcileState) }
+}
+export async function saveReconcileState(state: ReconcileState): Promise<void> {
+  await db.config.put({ key: 'reconcile', value: state })
+}
+
+// Write one balance-adjustment row per account whose actual balance differs from
+// the tracked balance (|delta| ≥ half a cent): Adjustment-In for a positive gap,
+// Adjustment-Out for a negative one. These carry the recorded "hidden cost". The
+// reconciliation is always stamped as done today. Returns the rows written.
+export async function applyReconciliation(
+  adjustments: Array<{ account: string; delta: number }>,
+  period?: string,
+): Promise<number> {
+  const day = period ?? new Date().toISOString().slice(0, 10)
+  const cur = await currency()
+  const rows = adjustments
+    .filter((a) => Math.abs(a.delta) >= 0.005)
+    .map(
+      (a) =>
+        ({
+          period: day,
+          account: a.account,
+          amount: Math.round(Math.abs(a.delta) * 100) / 100,
+          type: a.delta > 0 ? 'Adjustment-In' : 'Adjustment-Out',
+          category: 'Reconciliation',
+          currency: cur,
+        }) as Txn,
+    )
+  if (rows.length) await db.transactions.bulkAdd(rows)
+  await saveReconcileState({ lastReconciled: day })
+  return rows.length
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────

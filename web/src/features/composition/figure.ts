@@ -10,6 +10,15 @@ export const RAMP = {
   income: ['#a7e8c4', '#0e6b3f'] as const,
   expense: ['#f4a3a3', '#a5281b'] as const,
 }
+const HIDDEN_COLOR = '#5a6472' // slate — reconciliation hidden-cost slice
+
+// Colour each slice from the side's ramp, except hidden-cost slices which take a
+// fixed slate so they read as "untracked" rather than a spending category.
+function sliceColors(slices: Slice[], kind: 'income' | 'expense'): string[] {
+  const ramp = shade(slices.filter((s) => !s.hidden).length, RAMP[kind])
+  let i = 0
+  return slices.map((s) => (s.hidden ? HIDDEN_COLOR : ramp[i++]))
+}
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 
@@ -47,7 +56,7 @@ export function buildDonutFigure(
       } as Record<string, unknown>,
     }
   }
-  const colors = shade(slices.length, RAMP[kind])
+  const colors = sliceColors(slices, kind)
   const centre = censor ? '*****' : `${fmt(total)}<br><span style="font-size:0.72em;color:${ui.muted}">${currency}</span>`
   return {
     data: [
@@ -94,7 +103,7 @@ export function buildBarsFigure(
       } as Record<string, unknown>,
     }
   }
-  const colors = shade(slices.length, RAMP[kind])
+  const colors = sliceColors(slices, kind)
   const values = slices.map((s) => s.amount)
   return {
     data: [

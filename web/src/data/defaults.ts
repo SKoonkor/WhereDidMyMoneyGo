@@ -81,6 +81,14 @@ export interface GoalsCfg {
 
 export const DEFAULT_GOALS: GoalsCfg = { goals: {}, factors: {}, selected: [] }
 
+// ── Reconciliation state ─────────────────────────────────────────────────────
+// Just the last-reconciled date (drives the "due" reminder). The adjustment rows
+// themselves are ordinary transactions.
+export interface ReconcileState {
+  lastReconciled: string | null // ISO date, or null if never
+}
+export const DEFAULT_RECONCILE: ReconcileState = { lastReconciled: null }
+
 // ── Budget (50/30/20) ────────────────────────────────────────────────────────
 // Mirrors src/analytics/budget.py DEFAULT_BUDGET. The reset day is NOT stored
 // here — Budget reads it from Settings.resetDay so there's one source of truth.

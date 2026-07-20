@@ -15,6 +15,7 @@ import { FlowPage } from './features/flow/FlowPage'
 // (Placeholder retired — every Apps tile now routes to a real page.)
 import { BudgetPage } from './features/budget/BudgetPage'
 import { GoalsPage } from './features/goals/GoalsPage'
+import { ReconcilePage } from './features/reconcile/ReconcilePage'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
 import { TxnForm } from './features/transactions/TxnForm'
@@ -72,6 +73,7 @@ export default function App() {
             <Route path="/flow" element={<FlowPage />} />
             <Route path="/budget" element={<BudgetPage />} />
             <Route path="/goals" element={<GoalsPage />} />
+            <Route path="/reconcile" element={<ReconcilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/manage" element={<ManagePage />} />
             <Route path="/backup" element={<BackupPage />} />
