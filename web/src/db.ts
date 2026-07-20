@@ -86,6 +86,27 @@ export async function getCategories(): Promise<Categories> {
 export async function saveCategories(cats: Categories): Promise<void> {
   await db.config.put({ key: 'categories', value: cats })
 }
+
+// Inline "add from the picker" helpers (mirror accounts.py / transaction_categories.py).
+export async function addAccount(name: string): Promise<void> {
+  const accounts = await getAccounts()
+  if (name && !accounts.includes(name)) await saveAccounts([...accounts, name])
+}
+export async function addCategory(kind: 'income' | 'expense', name: string): Promise<void> {
+  const cats = await getCategories()
+  if (name && !(name in cats[kind])) {
+    cats[kind] = { ...cats[kind], [name]: [] }
+    await saveCategories(cats)
+  }
+}
+export async function addSubcategory(category: string, sub: string): Promise<void> {
+  const cats = await getCategories()
+  const subs = cats.expense[category]
+  if (subs && sub && !subs.includes(sub)) {
+    cats.expense = { ...cats.expense, [category]: [...subs, sub] }
+    await saveCategories(cats)
+  }
+}
 export async function getSettings(): Promise<Settings> {
   return { ...DEFAULT_SETTINGS, ...((await db.config.get('settings'))?.value as Settings) }
 }
