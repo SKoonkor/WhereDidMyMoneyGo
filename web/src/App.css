@@ -603,3 +603,94 @@
   font-size: 12px;
   margin-top: 4px;
 }
+
+/* ── Budget (50/30/20) ─────────────────────────────────────────────────────── */
+.budget-card { margin-bottom: 16px; }
+
+.amt-income { color: var(--income); }
+.amt-expense { color: var(--expense); }
+
+/* Per-bucket progress rows in the summary. */
+.budget-row { margin: 12px 0; }
+.budget-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+}
+.budget-row-name { font-weight: 600; }
+.budget-row-note { font-size: 13px; color: var(--muted); }
+.budget-bar {
+  height: 8px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.budget-bar-fill { height: 100%; border-radius: 5px; transition: width 0.25s ease; }
+.budget-bar-fill.good { background: var(--income); }
+.budget-bar-fill.warn { background: #f39c12; }
+.budget-bar-fill.bad { background: var(--expense); }
+
+/* Over-budget overflow list under the donut. */
+.budget-overflow { margin-top: 10px; }
+.budget-overflow-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: var(--surface-2);
+  border-left: 3px solid var(--border);
+  font-size: 14px;
+}
+.budget-overflow-row.needs { border-left-color: #1f5fa8; }
+.budget-overflow-row.wants { border-left-color: #d9730d; }
+.budget-overflow-row.hidden { border-left-color: #5a6472; }
+
+/* Income basis + split percentages. */
+.budget-field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 13px; }
+.budget-field input,
+.budget-pct input {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 15px;
+  width: 100%;
+}
+.budget-split {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.budget-pct { display: flex; flex-direction: column; gap: 4px; }
+.budget-pct input { width: 76px; }
+
+/* Needs / Wants tap-to-flip board. */
+.budget-cols { display: flex; gap: 12px; margin-top: 12px; }
+.budget-col { flex: 1; min-width: 0; }
+.budget-col-head {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.budget-chip-list { display: flex; flex-wrap: wrap; gap: 6px; align-content: flex-start; }
+.budget-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.budget-chip.needs { border-color: rgba(31, 95, 168, 0.55); }
+.budget-chip.wants { border-color: rgba(217, 115, 13, 0.55); }

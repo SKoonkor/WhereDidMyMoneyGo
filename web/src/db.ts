@@ -10,8 +10,10 @@
 import Dexie, { type EntityTable } from 'dexie'
 import {
   DEFAULT_ACCOUNTS,
+  DEFAULT_BUDGET,
   DEFAULT_CATEGORIES,
   DEFAULT_SETTINGS,
+  type BudgetCfg,
   type Categories,
   type Settings,
 } from './data/defaults'
@@ -45,7 +47,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings'
+  key: 'accounts' | 'categories' | 'settings' | 'budget'
   value: unknown
 }
 
@@ -72,6 +74,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('accounts')) puts.push({ key: 'accounts', value: DEFAULT_ACCOUNTS })
   if (!existing.has('categories')) puts.push({ key: 'categories', value: DEFAULT_CATEGORIES })
   if (!existing.has('settings')) puts.push({ key: 'settings', value: DEFAULT_SETTINGS })
+  if (!existing.has('budget')) puts.push({ key: 'budget', value: DEFAULT_BUDGET })
   if (puts.length) await db.config.bulkPut(puts)
 }
 
@@ -237,6 +240,13 @@ export async function getSettings(): Promise<Settings> {
 }
 export async function saveSettings(settings: Settings): Promise<void> {
   await db.config.put({ key: 'settings', value: settings })
+}
+
+export async function getBudget(): Promise<BudgetCfg> {
+  return { ...DEFAULT_BUDGET, ...((await db.config.get('budget'))?.value as BudgetCfg) }
+}
+export async function saveBudget(cfg: BudgetCfg): Promise<void> {
+  await db.config.put({ key: 'budget', value: cfg })
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────

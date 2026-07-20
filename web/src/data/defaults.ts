@@ -56,3 +56,33 @@ export const DEFAULT_SETTINGS: Settings = {
   appName: 'Where Did My Money Go',
   resetDay: 1,
 }
+
+// ── Budget (50/30/20) ────────────────────────────────────────────────────────
+// Mirrors src/analytics/budget.py DEFAULT_BUDGET. The reset day is NOT stored
+// here — Budget reads it from Settings.resetDay so there's one source of truth.
+export type Bucket = 'Needs' | 'Wants' | 'Savings'
+
+export interface BudgetCfg {
+  mode: 'fixed' | 'rolling'
+  fixedIncome: number
+  rollingMonths: number
+  percentages: Record<Bucket, number>
+  assignments: Record<string, Bucket> // expense category → Needs | Wants
+}
+
+// A sensible starting Needs/Wants map for the seed categories; anything else
+// falls back to Wants (see bucketFor).
+export const DEFAULT_ASSIGN: Record<string, Bucket> = {
+  Bills: 'Needs', Food: 'Needs', Household: 'Needs', Health: 'Needs',
+  Transport: 'Needs', Car: 'Needs', Family: 'Needs', Education: 'Needs',
+  'Social Life': 'Wants', Travel: 'Wants', Beauty: 'Wants', Apparel: 'Wants',
+  Gift: 'Wants', Subscription: 'Wants', Other: 'Wants',
+}
+
+export const DEFAULT_BUDGET: BudgetCfg = {
+  mode: 'fixed',
+  fixedIncome: 37500,
+  rollingMonths: 6,
+  percentages: { Needs: 50, Wants: 30, Savings: 20 },
+  assignments: { ...DEFAULT_ASSIGN },
+}
