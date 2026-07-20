@@ -33,6 +33,23 @@ const TH: Record<string, string> = {
   'No transactions yet': 'ยังไม่มีธุรกรรม',
   'Your data is stored on this device only.':
     'ข้อมูลของคุณถูกเก็บไว้ในอุปกรณ์นี้เท่านั้น',
+  // Manage accounts & categories.
+  Accounts: 'บัญชี',
+  Categories: 'หมวดหมู่',
+  Rename: 'เปลี่ยนชื่อ',
+  'Manage accounts & categories': 'จัดการบัญชีและหมวดหมู่',
+  'Add, rename, reorder, or remove accounts and categories.':
+    'เพิ่ม เปลี่ยนชื่อ จัดลำดับ หรือลบบัญชีและหมวดหมู่',
+  'New account': 'บัญชีใหม่',
+  'New category': 'หมวดหมู่ใหม่',
+  'New subcategory': 'หมวดหมู่ย่อยใหม่',
+  'Move up': 'เลื่อนขึ้น',
+  'Move down': 'เลื่อนลง',
+  '{n} used': 'ใช้อยู่ {n} รายการ',
+  'That name already exists.': 'มีชื่อนี้อยู่แล้ว',
+  'Delete "{name}"?': 'ลบ "{name}"?',
+  'In use by {n} transaction(s) — reassign those first.':
+    'ถูกใช้โดย {n} ธุรกรรม — โปรดย้ายธุรกรรมเหล่านั้นก่อน',
 }
 
 export function getLang(): Lang {

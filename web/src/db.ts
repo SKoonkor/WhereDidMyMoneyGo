@@ -17,8 +17,10 @@ import {
 } from './data/defaults'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
-// "add" choices are Income / Expense / Transfer / Saving; a Transfer expands into
-// the two -In/-Out legs, and reconciliation writes the Adjustment legs later.
+// "add" choices are Income / Expense / Transfer; a Transfer expands into the two
+// -In/-Out legs, and reconciliation writes the Adjustment legs later. (Saving is
+// kept in the union only for defensive handling of any legacy/imported rows —
+// saving is modelled as a Transfer into a savings account.)
 export type TxnType =
   | 'Income'
   | 'Expense'
@@ -107,6 +109,129 @@ export async function addSubcategory(category: string, sub: string): Promise<voi
     await saveCategories(cats)
   }
 }
+// ── Manage: rename / delete / reorder (mirrors manage.py) ────────────────────
+// Every leg of a transfer stores its own account in `account` and the *other*
+// account in `category`, so an account can appear in either column.
+
+// How many transactions reference each account (by its own `account` column —
+// which, for transfers, covers both legs). Blocks deleting an account in use.
+export async function accountUsage(): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {}
+  for (const r of await db.transactions.toArray()) counts[r.account] = (counts[r.account] ?? 0) + 1
+  return counts
+}
+
+// How many transactions use each category of a kind. Transfer legs are typed
+// Transfer-In/-Out (their `category` holds an account), so filtering by the
+// Income/Expense type correctly excludes them.
+export async function categoryUsage(kind: 'income' | 'expense'): Promise<Record<string, number>> {
+  const type: TxnType = kind === 'income' ? 'Income' : 'Expense'
+  const counts: Record<string, number> = {}
+  for (const r of await db.transactions.toArray()) {
+    if (r.type === type) counts[r.category] = (counts[r.category] ?? 0) + 1
+  }
+  return counts
+}
+
+// How many Expense transactions use each subcategory of a category.
+export async function subcategoryUsage(category: string): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {}
+  for (const r of await db.transactions.toArray()) {
+    if (r.type === 'Expense' && r.category === category && r.subcategory)
+      counts[r.subcategory] = (counts[r.subcategory] ?? 0) + 1
+  }
+  return counts
+}
+
+// Rename an account everywhere: the config list (position kept) AND every
+// transaction — both a leg's own `account` and any transfer counterpart stored
+// in `category`. No-op on an empty/clashing name (caller surfaces the clash).
+export async function renameAccount(oldName: string, newName: string): Promise<boolean> {
+  const name = newName.trim()
+  const accounts = await getAccounts()
+  if (!name || !accounts.includes(oldName) || (name !== oldName && accounts.includes(name)))
+    return false
+  await saveAccounts(accounts.map((a) => (a === oldName ? name : a)))
+  await db.transaction('rw', db.transactions, async () => {
+    await db.transactions.where('account').equals(oldName).modify({ account: name })
+    await db.transactions
+      .filter((r) => (r.type === 'Transfer-In' || r.type === 'Transfer-Out') && r.category === oldName)
+      .modify({ category: name })
+  })
+  return true
+}
+
+export async function deleteAccount(name: string): Promise<void> {
+  await saveAccounts((await getAccounts()).filter((a) => a !== name))
+}
+
+export async function reorderAccounts(order: string[]): Promise<void> {
+  await saveAccounts(order)
+}
+
+// Rename a category: swap the key in place (keeping order + subcategories) and
+// cascade to every Income/Expense transaction of that kind.
+export async function renameCategory(
+  kind: 'income' | 'expense',
+  oldName: string,
+  newName: string,
+): Promise<boolean> {
+  const name = newName.trim()
+  const cats = await getCategories()
+  const group = cats[kind]
+  if (!name || !(oldName in group) || (name !== oldName && name in group)) return false
+  cats[kind] = Object.fromEntries(
+    Object.entries(group).map(([k, v]) => [k === oldName ? name : k, v]),
+  )
+  await saveCategories(cats)
+  const type: TxnType = kind === 'income' ? 'Income' : 'Expense'
+  await db.transactions
+    .filter((r) => r.type === type && r.category === oldName)
+    .modify({ category: name })
+  return true
+}
+
+export async function deleteCategory(kind: 'income' | 'expense', name: string): Promise<void> {
+  const cats = await getCategories()
+  delete cats[kind][name]
+  await saveCategories(cats)
+}
+
+export async function reorderCategories(kind: 'income' | 'expense', order: string[]): Promise<void> {
+  const cats = await getCategories()
+  const group = cats[kind]
+  cats[kind] = Object.fromEntries(order.filter((k) => k in group).map((k) => [k, group[k]]))
+  await saveCategories(cats)
+}
+
+// Rename a subcategory within an expense category, cascading to matching rows.
+export async function renameSubcategory(
+  category: string,
+  oldName: string,
+  newName: string,
+): Promise<boolean> {
+  const name = newName.trim()
+  const cats = await getCategories()
+  const subs = cats.expense[category]
+  if (!subs || !name || !subs.includes(oldName) || (name !== oldName && subs.includes(name)))
+    return false
+  cats.expense = { ...cats.expense, [category]: subs.map((s) => (s === oldName ? name : s)) }
+  await saveCategories(cats)
+  await db.transactions
+    .filter((r) => r.type === 'Expense' && r.category === category && r.subcategory === oldName)
+    .modify({ subcategory: name })
+  return true
+}
+
+export async function deleteSubcategory(category: string, name: string): Promise<void> {
+  const cats = await getCategories()
+  const subs = cats.expense[category]
+  if (subs) {
+    cats.expense = { ...cats.expense, [category]: subs.filter((s) => s !== name) }
+    await saveCategories(cats)
+  }
+}
+
 export async function getSettings(): Promise<Settings> {
   return { ...DEFAULT_SETTINGS, ...((await db.config.get('settings'))?.value as Settings) }
 }

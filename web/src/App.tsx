@@ -3,6 +3,8 @@ import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
 import { Home } from './features/Home'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
+import { SettingsPage } from './features/settings/SettingsPage'
+import { ManagePage } from './features/manage/ManagePage'
 import { Placeholder } from './features/Placeholder'
 import './App.css'
 
@@ -68,7 +70,8 @@ export default function App() {
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/budget" element={<Placeholder title="Budget" />} />
             <Route path="/goals" element={<Placeholder title="Goals" />} />
-            <Route path="/settings" element={<Placeholder title="Settings" />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/manage" element={<ManagePage />} />
           </Routes>
         </main>
       </div>

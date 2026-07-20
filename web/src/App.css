@@ -263,3 +263,119 @@
   border-color: var(--accent);
   color: #fff;
 }
+
+/* Small button variant + destructive tint (used by Manage). */
+.btn.sm {
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.btn.danger {
+  color: var(--expense);
+}
+
+/* Manage accounts & categories. */
+.manage-section {
+  margin-bottom: 28px;
+}
+.manage-h2 {
+  font-size: 15px;
+  color: var(--muted);
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.manage-list {
+  display: flex;
+  flex-direction: column;
+}
+.manage-list.sub {
+  margin: 2px 0 8px 26px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border-soft);
+}
+.manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--border-soft);
+  flex-wrap: wrap;
+}
+.manage-row.add {
+  border-bottom: none;
+  margin-top: 4px;
+}
+.manage-reorder {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.7;
+}
+.manage-reorder button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 4px;
+}
+.manage-reorder button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.manage-name {
+  flex: 1;
+  min-width: 90px;
+}
+.manage-caret {
+  display: inline-block;
+  width: 1em;
+  color: var(--muted);
+}
+.manage-used {
+  color: var(--muted);
+  font-size: 12px;
+}
+.manage-row input {
+  flex: 1;
+  min-width: 90px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.manage-err {
+  flex-basis: 100%;
+  color: var(--expense);
+  font-size: 12px;
+}
+
+/* Settings hub links. */
+.settings-links {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.settings-link {
+  display: block;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  text-decoration: none;
+  color: var(--ink);
+}
+.settings-link:hover {
+  filter: brightness(1.05);
+}
+.settings-link-title {
+  display: block;
+  font-weight: 600;
+}
+.settings-link-desc {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}

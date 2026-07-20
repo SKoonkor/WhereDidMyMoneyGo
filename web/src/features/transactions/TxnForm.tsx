@@ -8,12 +8,13 @@ import { ComboSelect } from './ComboSelect'
 import { t } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
-type Kind = 'Income' | 'Expense' | 'Transfer' | 'Saving'
-const KINDS: Kind[] = ['Expense', 'Income', 'Transfer', 'Saving']
+// Saving isn't a separate kind — it's a Transfer into a savings account, and
+// Settings decides which accounts count toward the savings pool.
+type Kind = 'Income' | 'Expense' | 'Transfer'
+const KINDS: Kind[] = ['Expense', 'Income', 'Transfer']
 
 function kindOf(txn: Txn): Kind {
   if (txn.type === 'Transfer-Out' || txn.type === 'Transfer-In') return 'Transfer'
-  if (txn.type === 'Saving') return 'Saving'
   if (txn.type === 'Income') return 'Income'
   return 'Expense'
 }
@@ -30,7 +31,7 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
   const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? today())
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
   const [note, setNote] = useState(editing?.note ?? '')
-  // Single-row fields (Income/Expense/Saving).
+  // Single-row fields (Income/Expense).
   const [account, setAccount] = useState(editing?.account ?? accounts[0] ?? '')
   const [category, setCategory] = useState(editing?.category ?? '')
   const [subcategory, setSubcategory] = useState(editing?.subcategory ?? '')
@@ -70,7 +71,7 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
       if (editing?.transferId) await updateTransfer(editing.transferId, tr)
       else await addTransfer(tr)
     } else {
-      const type: TxnType = kind // Income | Expense | Saving map 1:1
+      const type: TxnType = kind // Income | Expense map 1:1
       const row = {
         period, account, amount: value, type,
         category: category || t('Category'),

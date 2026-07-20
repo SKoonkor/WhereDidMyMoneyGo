@@ -29,11 +29,10 @@ describe('month utils', () => {
     expect(ids).toEqual([1, 3])
   })
 
-  it('summary counts Income and Expense only (transfers/savings excluded)', () => {
+  it('summary counts Income and Expense only (transfers excluded)', () => {
     const rows = [
       T({ type: 'Income', amount: 5000 }),
       T({ type: 'Expense', amount: 200 }),
-      T({ type: 'Saving', amount: 1000 }),
       T({ type: 'Transfer-Out', amount: 500, transferId: 'a' }),
       T({ type: 'Transfer-In', amount: 500, transferId: 'a' }),
     ]
