@@ -92,6 +92,28 @@ const TH: Record<string, string> = {
   'View transactions': 'ดูธุรกรรม',
   'Import another file': 'นำเข้าไฟล์อื่น',
   'Loading…': 'กำลังโหลด…',
+  // Export & backup.
+  'Export & backup': 'ส่งออกและสำรองข้อมูล',
+  Export: 'ส่งออก',
+  'Export a spreadsheet, or back up and restore all your data.':
+    'ส่งออกสเปรดชีต หรือสำรองและกู้คืนข้อมูลทั้งหมดของคุณ',
+  '{n} transactions on this device.': 'มี {n} ธุรกรรมในอุปกรณ์นี้',
+  'A spreadsheet copy you can open elsewhere. It re-imports into this app too.':
+    'สำเนาสเปรดชีตที่เปิดในแอปอื่นได้ และนำกลับเข้าแอปนี้ได้เช่นกัน',
+  'Export CSV': 'ส่งออก CSV',
+  'Export Excel': 'ส่งออก Excel',
+  'Preparing…': 'กำลังเตรียม…',
+  'Backup & restore': 'สำรองและกู้คืน',
+  'A full backup (transactions, accounts, categories, settings) as one file. Keep it somewhere safe — it is the only copy of your data.':
+    'สำรองข้อมูลทั้งหมด (ธุรกรรม บัญชี หมวดหมู่ การตั้งค่า) เป็นไฟล์เดียว เก็บไว้ให้ปลอดภัย — เป็นสำเนาเดียวของข้อมูลคุณ',
+  'Download backup': 'ดาวน์โหลดไฟล์สำรอง',
+  'Restore from backup…': 'กู้คืนจากไฟล์สำรอง…',
+  'Restore replaces ALL data on this device with the backup. Continue?':
+    'การกู้คืนจะแทนที่ข้อมูลทั้งหมดในอุปกรณ์นี้ด้วยไฟล์สำรอง ดำเนินการต่อหรือไม่?',
+  'Restored {n} transactions.': 'กู้คืน {n} ธุรกรรมแล้ว',
+  'That file is not valid JSON.': 'ไฟล์นี้ไม่ใช่ JSON ที่ถูกต้อง',
+  "This doesn't look like a Money Tracker backup file.":
+    'ไฟล์นี้ดูเหมือนจะไม่ใช่ไฟล์สำรองของ Money Tracker',
 }
 
 export function getLang(): Lang {

@@ -16,6 +16,10 @@ export function SettingsPage() {
           <span className="settings-link-title">{t('Import')}</span>
           <span className="settings-link-desc">{t('Bring in a CSV or Excel export from another money app.')}</span>
         </Link>
+        <Link to="/backup" className="settings-link">
+          <span className="settings-link-title">{t('Export & backup')}</span>
+          <span className="settings-link-desc">{t('Export a spreadsheet, or back up and restore all your data.')}</span>
+        </Link>
       </div>
       <p className="muted" style={{ marginTop: 20 }}>
         {t('Your data is stored on this device only.')}

@@ -6,6 +6,7 @@ import { Home } from './features/Home'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { ManagePage } from './features/manage/ManagePage'
+import { BackupPage } from './features/backup/BackupPage'
 import { Placeholder } from './features/Placeholder'
 import './App.css'
 
@@ -79,6 +80,7 @@ export default function App() {
             <Route path="/goals" element={<Placeholder title="Goals" />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/manage" element={<ManagePage />} />
+            <Route path="/backup" element={<BackupPage />} />
             <Route
               path="/import"
               element={
