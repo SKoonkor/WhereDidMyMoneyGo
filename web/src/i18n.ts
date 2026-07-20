@@ -43,6 +43,7 @@ const TH: Record<string, string> = {
   Pie: 'วงกลม',
   Bars: 'แท่ง',
   Other: 'อื่นๆ',
+  None: 'ไม่มี',
   'No data': 'ไม่มีข้อมูล',
   'No transactions this month': 'ไม่มีธุรกรรมในเดือนนี้',
   // Money Flow.
@@ -237,6 +238,9 @@ const TH: Record<string, string> = {
   'The day each budgeting month begins (1–28). Used by Budget.':
     'วันที่แต่ละเดือนงบประมาณเริ่มต้น (1–28) ใช้โดยงบประมาณ',
   'Changes are saved automatically.': 'บันทึกการเปลี่ยนแปลงโดยอัตโนมัติ',
+  Language: 'ภาษา',
+  'Applies across the app right away.': 'มีผลทั่วทั้งแอปทันที',
+  'Saved ✓': 'บันทึกแล้ว ✓',
 }
 
 export function getLang(): Lang {

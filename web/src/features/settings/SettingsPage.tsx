@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getSettings, saveSettings } from '../../db'
 import { useAccounts } from '../transactions/useConfig'
+import { useLang } from '../../prefs'
 import { DEFAULT_SETTINGS, type Settings } from '../../data/defaults'
 import { t } from '../../i18n'
 
@@ -69,31 +70,81 @@ function GeneralSettings() {
         <span className="set-hint">{t('The day each budgeting month begins (1–28). Used by Budget.')}</span>
       </div>
 
+      <div className="set-field">
+        <label>{t('Language')}</label>
+        <LanguageChoice />
+        <span className="set-hint">{t('Applies across the app right away.')}</span>
+      </div>
+
       <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
     </section>
   )
 }
 
+// EN / TH segmented choice. Language lives in localStorage (prefs.useLang), not
+// in the settings record, and applies app-wide instantly via the root subscription.
+function LanguageChoice() {
+  const [lang, toggle] = useLang()
+  const opts: Array<{ value: 'en' | 'th'; label: string }> = [
+    { value: 'en', label: 'English' },
+    { value: 'th', label: 'ไทย' },
+  ]
+  return (
+    <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
+      {opts.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={o.value === lang ? 'seg-btn active' : 'seg-btn'}
+          onClick={() => { if (o.value !== lang) toggle() }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 // Savings pool: which accounts count toward the pool, plus the Emergency Fund
 // base (monthlyRequired × targetMonths). Drives the Financial Goals gauge.
+// Unlike General, this card is draft-based with an explicit Save button so the
+// numeric fields can be cleared and retyped freely (they clamp only on Save).
 function SavingsPoolSettings() {
   const accounts = useAccounts()
   const stored = useLiveQuery(() => getSettings(), [])
-  const [form, setForm] = useState<Settings | null>(null)
-  useEffect(() => { if (!form && stored) setForm(stored) }, [stored, form])
-  if (!form) return null
+  const [pool, setPool] = useState<string[] | null>(null)
+  const [monthly, setMonthly] = useState('')
+  const [months, setMonths] = useState('')
+  const [saved, setSaved] = useState(false)
 
-  function update(patch: Partial<Settings>) {
-    setForm({ ...form!, ...patch })
-    void patchSettings(patch)
-  }
+  // Seed the draft once from the stored settings.
+  useEffect(() => {
+    if (pool === null && stored) {
+      setPool(stored.savingsAccounts)
+      setMonthly(String(stored.monthlyRequired))
+      setMonths(String(stored.targetMonths))
+    }
+  }, [stored, pool])
+  if (pool === null) return null
 
-  const pool = new Set(form.savingsAccounts)
+  const inPool = new Set(pool)
   const toggle = (name: string) => {
-    const next = pool.has(name) ? form.savingsAccounts.filter((a) => a !== name) : [...form.savingsAccounts, name]
-    update({ savingsAccounts: next })
+    setSaved(false)
+    setPool((p) => (p!.includes(name) ? p!.filter((a) => a !== name) : [...p!, name]))
   }
-  const efTarget = form.monthlyRequired * form.targetMonths
+
+  const monthlyNum = Math.max(0, Number(monthly) || 0)
+  const monthsNum = Math.min(24, Math.max(1, Math.round(Number(months) || 1)))
+  const currency = stored?.baseCurrency ?? DEFAULT_SETTINGS.baseCurrency
+  const efTarget = monthlyNum * monthsNum
+
+  async function save() {
+    await patchSettings({ savingsAccounts: pool!, monthlyRequired: monthlyNum, targetMonths: monthsNum })
+    // Reflect the clamped values back into the fields.
+    setMonthly(String(monthlyNum))
+    setMonths(String(monthsNum))
+    setSaved(true)
+  }
 
   return (
     <section className="set-card">
@@ -106,8 +157,8 @@ function SavingsPoolSettings() {
             <button
               key={a}
               type="button"
-              className={pool.has(a) ? 'choice-chip on' : 'choice-chip'}
-              aria-pressed={pool.has(a)}
+              className={inPool.has(a) ? 'choice-chip on' : 'choice-chip'}
+              aria-pressed={inPool.has(a)}
               onClick={() => toggle(a)}
             >
               {a}
@@ -122,9 +173,9 @@ function SavingsPoolSettings() {
         <input
           type="number"
           inputMode="decimal"
-          value={form.monthlyRequired}
+          value={monthly}
           style={{ maxWidth: 160 }}
-          onChange={(e) => update({ monthlyRequired: Math.max(0, Number(e.target.value) || 0) })}
+          onChange={(e) => { setMonthly(e.target.value); setSaved(false) }}
         />
         <span className="set-hint">{t('Your baseline monthly spending — used to size the Emergency Fund.')}</span>
       </div>
@@ -133,20 +184,22 @@ function SavingsPoolSettings() {
         <label>{t('Target months')}</label>
         <input
           type="number"
-          min={1}
-          max={24}
-          value={form.targetMonths}
+          inputMode="numeric"
+          value={months}
           style={{ maxWidth: 90 }}
-          onChange={(e) => update({ targetMonths: Math.min(24, Math.max(1, Math.round(Number(e.target.value) || 1))) })}
+          onChange={(e) => { setMonths(e.target.value); setSaved(false) }}
         />
         <span className="set-hint">
           {t('Months of expenses to keep. Emergency Fund target = {amount}.', {
-            amount: `${efTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${form.baseCurrency}`,
+            amount: `${efTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${currency}`,
           })}
         </span>
       </div>
 
-      <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
+      <div className="row" style={{ gap: 12, marginTop: 4 }}>
+        <button type="button" className="btn btn-accent" onClick={save}>{t('Save')}</button>
+        {saved && <span className="amt-income" style={{ alignSelf: 'center', fontSize: 14 }}>{t('Saved ✓')}</span>}
+      </div>
     </section>
   )
 }

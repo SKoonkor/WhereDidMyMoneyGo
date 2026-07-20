@@ -30,7 +30,6 @@ const ImportPage = lazy(() =>
 function Header() {
   const [theme, toggleTheme] = useTheme()
   const [censor, toggleCensor] = useCensor()
-  const [lang, toggleLang] = useLang()
   const appName = useAppName()
   // Keep the default name translatable (Thai title), but show a custom name
   // verbatim. Mirror the chosen name into the browser/tab title too.
@@ -49,9 +48,6 @@ function Header() {
         <button className="tool-btn" onClick={toggleCensor} aria-label="Toggle privacy">
           {censor ? '🙈' : '👁'}
         </button>
-        <button className="tool-btn" onClick={toggleLang} aria-label="Toggle language">
-          {lang === 'en' ? 'TH' : 'EN'}
-        </button>
       </div>
     </header>
   )
@@ -60,6 +56,9 @@ function Header() {
 export default function App() {
   // The ＋ in the bottom bar opens the Add-transaction sheet over any screen.
   const [adding, setAdding] = useState(false)
+  // Subscribe to the language at the root so a change in Settings re-renders the
+  // whole tree immediately (t() is read during render; pages aren't memoized).
+  useLang()
   return (
     <HashRouter>
       <div className="app">

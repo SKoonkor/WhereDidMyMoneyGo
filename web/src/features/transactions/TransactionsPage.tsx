@@ -18,18 +18,26 @@ function isTransfer(x: Txn) {
 
 function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
   const transfer = isTransfer(x)
-  const label = transfer
+  // "Category · Subcategory" (or the transfer's A → B) — the descriptor of the row.
+  const catLabel = transfer
     ? x.type === 'Transfer-Out'
       ? `${x.account} → ${x.category}`
       : `${x.category} → ${x.account}`
     : x.category + (x.subcategory ? ` · ${x.subcategory}` : '')
   const cls = x.type === 'Income' ? 'income' : transfer ? 'transfer' : 'expense'
   const sign = x.type === 'Income' ? '+' : transfer ? '' : '−'
+
+  // The user's note leads the row when present; the category/subcategory (and
+  // "Transfer" tag) fall back to a smaller, fainter line beneath it.
+  const note = x.note?.trim()
+  const primary = note ? note : transfer ? t('Transfer') : catLabel
+  const sub = note ? (transfer ? `${t('Transfer')} · ${catLabel}` : catLabel) : transfer ? catLabel : ''
+
   return (
     <li className="txn-item" onClick={onTap}>
       <span className="cat">
-        {transfer ? t('Transfer') : label}
-        {transfer && <span className="muted" style={{ fontSize: 12, display: 'block' }}>{label}</span>}
+        <span className="txn-primary">{primary}</span>
+        {sub && <span className="txn-sub">{sub}</span>}
       </span>
       <span className={`amt money ${cls}`}>{sign}{fmt(x.amount)}</span>
     </li>

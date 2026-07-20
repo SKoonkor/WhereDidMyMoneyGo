@@ -4,7 +4,8 @@ import {
   addAccount, addCategory, addSubcategory, type Txn, type TxnType,
 } from '../../db'
 import { useAccounts, useCategories } from './useConfig'
-import { ComboSelect } from './ComboSelect'
+import { ChipPicker } from './ChipPicker'
+import { CategoryPicker } from './CategoryPicker'
 import { t } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
@@ -44,10 +45,6 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
   const catNames = useMemo(
     () => Object.keys(kind === 'Income' ? categories.income : categories.expense),
     [kind, categories],
-  )
-  const subNames = useMemo(
-    () => (kind === 'Expense' ? categories.expense[category] ?? [] : []),
-    [kind, category, categories],
   )
 
   // Default the category to the first available option so a row never falls back
@@ -107,57 +104,47 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
       </div>
 
       <div className="row">
-        <div className="field" style={{ flex: '0 0 150px' }}>
+        <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Date')}</label>
           <input type="date" value={period} onChange={(e) => setPeriod(e.target.value)} />
         </div>
-        <div className="field" style={{ flex: '0 0 130px' }}>
+        <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Amount')}</label>
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
         </div>
       </div>
 
       {kind === 'Transfer' ? (
-        <div className="row">
-          <div className="field">
+        <>
+          <div className="field pick-field">
             <label>{t('From')}</label>
-            <ComboSelect value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} />
+            <ChipPicker value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} />
           </div>
-          <div className="field">
+          <div className="field pick-field">
             <label>{t('To')}</label>
-            <ComboSelect value={to} options={accounts} onChange={setTo} onAddNew={addAccount} />
+            <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} />
           </div>
-        </div>
+        </>
       ) : (
         <>
-          <div className="row">
-            <div className="field">
-              <label>{t('Account')}</label>
-              <ComboSelect value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} />
-            </div>
-            <div className="field">
-              <label>{t('Category')}</label>
-              <ComboSelect
-                value={category}
-                options={catNames}
-                onChange={(v) => { setCategory(v); setSubcategory('') }}
-                onAddNew={(n) => addCategory(kind === 'Income' ? 'income' : 'expense', n)}
-              />
-            </div>
+          <div className="field pick-field">
+            <label>{t('Account')}</label>
+            <ChipPicker value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} />
           </div>
-          {kind === 'Expense' && category && (
-            <div className="row">
-              <div className="field">
-                <label>{t('Subcategory')}</label>
-                <ComboSelect
-                  value={subcategory}
-                  options={subNames}
-                  onChange={setSubcategory}
-                  onAddNew={(n) => addSubcategory(category, n)}
-                />
-              </div>
-            </div>
-          )}
+          <div className="field pick-field">
+            <label>{t('Category')}</label>
+            <CategoryPicker
+              kind={kind}
+              category={category}
+              subcategory={subcategory}
+              catNames={catNames}
+              subsOf={(c) => categories.expense[c] ?? []}
+              onCategory={(v) => { setCategory(v); setSubcategory('') }}
+              onSubcategory={setSubcategory}
+              onAddCategory={(n) => addCategory(kind === 'Income' ? 'income' : 'expense', n)}
+              onAddSubcategory={(n) => addSubcategory(category, n)}
+            />
+          </div>
         </>
       )}
 
