@@ -7,7 +7,7 @@ import { accountBalances } from '../../lib/balances'
 import { netWorth, netWorthTrend } from '../../lib/analytics/networth'
 import { buildNetWorthTrendFigure } from './figure'
 import { Plot } from '../../components/Plot'
-import { t, getLang } from '../../i18n'
+import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
 
@@ -16,24 +16,18 @@ function cssVar(name: string, fallback: string): string {
   return v || fallback
 }
 
-function monthShort(monthKey: string, lang: string): string {
-  const [y, m] = monthKey.split('-').map(Number)
-  return new Date(y, m - 1, 1).toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', { month: 'short' })
-}
-
 export function HomePage() {
   const all = useLiveTxns()
   const accounts = useAccounts()
   const currency = useBaseCurrency()
   const [theme] = useTheme()
   const [censor] = useCensor()
-  const lang = getLang()
 
   const nw = useMemo(() => netWorth(all), [all])
   const balances = useMemo(() => accountBalances(all), [all])
   const month = currentMonthKey()
   const summary = useMemo(() => monthSummary(filterByMonth(all, month)), [all, month])
-  const trend = useMemo(() => netWorthTrend(all, 6), [all])
+  const trend = useMemo(() => netWorthTrend(all, 180), [all])
 
   // Re-read CSS variables when the theme toggles so the chart recolours.
   const palette = useMemo(
@@ -45,12 +39,8 @@ export function HomePage() {
     [theme],
   )
   const figure = useMemo(
-    () => buildNetWorthTrendFigure(trend, {
-      labels: trend.map((p) => monthShort(p.month, lang)),
-      palette,
-      censor,
-    }),
-    [trend, palette, censor, lang],
+    () => buildNetWorthTrendFigure(trend, { palette, censor }),
+    [trend, palette, censor],
   )
 
   // Configured accounts in order, then any stray account that still holds money.

@@ -58,6 +58,18 @@
   margin: 0 auto;
 }
 
+/* Income & Expense composition — two panels, stacked on narrow, side-by-side wide. */
+.compo-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 12px;
+}
+.compo-panel {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
 /* Home dashboard. */
 .dash-card {
   margin-top: 16px;

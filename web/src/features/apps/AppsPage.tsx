@@ -6,6 +6,7 @@ import { t } from '../../i18n'
 interface Tile { to: string; label: string; desc: string; icon: string }
 
 const TILES: Tile[] = [
+  { to: '/composition', label: 'Income & Expense', desc: 'Category breakdown by month.', icon: '🍩' },
   { to: '/budget', label: 'Budget', desc: 'Where your money goes vs. plan.', icon: '📊' },
   { to: '/goals', label: 'Goals', desc: 'Savings goals and progress.', icon: '🎯' },
 ]

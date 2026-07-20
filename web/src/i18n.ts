@@ -38,6 +38,13 @@ const TH: Record<string, string> = {
   'Net worth': 'มูลค่าสุทธิ',
   'Net worth · last 6 months': 'มูลค่าสุทธิ · 6 เดือนล่าสุด',
   'Net worth trend': 'แนวโน้มมูลค่าสุทธิ',
+  'Income & Expense': 'รายรับและรายจ่าย',
+  'Category breakdown by month.': 'แยกตามหมวดหมู่รายเดือน',
+  Pie: 'วงกลม',
+  Bars: 'แท่ง',
+  Other: 'อื่นๆ',
+  'No data': 'ไม่มีข้อมูล',
+  'No transactions this month': 'ไม่มีธุรกรรมในเดือนนี้',
   'Your data is stored on this device only.':
     'ข้อมูลของคุณถูกเก็บไว้ในอุปกรณ์นี้เท่านั้น',
   // Manage accounts & categories.
