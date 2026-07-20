@@ -27,7 +27,7 @@ export function Home() {
             </div>
           </div>
           <div>
-            <div className="muted" style={{ fontSize: 13 }}>Net</div>
+            <div className="muted" style={{ fontSize: 13 }}>{t('Net')}</div>
             <div className="money" style={{ fontSize: 22 }}>{net.toLocaleString()}</div>
           </div>
         </div>

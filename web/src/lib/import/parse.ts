@@ -2,7 +2,7 @@
 // _clean / _link_transfer_pairs / unknown_names. Pure over plain records so it's
 // unit-testable. A "record" is one file row as { header: cellText }.
 
-import { TYPE_SYNONYMS, TRANSFER_TYPES, type ColumnMap, type Profile, type TargetField } from './presets'
+import { TYPE_SYNONYMS, TRANSFER_TYPES, type Profile, type TargetField } from './presets'
 
 export type Record_ = Record<string, string>
 
@@ -214,8 +214,4 @@ export function unknownNames(
     }
   }
   return { accounts: [...accounts].sort(), categories: [...categories].sort() }
-}
-
-export function isMappable(profile: Profile): boolean {
-  return Object.values(profile.columns as ColumnMap).some((c) => c != null)
 }
