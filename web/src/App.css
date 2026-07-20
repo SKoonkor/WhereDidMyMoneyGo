@@ -401,6 +401,18 @@
   color: #fff;
 }
 
+/* Money Flow: forecast-horizon control row. The seg fills the rest of the row. */
+.flow-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.flow-controls .seg {
+  flex: 1;
+  margin-bottom: 0;
+}
+
 /* Small button variant + destructive tint (used by Manage). */
 .btn.sm {
   padding: 5px 10px;

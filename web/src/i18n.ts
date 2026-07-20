@@ -45,6 +45,21 @@ const TH: Record<string, string> = {
   Other: 'อื่นๆ',
   'No data': 'ไม่มีข้อมูล',
   'No transactions this month': 'ไม่มีธุรกรรมในเดือนนี้',
+  // Money Flow.
+  'Money Flow': 'กระแสเงิน',
+  'Running balance and forecast.': 'ยอดคงเหลือสะสมและการคาดการณ์',
+  'Running balance across your accounts, with a forward forecast.':
+    'ยอดคงเหลือสะสมข้ามบัญชีของคุณ พร้อมการคาดการณ์ล่วงหน้า',
+  Forecast: 'คาดการณ์',
+  'Latest balances': 'ยอดคงเหลือล่าสุด',
+  'Balance after': 'ยอดคงเหลือหลังรายการ',
+  'Hidden cost (untracked)': 'ต้นทุนแฝง (ไม่ได้บันทึก)',
+  'Add a few more weeks of history to see a forecast.':
+    'เพิ่มข้อมูลย้อนหลังอีกสองสามสัปดาห์เพื่อดูการคาดการณ์',
+  '30 d': '30 วัน',
+  '90 d': '90 วัน',
+  '180 d': '180 วัน',
+  '1 y': '1 ปี',
   'Your data is stored on this device only.':
     'ข้อมูลของคุณถูกเก็บไว้ในอุปกรณ์นี้เท่านั้น',
   // Manage accounts & categories.

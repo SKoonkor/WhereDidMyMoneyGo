@@ -11,6 +11,7 @@ import { ManagePage } from './features/manage/ManagePage'
 import { BackupPage } from './features/backup/BackupPage'
 import { AppsPage } from './features/apps/AppsPage'
 import { CompositionPage } from './features/composition/CompositionPage'
+import { FlowPage } from './features/flow/FlowPage'
 import { Placeholder } from './features/Placeholder'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/apps" element={<AppsPage />} />
             <Route path="/composition" element={<CompositionPage />} />
+            <Route path="/flow" element={<FlowPage />} />
             <Route path="/budget" element={<Placeholder title="Budget" />} />
             <Route path="/goals" element={<Placeholder title="Goals" />} />
             <Route path="/settings" element={<SettingsPage />} />
