@@ -694,3 +694,80 @@
 }
 .budget-chip.needs { border-color: rgba(31, 95, 168, 0.55); }
 .budget-chip.wants { border-color: rgba(217, 115, 13, 0.55); }
+
+/* ── Financial Goals + Savings Pool ────────────────────────────────────────── */
+.goals-gauge-card { margin-bottom: 16px; padding: 4px 8px; }
+
+.goal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.goal-row:last-of-type { border-bottom: none; }
+.goal-row.base { opacity: 0.95; }
+.goal-label { flex: 1; min-width: 0; font-size: 14px; }
+.goal-tag { color: var(--accent); font-size: 12px; }
+
+/* Tap target that ticks a goal into the pool. */
+.goal-check {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.goal-check.on { background: var(--accent); border-color: var(--accent); }
+.goal-del {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.goal-del:hover { color: var(--expense); }
+
+.goal-add { display: flex; flex-direction: column; gap: 8px; }
+.goal-add input {
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 15px;
+}
+.btn {
+  padding: 10px 14px;
+  border-radius: 9px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.inline-link { color: var(--accent); }
+
+/* Multi-select account chips (Settings → Savings pool). */
+.chip-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.choice-chip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+}
+.choice-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }

@@ -49,13 +49,37 @@ export interface Settings {
   baseCurrency: string
   appName: string
   resetDay: number // budget period start day (1–28); Budget uses it later
+  // Savings pool (Financial Goals). Which accounts count toward the pool, and
+  // the Emergency Fund base = monthlyRequired × targetMonths.
+  savingsAccounts: string[]
+  monthlyRequired: number
+  targetMonths: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   baseCurrency: 'THB',
   appName: 'Where Did My Money Go',
   resetDay: 1,
+  savingsAccounts: ['Savings'],
+  monthlyRequired: 20000,
+  targetMonths: 3,
 }
+
+// ── Financial goals (savings pool) ───────────────────────────────────────────
+// Mirrors src/analytics/goals.py. The Emergency Fund is the implied pool base
+// (its target comes from Settings: monthlyRequired × targetMonths) and is NOT
+// stored here. `goals` are user goals (name → target); `factors` scale a goal's
+// target before it counts (xTimes rule, >1); `selected` are the goals ticked
+// into the pool (EF excluded — it's always included).
+export const EMERGENCY_FUND = 'Emergency Fund'
+
+export interface GoalsCfg {
+  goals: Record<string, number>
+  factors: Record<string, number>
+  selected: string[]
+}
+
+export const DEFAULT_GOALS: GoalsCfg = { goals: {}, factors: {}, selected: [] }
 
 // ── Budget (50/30/20) ────────────────────────────────────────────────────────
 // Mirrors src/analytics/budget.py DEFAULT_BUDGET. The reset day is NOT stored

@@ -89,6 +89,40 @@ const TH: Record<string, string> = {
     'แตะหมวดหมู่เพื่อย้ายระหว่างจำเป็นและต้องการ เงินออมคือรายรับที่เหลือ',
   'The budget month starts on day {d}. Change it in Settings.':
     'เดือนงบประมาณเริ่มวันที่ {d} เปลี่ยนได้ในการตั้งค่า',
+  // Financial Goals + Savings Pool.
+  'Financial Goals': 'เป้าหมายการเงิน',
+  'The Emergency Fund is always in the pool. Tick other goals to add their target on top.':
+    'กองทุนฉุกเฉินอยู่ในพูลเสมอ เลือกเป้าหมายอื่นเพื่อเพิ่มยอดเป้าหมายด้านบน',
+  'Savings Pool': 'พูลเงินออม',
+  'Emergency Fund': 'กองทุนฉุกเฉิน',
+  Target: 'เป้าหมาย',
+  base: 'ฐาน',
+  'No goals yet. Add one below.': 'ยังไม่มีเป้าหมาย เพิ่มด้านล่าง',
+  'Add to pool': 'เพิ่มเข้าพูล',
+  'Remove from pool': 'นำออกจากพูล',
+  'Add a goal': 'เพิ่มเป้าหมาย',
+  'Goal name': 'ชื่อเป้าหมาย',
+  'xTimes rule (≥1, optional)': 'ตัวคูณ (≥1, ไม่บังคับ)',
+  '[{fx}x rule]': '[กฎ {fx} เท่า]',
+  '+ Add goal': '+ เพิ่มเป้าหมาย',
+  'The pool needs the highest of your ticked goals; the factor scales a goal before it counts.':
+    'พูลใช้เป้าหมายที่สูงที่สุดที่เลือกไว้ ตัวคูณจะปรับยอดเป้าหมายก่อนนับว่าถึงเป้า',
+  '{pct}% funded': 'ระดมทุนแล้ว {pct}%',
+  '{pct}% funded · Emergency Fund covers {months} months':
+    'ระดมทุนแล้ว {pct}% · กองทุนฉุกเฉินครอบคลุม {months} เดือน',
+  'Pool accounts and the Emergency Fund target are set in ':
+    'บัญชีพูลและเป้าหมายกองทุนฉุกเฉินตั้งค่าได้ใน ',
+  // Savings-pool settings.
+  'Savings pool': 'พูลเงินออม',
+  'Pool accounts': 'บัญชีในพูล',
+  'Balances of these accounts make up your savings pool.':
+    'ยอดคงเหลือของบัญชีเหล่านี้รวมเป็นพูลเงินออมของคุณ',
+  'Monthly required expenses': 'ค่าใช้จ่ายจำเป็นต่อเดือน',
+  'Your baseline monthly spending — used to size the Emergency Fund.':
+    'ค่าใช้จ่ายพื้นฐานต่อเดือน — ใช้กำหนดขนาดกองทุนฉุกเฉิน',
+  'Target months': 'จำนวนเดือนเป้าหมาย',
+  'Months of expenses to keep. Emergency Fund target = {amount}.':
+    'จำนวนเดือนของค่าใช้จ่ายที่ต้องการเก็บ เป้าหมายกองทุนฉุกเฉิน = {amount}',
   'Your data is stored on this device only.':
     'ข้อมูลของคุณถูกเก็บไว้ในอุปกรณ์นี้เท่านั้น',
   // Manage accounts & categories.

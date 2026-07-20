@@ -12,9 +12,11 @@ import {
   DEFAULT_ACCOUNTS,
   DEFAULT_BUDGET,
   DEFAULT_CATEGORIES,
+  DEFAULT_GOALS,
   DEFAULT_SETTINGS,
   type BudgetCfg,
   type Categories,
+  type GoalsCfg,
   type Settings,
 } from './data/defaults'
 
@@ -47,7 +49,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals'
   value: unknown
 }
 
@@ -75,6 +77,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('categories')) puts.push({ key: 'categories', value: DEFAULT_CATEGORIES })
   if (!existing.has('settings')) puts.push({ key: 'settings', value: DEFAULT_SETTINGS })
   if (!existing.has('budget')) puts.push({ key: 'budget', value: DEFAULT_BUDGET })
+  if (!existing.has('goals')) puts.push({ key: 'goals', value: DEFAULT_GOALS })
   if (puts.length) await db.config.bulkPut(puts)
 }
 
@@ -247,6 +250,13 @@ export async function getBudget(): Promise<BudgetCfg> {
 }
 export async function saveBudget(cfg: BudgetCfg): Promise<void> {
   await db.config.put({ key: 'budget', value: cfg })
+}
+
+export async function getGoals(): Promise<GoalsCfg> {
+  return { ...DEFAULT_GOALS, ...((await db.config.get('goals'))?.value as GoalsCfg) }
+}
+export async function saveGoals(cfg: GoalsCfg): Promise<void> {
+  await db.config.put({ key: 'goals', value: cfg })
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────

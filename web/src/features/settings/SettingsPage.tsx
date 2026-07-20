@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getSettings, saveSettings } from '../../db'
+import { useAccounts } from '../transactions/useConfig'
 import { DEFAULT_SETTINGS, type Settings } from '../../data/defaults'
 import { t } from '../../i18n'
 
-// General settings (app name, base currency, reset day). Autosaves each change
-// to the on-device config. Seeded once from the stored settings so typing never
-// fights the live query.
+// Merge a patch onto the freshest stored settings, so independent settings
+// cards can't clobber each other's fields with a stale full copy.
+async function patchSettings(patch: Partial<Settings>) {
+  await saveSettings({ ...(await getSettings()), ...patch })
+}
+
+// General settings (app name, base currency, reset day). Autosaves each change.
+// Seeded once from the stored settings so typing never fights the live query.
 function GeneralSettings() {
   // No default here: the query is `undefined` until the real stored settings
   // load, so we seed the form from persisted values (not the fallback defaults).
@@ -17,9 +23,8 @@ function GeneralSettings() {
   if (!form) return null
 
   function update(patch: Partial<Settings>) {
-    const next = { ...form!, ...patch }
-    setForm(next)
-    void saveSettings(next)
+    setForm({ ...form!, ...patch })
+    void patchSettings(patch)
   }
 
   return (
@@ -69,12 +74,90 @@ function GeneralSettings() {
   )
 }
 
+// Savings pool: which accounts count toward the pool, plus the Emergency Fund
+// base (monthlyRequired × targetMonths). Drives the Financial Goals gauge.
+function SavingsPoolSettings() {
+  const accounts = useAccounts()
+  const stored = useLiveQuery(() => getSettings(), [])
+  const [form, setForm] = useState<Settings | null>(null)
+  useEffect(() => { if (!form && stored) setForm(stored) }, [stored, form])
+  if (!form) return null
+
+  function update(patch: Partial<Settings>) {
+    setForm({ ...form!, ...patch })
+    void patchSettings(patch)
+  }
+
+  const pool = new Set(form.savingsAccounts)
+  const toggle = (name: string) => {
+    const next = pool.has(name) ? form.savingsAccounts.filter((a) => a !== name) : [...form.savingsAccounts, name]
+    update({ savingsAccounts: next })
+  }
+  const efTarget = form.monthlyRequired * form.targetMonths
+
+  return (
+    <section className="set-card">
+      <h2 className="set-card-title">{t('Savings pool')}</h2>
+
+      <div className="set-field">
+        <label>{t('Pool accounts')}</label>
+        <div className="chip-choices">
+          {accounts.map((a) => (
+            <button
+              key={a}
+              type="button"
+              className={pool.has(a) ? 'choice-chip on' : 'choice-chip'}
+              aria-pressed={pool.has(a)}
+              onClick={() => toggle(a)}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+        <span className="set-hint">{t('Balances of these accounts make up your savings pool.')}</span>
+      </div>
+
+      <div className="set-field">
+        <label>{t('Monthly required expenses')}</label>
+        <input
+          type="number"
+          inputMode="decimal"
+          value={form.monthlyRequired}
+          style={{ maxWidth: 160 }}
+          onChange={(e) => update({ monthlyRequired: Math.max(0, Number(e.target.value) || 0) })}
+        />
+        <span className="set-hint">{t('Your baseline monthly spending — used to size the Emergency Fund.')}</span>
+      </div>
+
+      <div className="set-field">
+        <label>{t('Target months')}</label>
+        <input
+          type="number"
+          min={1}
+          max={24}
+          value={form.targetMonths}
+          style={{ maxWidth: 90 }}
+          onChange={(e) => update({ targetMonths: Math.min(24, Math.max(1, Math.round(Number(e.target.value) || 1))) })}
+        />
+        <span className="set-hint">
+          {t('Months of expenses to keep. Emergency Fund target = {amount}.', {
+            amount: `${efTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${form.baseCurrency}`,
+          })}
+        </span>
+      </div>
+
+      <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
+    </section>
+  )
+}
+
 export function SettingsPage() {
   return (
     <div>
       <h1 className="h1">{t('Settings')}</h1>
 
       <GeneralSettings />
+      <SavingsPoolSettings />
 
       <Link to="/manage" className="set-card set-card-link">
         <span className="set-card-title">{t('Manage accounts & categories')}</span>

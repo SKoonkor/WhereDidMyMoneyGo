@@ -12,8 +12,9 @@ import { BackupPage } from './features/backup/BackupPage'
 import { AppsPage } from './features/apps/AppsPage'
 import { CompositionPage } from './features/composition/CompositionPage'
 import { FlowPage } from './features/flow/FlowPage'
+// (Placeholder retired — every Apps tile now routes to a real page.)
 import { BudgetPage } from './features/budget/BudgetPage'
-import { Placeholder } from './features/Placeholder'
+import { GoalsPage } from './features/goals/GoalsPage'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
 import { TxnForm } from './features/transactions/TxnForm'
@@ -70,7 +71,7 @@ export default function App() {
             <Route path="/composition" element={<CompositionPage />} />
             <Route path="/flow" element={<FlowPage />} />
             <Route path="/budget" element={<BudgetPage />} />
-            <Route path="/goals" element={<Placeholder title="Goals" />} />
+            <Route path="/goals" element={<GoalsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/manage" element={<ManagePage />} />
             <Route path="/backup" element={<BackupPage />} />
