@@ -2,15 +2,17 @@
 // settings as one JSON document. Restore is a full replace (guarded by a
 // confirm in the UI). Nothing here talks to a server.
 import {
-  db, listTxns, getAccounts, getCategories, getSettings, getBudget, getGoals, getReconcileState,
-  saveAccounts, saveCategories, saveSettings, saveBudget, saveGoals, saveReconcileState, type Txn,
+  db, listTxns, getAccounts, getCategories, getSettings, getBudget, getGoals, getReconcileState, getTax,
+  saveAccounts, saveCategories, saveSettings, saveBudget, saveGoals, saveReconcileState, saveTax, type Txn,
 } from '../../db'
 import type { BudgetCfg, Categories, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
+import type { TaxCfg } from '../analytics/income_tax'
 
 const APP_TAG = 'where-did-my-money-go'
-// v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals
-// config. Older v1 files still restore (the new keys are optional and left as-is).
-const BACKUP_VERSION = 2
+// v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals +
+// reconcile config; v3 adds tax config. Older files still restore (the new keys
+// are optional and left as-is when absent).
+const BACKUP_VERSION = 3
 
 export interface Backup {
   app: typeof APP_TAG
@@ -23,6 +25,7 @@ export interface Backup {
   budget?: BudgetCfg
   goals?: GoalsCfg
   reconcile?: ReconcileState
+  tax?: TaxCfg
 }
 
 export async function makeBackup(): Promise<Backup> {
@@ -37,6 +40,7 @@ export async function makeBackup(): Promise<Backup> {
     budget: await getBudget(),
     goals: await getGoals(),
     reconcile: await getReconcileState(),
+    tax: await getTax(),
   }
 }
 
@@ -78,6 +82,7 @@ export async function restoreBackup(b: Backup): Promise<RestoreResult> {
     if (b.budget) await saveBudget(b.budget)
     if (b.goals) await saveGoals(b.goals)
     if (b.reconcile) await saveReconcileState(b.reconcile)
+    if (b.tax) await saveTax(b.tax)
   })
   return { transactions: b.transactions.length, accounts: b.accounts.length }
 }

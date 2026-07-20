@@ -10,6 +10,8 @@ const TILES: Tile[] = [
   { to: '/flow', label: 'Money Flow', desc: 'Running balance and forecast.', icon: '💸' },
   { to: '/budget', label: 'Budget', desc: 'Where your money goes vs. plan.', icon: '📊' },
   { to: '/goals', label: 'Goals', desc: 'Savings goals and progress.', icon: '🎯' },
+  { to: '/compound', label: 'Compound Interest', desc: 'See how deposits grow over time.', icon: '📈' },
+  { to: '/income-tax', label: 'Income Tax', desc: 'Estimate your yearly income tax.', icon: '🧾' },
   { to: '/reconcile', label: 'Reconcile', desc: 'Match tracked balances to reality.', icon: '⚖️' },
 ]
 

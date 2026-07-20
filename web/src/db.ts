@@ -21,6 +21,7 @@ import {
   type ReconcileState,
   type Settings,
 } from './data/defaults'
+import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
 // "add" choices are Income / Expense / Transfer; a Transfer expands into the two
@@ -51,7 +52,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax'
   value: unknown
 }
 
@@ -81,6 +82,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('budget')) puts.push({ key: 'budget', value: DEFAULT_BUDGET })
   if (!existing.has('goals')) puts.push({ key: 'goals', value: DEFAULT_GOALS })
   if (!existing.has('reconcile')) puts.push({ key: 'reconcile', value: DEFAULT_RECONCILE })
+  if (!existing.has('tax')) puts.push({ key: 'tax', value: DEFAULT_TAX })
   if (puts.length) await db.config.bulkPut(puts)
 }
 
@@ -267,6 +269,13 @@ export async function getReconcileState(): Promise<ReconcileState> {
 }
 export async function saveReconcileState(state: ReconcileState): Promise<void> {
   await db.config.put({ key: 'reconcile', value: state })
+}
+
+export async function getTax(): Promise<TaxCfg> {
+  return { ...DEFAULT_TAX, ...((await db.config.get('tax'))?.value as TaxCfg) }
+}
+export async function saveTax(cfg: TaxCfg): Promise<void> {
+  await db.config.put({ key: 'tax', value: cfg })
 }
 
 // Write one balance-adjustment row per account whose actual balance differs from

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts, getBudget, getGoals, saveBudget, saveGoals } from '../../db'
+import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts, getBudget, getGoals, getTax, saveBudget, saveGoals, saveTax } from '../../db'
 import { toExportRecords, toCsv } from './exporter'
 import { makeBackup, parseBackup, restoreBackup } from './backup'
 
@@ -63,14 +63,16 @@ describe('backup / restore', () => {
     expect(legs[0].transferId).toBe(legs[1].transferId)
   })
 
-  it('round-trips budget + goals config (v2)', async () => {
+  it('round-trips budget + goals + tax config (v3)', async () => {
     await saveBudget({ ...(await getBudget()), mode: 'rolling', fixedIncome: 12345, assignments: { Food: 'Wants' } })
     await saveGoals({ goals: { Car: 300000 }, factors: { Car: 2 }, selected: ['Car'] })
+    await saveTax({ country: 'Thailand', allowances: { spouse: true, children: 2 }, incomeSelections: ['Salary'], taxSelections: ['Bills'] })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(2)
+    expect(backup.version).toBe(3)
     expect(backup.budget?.mode).toBe('rolling')
     expect(backup.goals?.selected).toEqual(['Car'])
+    expect(backup.tax?.allowances.children).toBe(2)
 
     await db.transactions.clear()
     await db.config.clear()
@@ -80,6 +82,8 @@ describe('backup / restore', () => {
     expect((await getBudget()).assignments.Food).toBe('Wants')
     expect((await getGoals()).factors.Car).toBe(2)
     expect((await getGoals()).selected).toEqual(['Car'])
+    expect((await getTax()).allowances.spouse).toBe(true)
+    expect((await getTax()).incomeSelections).toEqual(['Salary'])
   })
 
   it('restores an older v1 file (no budget/goals) without wiping current config', async () => {
