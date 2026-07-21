@@ -1113,6 +1113,10 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .subcat-head .subcat-name { color: var(--muted); }
 .subcat-col { text-align: right; font-variant-numeric: tabular-nums; }
 .subcat-col.muted { color: var(--muted); }
+/* Stacked strategy cell: value with an optional uncertainty range beneath. */
+.subcat-val { display: block; }
+.subcat-range { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+.subcat-phrase { display: block; font-size: 11px; font-weight: 600; }
 /* Clickable header cell that toggles category-only ↔ sub-category rows. */
 .subcat-toggle {
   background: none;

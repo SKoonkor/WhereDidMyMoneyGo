@@ -30,6 +30,20 @@ function moneyRange(lo: number, hi: number, currency: string): string {
   return `(${abbrevNum(lo, unit)}–${abbrevNum(hi, unit)} ${currency})`
 }
 const yrRange = (lo: number, hi: number) => `(${Math.round(lo)}–${Math.round(hi)} ${t('yo')})`
+// Compact money range for the narrow strategy columns: no currency, one unit.
+function moneyRangeCompact(lo: number, hi: number): string {
+  const m = Math.max(Math.abs(lo), Math.abs(hi))
+  const unit: 'M' | 'k' | '' = m >= 1e6 ? 'M' : m >= 1e3 ? 'k' : ''
+  const f = (n: number) => (unit === 'M' ? (n / 1e6).toFixed(1) : unit === 'k' ? String(Math.round(n / 1e3)) : String(Math.round(n)))
+  return `(${f(lo)}–${f(hi)}${unit})`
+}
+// Age range that tolerates a null (censored-past-life) bound → "85+".
+function ageRangeText(lo: number | null | undefined, hi: number | null | undefined, life: number, withUnit: boolean): string | undefined {
+  if (lo == null && hi == null) return undefined
+  const loS = lo == null ? `${Math.round(life)}+` : `${Math.round(lo)}`
+  const hiS = hi == null ? `${Math.round(life)}+` : `${Math.round(hi)}`
+  return `(${loS}–${hiS}${withUnit ? ` ${t('yo')}` : ''})`
+}
 const num = (s: string) => (Number.isFinite(Number(s)) ? Number(s) : 0)
 
 // Only zoom in/out on the trajectory plot's modebar (no pan/select/reset/logo).
@@ -272,10 +286,11 @@ function ResultsBlock({ res, mc, money, yo, currency }: {
   const freedomRange = mc && mc.freedom ? yrRange(mc.freedom.p16, mc.freedom.p84) : undefined
   const covered = mc ? mc.depletion === null || mc.depletion.p50 === null : coveredBase
   const depAge = mc ? mc.depletion?.p50 ?? null : depAgeBase
-  const depRange = mc && mc.depletion && mc.depletion.p16 != null && mc.depletion.p84 != null
-    ? yrRange(mc.depletion.p16, mc.depletion.p84) : undefined
+  const depRange = mc && !covered ? ageRangeText(mc.depletion?.p16, mc.depletion?.p84, res.lifeExpectancy, true) : undefined
   const endReal = endBand ? endBand.p50[last] : endBase
   const endRange = endBand ? moneyRange(endBand.p16[last], endBand.p84[last], currency) : undefined
+  const expShown = mc?.expenseAtRetirement ? mc.expenseAtRetirement.p50 : res.expenseAtRetirement
+  const expRange = mc?.expenseAtRetirement ? moneyRange(mc.expenseAtRetirement.p16, mc.expenseAtRetirement.p84, currency) : undefined
 
   return (
     <section className="card">
@@ -285,7 +300,7 @@ function ResultsBlock({ res, mc, money, yo, currency }: {
       )}
       {/* Pot / Outcome / Ending live in the strategy table once goals are overlaid. */}
       {!goals && <Metric label={t('Pot at retirement')} value={money(potShown)} range={potRange} accent />}
-      <Metric label={t('Monthly expense at retirement')} value={money(res.expenseAtRetirement)} />
+      <Metric label={t('Monthly expense at retirement')} value={money(expShown)} range={expRange} />
       <Metric label={t('Pension (monthly)')} value={money(res.pension)} />
       <Metric label={t('Years in retirement')} value={res.yearsInRetirement.toFixed(0)} />
       <Metric label={t('Financial freedom')} value={freedomShown != null ? yo(freedomShown) : t('Not reached')} range={freedomShown != null ? freedomRange : undefined} />
@@ -300,29 +315,48 @@ function ResultsBlock({ res, mc, money, yo, currency }: {
       )}
       {!goals && covered && <Metric label={t('Ending (today’s money)')} value={money(endReal)} range={endRange} />}
 
-      {goals && <StrategyTable res={res} money={money} yo={yo} />}
+      {goals && <StrategyTable res={res} mc={mc} money={money} yo={yo} />}
     </section>
   )
 }
 
-function StrategyTable({ res, money, yo }: {
+function StrategyTable({ res, mc, money, yo }: {
   res: ReturnType<typeof computeRetirement>
+  mc: ReturnType<typeof simulateRetirementMc> | null
   money: (n: number) => string
   yo: (a: number) => string
 }) {
   const f = res.summaryFactor!
   const p = res.summaryPlain!
   const names = res.goalNames ?? []
-  const ageOf = (hits: NonNullable<typeof res.goalHitsFactor>, name: string) => {
-    const hit = hits.find((h) => h.name === name)
-    return hit ? { text: yo(hit.age), tone: '' } : { text: t('not reached'), tone: 'amt-expense' }
+  const life = res.lifeExpectancy
+  const rm = res.retireMonth
+
+  // Pot at retirement: median + 16–84% money range under Monte Carlo.
+  const potCell = (det: number, band?: { p16: number[]; p50: number[]; p84: number[] }) =>
+    band ? { value: money(band.p50[rm]), range: moneyRangeCompact(band.p16[rm], band.p84[rm]) } : { value: money(det), range: undefined }
+
+  // Per-goal age: median + range from that strategy's goal events under Monte Carlo.
+  const goalCell = (name: string, detHits: NonNullable<typeof res.goalHitsFactor>, events?: NonNullable<typeof mc>['goalEvents']) => {
+    if (mc && events) {
+      const ev = events.find((e) => e.name === name)
+      if (ev && ev.p50 != null) return { value: yo(ev.p50), range: ageRangeText(ev.p16, ev.p84, life, false), tone: '' }
+      return { value: t('not reached'), range: undefined, tone: 'amt-expense' }
+    }
+    const hit = detHits.find((h) => h.name === name)
+    return hit ? { value: yo(hit.age), range: undefined, tone: '' } : { value: t('not reached'), range: undefined, tone: 'amt-expense' }
   }
-  const outcome = (covered: boolean, depAge: number | null) =>
-    covered
-      ? { text: t('Funds last through age {age}', { age: res.lifeExpectancy.toFixed(0) }), tone: 'amt-income' }
-      : { text: t('Funds run out at age {age}', { age: (depAge ?? res.lifeExpectancy).toFixed(0) }), tone: 'amt-expense' }
-  const fOut = outcome(f.covered, f.depletionAge)
-  const pOut = outcome(p.covered, p.depletionAge)
+
+  // Outcome: two-line cell (phrase + age), with an age range under Monte Carlo.
+  const outcomeCell = (detCovered: boolean, detDepAge: number | null, dep?: { p16: number | null; p50: number | null; p84: number | null } | null) => {
+    if (mc) {
+      const covered = !dep || dep.p50 == null
+      return { covered, age: covered ? life : dep!.p50!, range: covered ? undefined : ageRangeText(dep!.p16, dep!.p84, life, false) }
+    }
+    return { covered: detCovered, age: detCovered ? life : detDepAge ?? life, range: undefined }
+  }
+  const fOut = outcomeCell(f.covered, f.depletionAge, mc?.depletion)
+  const pOut = outcomeCell(p.covered, p.depletionAge, mc?.depletionPlain)
 
   return (
     <div className="subcat-table" style={{ marginTop: 14 }}>
@@ -333,8 +367,8 @@ function StrategyTable({ res, money, yo }: {
       </div>
       <div className="subcat-grid subcat-group">
         <span className="subcat-name">{t('Pot at retirement')}</span>
-        <span className="subcat-col">{money(f.potAtRetirement)}</span>
-        <span className="subcat-col">{money(p.potAtRetirement)}</span>
+        <SCell {...potCell(f.potAtRetirement, mc?.factorNominal)} />
+        <SCell {...potCell(p.potAtRetirement, mc?.plainNominal)} />
       </div>
       <div className="subcat-grid subcat-row">
         <span className="subcat-name">{t('Spent on goals')}</span>
@@ -342,20 +376,20 @@ function StrategyTable({ res, money, yo }: {
         <span className="subcat-col muted">{money(p.totalSpent)}</span>
       </div>
       {names.map((name) => {
-        const fa = ageOf(res.goalHitsFactor!, name)
-        const pa = ageOf(res.goalHitsPlain!, name)
+        const fa = goalCell(name, res.goalHitsFactor!, mc?.goalEvents)
+        const pa = goalCell(name, res.goalHitsPlain!, mc?.goalEventsPlain)
         return (
           <div key={name} className="subcat-grid subcat-row">
             <span className="subcat-name">{name}</span>
-            <span className={`subcat-col ${fa.tone}`}>{fa.text}</span>
-            <span className={`subcat-col ${pa.tone}`}>{pa.text}</span>
+            <SCell value={fa.value} range={fa.range} tone={fa.tone} />
+            <SCell value={pa.value} range={pa.range} tone={pa.tone} />
           </div>
         )
       })}
       <div className="subcat-grid subcat-group">
         <span className="subcat-name">{t('Outcome')}</span>
-        <span className={`subcat-col ${fOut.tone}`}>{fOut.text}</span>
-        <span className={`subcat-col ${pOut.tone}`}>{pOut.text}</span>
+        <SOutcome {...fOut} yo={yo} />
+        <SOutcome {...pOut} yo={yo} />
       </div>
       <div className="subcat-grid subcat-row">
         <span className="subcat-name">{t('Ending (today’s money)')}</span>
@@ -363,6 +397,27 @@ function StrategyTable({ res, money, yo }: {
         <span className="subcat-col muted">{money(p.endingReal)}</span>
       </div>
     </div>
+  )
+}
+
+// A strategy-table cell: a value with an optional muted range sub-line beneath it.
+function SCell({ value, range, tone }: { value: string; range?: string; tone?: string }) {
+  return (
+    <span className={`subcat-col ${tone ?? ''}`}>
+      <span className="subcat-val">{value}</span>
+      {range && <span className="subcat-range">{range}</span>}
+    </span>
+  )
+}
+
+// Outcome cell: a coloured phrase, the age, then an optional range sub-line.
+function SOutcome({ covered, age, range, yo }: { covered: boolean; age: number; range?: string; yo: (a: number) => string }) {
+  return (
+    <span className="subcat-col">
+      <span className={`subcat-phrase ${covered ? 'amt-income' : 'amt-expense'}`}>{covered ? t('Funds last through') : t('Funds run out')}</span>
+      <span className="subcat-val">{yo(age)}</span>
+      {range && <span className="subcat-range">{range}</span>}
+    </span>
   )
 }
 

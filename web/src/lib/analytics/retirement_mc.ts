@@ -108,6 +108,8 @@ export interface McResult {
   depletionPlain?: DepEvent | null
   successProbPlain?: number
   goalEvents?: GoalEvent[]
+  goalEventsPlain?: GoalEvent[]
+  expenseAtRetirement?: { p16: number; p50: number; p84: number }
   successProb: number
   depletion: DepEvent | null
   freedom: Event | null
@@ -308,6 +310,10 @@ export function simulateRetirementMc(args: {
       const ev = eventPcts(f.hitMonth[k], currentAge)
       return ev ? { name, ...ev } : { name, prob: 0 }
     })
+    result.goalEventsPlain = goals.map(([name], k) => {
+      const ev = eventPcts(p.hitMonth[k], currentAge)
+      return ev ? { name, ...ev } : { name, prob: 0 }
+    })
     freedomTargets = fTargets
     freedomAmounts = amounts
   }
@@ -315,5 +321,14 @@ export function simulateRetirementMc(args: {
   result.successProb = successProb(depleted)
   result.depletion = depletionPcts(depMonth, currentAge, lifeExpectancy)
   result.freedom = eventPcts(freedomMonths(freedomTargets, freedomAmounts), currentAge)
+
+  // Expense at retirement is inflation-driven, so it inherits inflation volatility.
+  if (expense0 > 0) {
+    const pi = priceIndex[retireMonth]
+    const exp = new Float64Array(nMc)
+    for (let k = 0; k < nMc; k++) exp[k] = expense0 * pi[k]
+    exp.sort()
+    result.expenseAtRetirement = { p16: pctLinear(exp, 16), p50: pctLinear(exp, 50), p84: pctLinear(exp, 84) }
+  }
   return result
 }
