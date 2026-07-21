@@ -71,6 +71,7 @@ const TH: Record<string, string> = {
   'Running balance across your accounts, with a forward forecast.': 'ยอดคงเหลือสะสมข้ามบัญชีของคุณ พร้อมการพยากรณ์ล่วงหน้า',
   Forecast: 'พยากรณ์',
   'Forecast amount': 'จำนวนพยากรณ์',
+  Today: 'วันนี้',
   on: 'ณ วันที่',
   'Latest balances': 'ยอดคงเหลือปัจจุบัน',
   'Balance after': 'ยอดคงเหลือหลังรายการ',

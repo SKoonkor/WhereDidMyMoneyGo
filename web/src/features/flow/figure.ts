@@ -19,6 +19,13 @@ const INCOME_COLOR = '#2ecc71'
 const FORECAST_COLOR = '#3498db'
 const BAR_OUTLINE = 'rgba(0,0,0,0.6)'
 
+// Plot box + the pixel gap between an Income bar top and its up-arrow. Kept as
+// constants so the arrow standoff (computed in data units) tracks the layout.
+const PLOT_H = 230
+const PLOT_MT = 40
+const PLOT_MB = 36
+const ARROW_STANDOFF_PX = 13
+
 // Stable colour per account (mirrors theme.ACCOUNT_COLORS + FALLBACK_PALETTE).
 const ACCOUNT_COLORS: Record<string, string> = {
   'Bank Accounts': '#3498db',
@@ -150,12 +157,14 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   const pad = Math.max((hi - lo) * 0.08, 1)
 
   // ── Green up-arrow above each Income bar (replaces the old dark outline) ──────
-  // A fixed-size triangle marker set a hair above the bar top, so every income
-  // reads the same regardless of amount. y is fixed (yaxis.fixedrange) so a small
-  // data-unit standoff stays visually constant.
+  // A fixed-size triangle marker set above the bar top, so every income reads the
+  // same regardless of amount. The standoff is derived in pixels (≈ one marker
+  // height clear of the bar) and converted to data units via the plot's drawn
+  // height (layout height − top/bottom margins, mirrored below).
   const incomeBars = flow.bars.filter((b) => b.type === 'Income')
   if (incomeBars.length) {
-    const standoff = Math.max((hi - lo) * 0.02, 0.5)
+    const areaPx = PLOT_H - PLOT_MT - PLOT_MB
+    const standoff = (ARROW_STANDOFF_PX * ((hi - lo) + 2 * pad)) / areaPx
     data.push({
       type: 'scatter',
       mode: 'markers',
@@ -171,13 +180,13 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   return {
     data,
     layout: {
-      height: 230,
+      height: PLOT_H,
       barmode: 'overlay',
       bargap: 0,
       ...transparent,
       hovermode: 'closest',
       dragmode: 'pan',
-      margin: { t: 40, b: 36, l: censor ? 16 : 56, r: 16 },
+      margin: { t: PLOT_MT, b: PLOT_MB, l: censor ? 16 : 56, r: 16 },
       font: { color: ui.muted, size: 11 },
       showlegend: false,
       shapes,

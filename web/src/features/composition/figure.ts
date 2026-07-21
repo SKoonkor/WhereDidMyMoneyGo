@@ -35,6 +35,8 @@ function sliceColors(slices: Slice[], kind: 'income' | 'expense'): string[] {
 }
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+// Keep on-chart labels short: anything ≥ 1M collapses to e.g. "1.72M".
+const fmtShort = (n: number) => (Math.abs(n) >= 1_000_000 ? (n / 1_000_000).toFixed(2) + 'M' : fmt(n))
 
 function hexToRgb(h: string): [number, number, number] {
   const n = parseInt(h.slice(1), 16)
@@ -71,7 +73,7 @@ export function buildDonutFigure(
     }
   }
   const colors = sliceColors(slices, kind)
-  const centre = censor ? '*****' : `${fmt(total)}<br><span style="font-size:0.72em;color:${ui.muted}">${currency}</span>`
+  const centre = censor ? '*****' : `${fmtShort(total)}<br><span style="font-size:0.72em;color:${ui.muted}">${currency}</span>`
   return {
     data: [
       {
@@ -126,7 +128,7 @@ export function buildBarsFigure(
         x: slices.map((s) => s.category),
         y: values,
         marker: { color: colors },
-        text: censor ? values.map(() => '') : values.map((v) => fmt(v)),
+        text: censor ? values.map(() => '') : values.map((v) => fmtShort(v)),
         textposition: 'outside',
         textfont: { size: 10, color: ui.ink },
         cliponaxis: false,

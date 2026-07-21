@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveTxns } from '../useLiveTxns'
 import { useBaseCurrency } from '../transactions/useConfig'
 import { useTheme, useCensor } from '../../prefs'
@@ -96,6 +96,17 @@ export function FlowPage() {
   const dayOffset = stops[idx] ?? 0
   const sliderDate = fc ? fc.dates[dayOffset] : ''
   const sliderAmount = fc ? fc.median[dayOffset] : 0
+  const finalDate = fc ? fc.dates[fc.dates.length - 1] : ''
+
+  // Let the user tap anywhere on the track and drag from there — native range
+  // inputs on touch only drag from the thumb, so drive the value from the
+  // pointer position directly (with pointer capture for a continuous drag).
+  const dragging = useRef(false)
+  const idxFromPointer = (clientX: number, el: HTMLElement) => {
+    const r = el.getBoundingClientRect()
+    const frac = r.width ? (clientX - r.left) / r.width : 0
+    return Math.max(0, Math.min(stops.length - 1, Math.round(frac * (stops.length - 1))))
+  }
 
   return (
     <div>
@@ -168,8 +179,24 @@ export function FlowPage() {
             step={1}
             value={idx}
             onChange={(e) => setSliderIdx(Number(e.target.value))}
+            onPointerDown={(e) => {
+              dragging.current = true
+              e.currentTarget.setPointerCapture(e.pointerId)
+              setSliderIdx(idxFromPointer(e.clientX, e.currentTarget))
+            }}
+            onPointerMove={(e) => {
+              if (dragging.current) setSliderIdx(idxFromPointer(e.clientX, e.currentTarget))
+            }}
+            onPointerUp={(e) => {
+              dragging.current = false
+              try { e.currentTarget.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+            }}
             aria-label={t('Forecast amount')}
           />
+          <div className="flow-range-ends muted">
+            <span>{t('Today')}</span>
+            <span>{fmtDay(finalDate)}</span>
+          </div>
         </div>
       )}
 

@@ -157,12 +157,15 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .compo-row .muted { flex: 0 0 auto; }
 .compo-row .pick-summary { flex: 1 1 220px; width: auto; }
 .compo-sort .seg { flex: 1 1 220px; margin-bottom: 0; }
-/* Custom range: two date pickers, one per line. */
+/* Custom range: two date pickers, one per line. Reset the generic .field flex —
+   in this column layout its `flex-basis:140px` would inflate each field's HEIGHT
+   and leave a large empty gap below each input. */
 .compo-dates {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+.compo-dates .field { flex: 0 0 auto; }
 .compo-dates input {
   height: 40px;
   appearance: none;
@@ -743,6 +746,13 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   border-radius: 50%;
   background: radial-gradient(circle, var(--accent) 0 10px, transparent 10px);
   cursor: pointer;
+}
+/* End captions under the scrubber: Today (left) → final forecast date (right). */
+.flow-range-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: -2px;
 }
 
 /* Small button variant + destructive tint (used by Manage). */

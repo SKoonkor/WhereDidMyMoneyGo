@@ -160,6 +160,7 @@ export function CompositionPage() {
           <div className="compo-dates">
             <div className="field">
               <label>{t('Start date')}</label>
+              {/* Blur on pick so the native calendar closes and applies at once. */}
               <input
                 type="date"
                 value={customStart}
@@ -168,6 +169,7 @@ export function CompositionPage() {
                   const v = e.target.value
                   setCustomStart(v)
                   if (v > customEnd) setCustomEnd(v) // keep End ≥ Start
+                  e.target.blur()
                 }}
               />
             </div>
@@ -180,6 +182,7 @@ export function CompositionPage() {
                 onChange={(e) => {
                   const v = e.target.value
                   setCustomEnd(v < customStart ? customStart : v) // clamp End ≥ Start
+                  e.target.blur()
                 }}
               />
             </div>
