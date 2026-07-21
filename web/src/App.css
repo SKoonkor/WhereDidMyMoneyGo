@@ -1087,6 +1087,36 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .budget-subsection { margin-top: 16px; }
 .budget-subsection:first-child { margin-top: 12px; }
 
+/* Sub-category detail table: This-month vs date-of-month rolling average. */
+.subcat-grid {
+  display: grid;
+  grid-template-columns: 1fr 78px 78px;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+.subcat-head {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding-bottom: 2px;
+}
+.subcat-group {
+  font-weight: 700;
+  border-top: 1px solid var(--border-soft);
+  margin-top: 2px;
+  padding-top: 8px;
+}
+.subcat-row .subcat-name { padding-left: 14px; font-weight: 400; }
+.subcat-name { color: var(--ink); overflow-wrap: anywhere; }
+.subcat-head .subcat-name { color: var(--muted); }
+.subcat-col { text-align: right; font-variant-numeric: tabular-nums; }
+.subcat-col.muted { color: var(--muted); }
+@media (min-width: 620px) {
+  .subcat-grid { grid-template-columns: 1fr 96px 96px; }
+}
+
 /* Inline sub-category strip beneath the two bucket columns. */
 .budget-subwrap {
   display: grid;

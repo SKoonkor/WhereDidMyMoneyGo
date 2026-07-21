@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getBudget, saveBudget } from '../../db'
+import { getBudget, saveBudget, type Txn } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
 import { useSettings, useCategories, useBaseCurrency } from '../transactions/useConfig'
 import { useTheme, useCensor } from '../../prefs'
 import { addMonths, currentMonthKey, monthLabel } from '../transactions/month'
 import {
   budgetIncome, budgetSummary, bucketFor, bucketForTxn, bucketTone, monthPieData,
-  NEEDS, WANTS, SAVINGS, HIDDEN_LABEL,
+  subcatMonthVsAvg, NEEDS, WANTS, SAVINGS, HIDDEN_LABEL,
 } from '../../lib/analytics/budget'
 import type { Bucket, BudgetCfg } from '../../data/defaults'
 import { buildBudgetPie, type BudgetUi } from './figure'
@@ -136,10 +136,84 @@ export function BudgetPage() {
         )}
       </section>
 
+      {/* ── Sub-category detail: this month vs date-of-month rolling average ── */}
+      <SubcatDetail all={all} month={month} censor={censor} />
+
       <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
         {t('The budget month starts on day {d}. Change it in Settings.', { d: settings.resetDay })}
       </p>
     </div>
+  )
+}
+
+// ── Sub-category detail: this-month spend vs a date-of-month rolling average ────
+const WINDOWS: [string, number][] = [['1M', 1], ['3M', 3], ['6M', 6], ['1Y', 12]]
+
+// Colour a "This" amount by how it compares to the average: red = spending more
+// than usual, green = less, muted = the same.
+function toneClass(cur: number, avg: number): string {
+  if (cur > avg) return 'amt-expense'
+  if (cur < avg) return 'amt-income'
+  return ''
+}
+
+function SubcatDetail({ all, month, censor }: { all: Txn[]; month: string; censor: boolean }) {
+  const [open, setOpen] = useState(false)
+  const [win, setWin] = useState(3)
+  const groups = useMemo(() => subcatMonthVsAvg(all, month, win), [all, month, win])
+
+  return (
+    <section className="card budget-card">
+      <button
+        type="button"
+        className="budget-settings-head"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="dash-title" style={{ margin: 0 }}>{t('Sub-category detail')}</span>
+        <span className="budget-settings-caret">{open ? '⌃' : '⌄'}</span>
+      </button>
+
+      <div className={open ? 'budget-settings-body open' : 'budget-settings-body'}>
+        <div className="budget-settings-inner">
+          <div className="seg" style={{ marginTop: 10 }}>
+            {WINDOWS.map(([label, n]) => (
+              <button key={n} type="button" className={win === n ? 'seg-btn active' : 'seg-btn'} onClick={() => setWin(n)}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {groups.length === 0 ? (
+            <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>{t('No spending this month')}</p>
+          ) : (
+            <div className="subcat-table" style={{ marginTop: 12 }}>
+              <div className="subcat-grid subcat-head">
+                <span className="subcat-name">{t('Sub-category')}</span>
+                <span className="subcat-col">{t('This')}</span>
+                <span className="subcat-col">{t('Avg')}</span>
+              </div>
+              {groups.map((g) => (
+                <Fragment key={g.category}>
+                  <div className="subcat-grid subcat-group">
+                    <span className="subcat-name">{g.category}</span>
+                    <span className={`subcat-col ${toneClass(g.cur, g.avg)}`}>{money(g.cur, censor)}</span>
+                    <span className="subcat-col muted">{money(g.avg, censor)}</span>
+                  </div>
+                  {g.rows.map((r) => (
+                    <div key={r.sub} className="subcat-grid subcat-row">
+                      <span className="subcat-name">{r.sub}</span>
+                      <span className={`subcat-col ${toneClass(r.cur, r.avg)}`}>{money(r.cur, censor)}</span>
+                      <span className="subcat-col muted">{money(r.avg, censor)}</span>
+                    </div>
+                  ))}
+                </Fragment>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   )
 }
 

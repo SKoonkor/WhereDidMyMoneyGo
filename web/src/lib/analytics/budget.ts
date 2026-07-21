@@ -245,3 +245,88 @@ export function bucketTone(name: Bucket, spent: number, target: number): 'good' 
   if (name === SAVINGS) return raw >= 90 ? 'good' : raw >= 65 ? 'warn' : 'bad'
   return raw < 50 ? 'good' : raw <= 85 ? 'warn' : 'bad'
 }
+
+// ── Sub-category detail: this-month spend vs a date-of-month rolling average ────
+// Compares the shown month's spend-to-date against the typical spend by the same
+// day-of-month, averaged over the previous N months — an apples-to-apples "am I
+// spending faster than usual by this point in the month?" view. A port/rework of
+// the Python "Sub-category detail" table (Prev column → rolling Avg, no Change).
+
+export const BLANK_SUB = '—'
+
+export interface SubcatRow {
+  sub: string
+  cur: number // spend in the shown month, days 1..cutoff
+  avg: number // mean spend by the same day-of-month over the previous N months
+}
+export interface SubcatGroup {
+  category: string
+  cur: number
+  avg: number
+  rows: SubcatRow[]
+}
+
+// Σ Expense grouped by "category\0sub" within [year-month-01 … year-month-cutoff]
+// (inclusive), blank subcategories normalised to BLANK_SUB.
+function sumBySubcat(txns: Txn[], y: number, m: number, cutoffDay: number): Map<string, number> {
+  const start = iso(y, m, 1)
+  const end = iso(y, m, cutoffDay)
+  const out = new Map<string, number>()
+  for (const t of txns) {
+    if (t.type !== 'Expense') continue
+    const d = t.period.slice(0, 10)
+    if (d < start || d > end) continue
+    const sub = (t.subcategory ?? '').trim() || BLANK_SUB
+    const key = `${t.category}\u0000${sub}`
+    out.set(key, (out.get(key) ?? 0) + t.amount)
+  }
+  return out
+}
+
+// Sub-category spend for `month` ("YYYY-MM") vs a date-of-month rolling average over
+// the previous `windowMonths` months. When `month` is the current calendar month the
+// cutoff is today's day-of-month (a partial month); otherwise it's the full month.
+// The average sums each prior month's spend over days 1..min(cutoff, its length) and
+// divides by the full window (missing months count as 0). Rows/groups with no spend
+// on either side are dropped; result is sorted by current spend, descending.
+export function subcatMonthVsAvg(
+  txns: Txn[], month: string, windowMonths: number, today = new Date(),
+): SubcatGroup[] {
+  const [y, m] = month.split('-').map(Number)
+  const curMonthKey = `${today.getFullYear()}-${pad(today.getMonth() + 1)}`
+  const dom = month === curMonthKey ? today.getDate() : daysInMonth(y, m)
+
+  const cur = sumBySubcat(txns, y, m, dom)
+
+  const n = Math.max(1, Math.trunc(windowMonths))
+  const avgSum = new Map<string, number>()
+  for (let i = 1; i <= n; i++) {
+    const monthsFromEpoch = y * 12 + (m - 1) - i // absolute month index, i months back
+    const yi = Math.floor(monthsFromEpoch / 12)
+    const mi = (monthsFromEpoch % 12) + 1
+    const di = Math.min(dom, daysInMonth(yi, mi))
+    for (const [k, v] of sumBySubcat(txns, yi, mi, di)) {
+      avgSum.set(k, (avgSum.get(k) ?? 0) + v)
+    }
+  }
+
+  const groups = new Map<string, SubcatGroup>()
+  for (const key of new Set([...cur.keys(), ...avgSum.keys()])) {
+    const sep = key.indexOf('\u0000')
+    const cat = key.slice(0, sep)
+    const sub = key.slice(sep + 1)
+    const c = cur.get(key) ?? 0
+    const a = (avgSum.get(key) ?? 0) / n
+    if (c === 0 && a === 0) continue
+    let g = groups.get(cat)
+    if (!g) { g = { category: cat, cur: 0, avg: 0, rows: [] }; groups.set(cat, g) }
+    g.rows.push({ sub, cur: c, avg: a })
+    g.cur += c
+    g.avg += a
+  }
+
+  const out = [...groups.values()]
+  for (const g of out) g.rows.sort((a, b) => b.cur - a.cur)
+  out.sort((a, b) => b.cur - a.cur)
+  return out
+}

@@ -3,7 +3,7 @@ import type { Txn } from '../../db'
 import { DEFAULT_BUDGET, type BudgetCfg } from '../../data/defaults'
 import {
   budgetPeriod, budgetIncome, spendingByBucket, monthPieData, budgetSummary,
-  bucketTone, hiddenCostIn, bucketForTxn,
+  bucketTone, hiddenCostIn, bucketForTxn, subcatMonthVsAvg,
 } from './budget'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -166,6 +166,56 @@ describe('bucketTone', () => {
     expect(bucketTone('Savings', 95, 100)).toBe('good')
     expect(bucketTone('Savings', 70, 100)).toBe('warn')
     expect(bucketTone('Savings', 40, 100)).toBe('bad')
+  })
+})
+
+describe('subcatMonthVsAvg', () => {
+  it('cuts the current month at today’s day-of-month and averages over the full window', () => {
+    const today = new Date(2026, 6, 15) // 15 Jul 2026 → current month, cutoff day 15
+    const txns = [
+      // Current month (July): only spend on/before the 15th counts.
+      T({ id: 1, period: '2026-07-05', category: 'Food', subcategory: 'Lunch', amount: 1000 }),
+      T({ id: 2, period: '2026-07-20', category: 'Food', subcategory: 'Lunch', amount: 500 }), // after cutoff → excluded
+      // Window = the 3 months before July: June, May, April (each cut at the 15th).
+      T({ id: 3, period: '2026-06-10', category: 'Food', subcategory: 'Lunch', amount: 600 }),
+      T({ id: 4, period: '2026-06-25', category: 'Food', subcategory: 'Lunch', amount: 9999 }), // after the 15th → excluded
+      // May: nothing → contributes 0 to the average.
+      T({ id: 5, period: '2026-04-03', category: 'Food', subcategory: 'Lunch', amount: 300 }),
+    ]
+    const groups = subcatMonthVsAvg(txns, '2026-07', 3, today)
+    expect(groups).toHaveLength(1)
+    expect(groups[0].category).toBe('Food')
+    // cur = 1000 (July 5 only); avg = (600 + 0 + 300) / 3 = 300.
+    expect(groups[0].rows).toEqual([{ sub: 'Lunch', cur: 1000, avg: 300 }])
+    expect(groups[0].cur).toBe(1000)
+    expect(groups[0].avg).toBe(300)
+  })
+
+  it('normalises a blank sub-category to “—”, sums group totals, and drops zero/zero rows', () => {
+    const today = new Date(2026, 6, 15)
+    const txns = [
+      T({ id: 1, period: '2026-07-02', category: 'Food', subcategory: 'Lunch', amount: 100 }),
+      T({ id: 2, period: '2026-07-03', category: 'Food', amount: 50 }), // blank sub → “—”
+      T({ id: 3, period: '2026-07-04', category: 'Food', subcategory: 'Snack', amount: 0 }), // zero on both sides → dropped
+      T({ id: 4, period: '2026-06-08', category: 'Food', subcategory: 'Lunch', amount: 200 }),
+    ]
+    const groups = subcatMonthVsAvg(txns, '2026-07', 1, today) // window = June only
+    expect(groups).toHaveLength(1)
+    const g = groups[0]
+    expect(g.cur).toBe(150) // 100 + 50, Snack excluded
+    expect(g.avg).toBe(200) // Lunch 200 / 1
+    expect(g.rows.map((r) => r.sub).sort()).toEqual(['Lunch', '—'])
+    expect(g.rows.find((r) => r.sub === 'Snack')).toBeUndefined()
+  })
+
+  it('for a past (non-current) month uses the full month for both sides', () => {
+    const today = new Date(2026, 6, 15) // today is July; asking about May
+    const txns = [
+      T({ id: 1, period: '2026-05-20', category: 'Food', subcategory: 'Lunch', amount: 700 }), // day 20 counts (full month)
+      T({ id: 2, period: '2026-04-28', category: 'Food', subcategory: 'Lunch', amount: 400 }),
+    ]
+    const groups = subcatMonthVsAvg(txns, '2026-05', 1, today) // window = April
+    expect(groups[0].rows).toEqual([{ sub: 'Lunch', cur: 700, avg: 400 }])
   })
 })
 
