@@ -29,6 +29,32 @@ export function filterByMonth(txns: Txn[], key: string): Txn[] {
   return txns.filter((t) => monthKeyOf(t.period) === key)
 }
 
+// Rows whose day falls in [startIso, endIso] inclusive (YYYY-MM-DD compare).
+export function filterByRange(txns: Txn[], startIso: string, endIso: string): Txn[] {
+  return txns.filter((t) => {
+    const d = t.period.slice(0, 10)
+    return d >= startIso && d <= endIso
+  })
+}
+
+// Latest transaction day (the "today" anchor for relative windows); falls back
+// to the actual today on an empty ledger. Mirrors data.reference_date().
+export function latestPeriod(txns: Txn[]): string {
+  let max = ''
+  for (const t of txns) {
+    const d = t.period.slice(0, 10)
+    if (d > max) max = d
+  }
+  return max || new Date().toISOString().slice(0, 10)
+}
+
+// Shift a "YYYY-MM-DD" day by whole days (calendar-correct across months/years).
+export function addDays(iso: string, delta: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + delta)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 // Hide the Transfer-In leg of any pair whose Transfer-Out (same transferId) is
 // also present, so a transfer shows once. Unpaired legs stay visible.
 export function collapseTransfers(txns: Txn[]): Txn[] {

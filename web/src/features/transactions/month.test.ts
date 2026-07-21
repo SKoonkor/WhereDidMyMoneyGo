@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { addMonths, monthKeyOf, filterByMonth, collapseTransfers, groupByDay, monthSummary, daySummary } from './month'
+import {
+  addMonths, monthKeyOf, filterByMonth, collapseTransfers, groupByDay, monthSummary, daySummary,
+  filterByRange, latestPeriod, addDays,
+} from './month'
 import type { Txn } from '../../db'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -52,5 +55,20 @@ describe('month utils', () => {
   it('groups by day, newest day first', () => {
     const rows = [T({ id: 1, period: '2026-07-01' }), T({ id: 2, period: '2026-07-05' })]
     expect(groupByDay(rows).map(([d]) => d)).toEqual(['2026-07-05', '2026-07-01'])
+  })
+
+  it('filterByRange includes both endpoints', () => {
+    const rows = [
+      T({ id: 1, period: '2026-07-01' }),
+      T({ id: 2, period: '2026-07-15' }),
+      T({ id: 3, period: '2026-08-01' }),
+    ]
+    expect(filterByRange(rows, '2026-07-01', '2026-07-15').map((r) => r.id)).toEqual([1, 2])
+  })
+
+  it('latestPeriod picks the max day (today on empty); addDays is calendar-correct', () => {
+    expect(latestPeriod([T({ period: '2026-07-01' }), T({ period: '2026-07-20' })])).toBe('2026-07-20')
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
   })
 })

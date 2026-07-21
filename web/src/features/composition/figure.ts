@@ -6,15 +6,29 @@ import type { Slice } from '../../lib/analytics/composition'
 
 export interface UiColors { ink: string; muted: string; grid: string }
 // Colour ramp endpoints per side (Income greens, Expense reds), light → dark.
+// In "sort by Needs/Wants" mode the Expense side recolours by bucket instead —
+// Needs blue, Wants orange (mirrors the Budget page arcs).
 export const RAMP = {
   income: ['#a7e8c4', '#0e6b3f'] as const,
   expense: ['#f4a3a3', '#a5281b'] as const,
+  needs: ['#9ecae1', '#08519c'] as const,
+  wants: ['#fdae6b', '#a63603'] as const,
 }
 const HIDDEN_COLOR = '#5a6472' // slate — reconciliation hidden-cost slice
 
 // Colour each slice from the side's ramp, except hidden-cost slices which take a
-// fixed slate so they read as "untracked" rather than a spending category.
+// fixed slate. When slices carry a `bucket` (Needs/Wants sort), each bucket runs
+// its own ramp so Needs read blue and Wants orange.
 function sliceColors(slices: Slice[], kind: 'income' | 'expense'): string[] {
+  if (slices.some((s) => s.bucket)) {
+    const needs = shade(slices.filter((s) => s.bucket === 'Needs').length, RAMP.needs)
+    const wants = shade(slices.filter((s) => s.bucket === 'Wants').length, RAMP.wants)
+    let ni = 0
+    let wi = 0
+    return slices.map((s) =>
+      s.hidden ? HIDDEN_COLOR : s.bucket === 'Needs' ? needs[ni++] : wants[wi++],
+    )
+  }
   const ramp = shade(slices.filter((s) => !s.hidden).length, RAMP[kind])
   let i = 0
   return slices.map((s) => (s.hidden ? HIDDEN_COLOR : ramp[i++]))
@@ -51,7 +65,7 @@ export function buildDonutFigure(
     return {
       data: [] as Record<string, unknown>[],
       layout: {
-        height: 260, ...transparent, margin: { t: 8, b: 8, l: 8, r: 8 },
+        height: 200, ...transparent, margin: { t: 8, b: 8, l: 8, r: 8 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, showarrow: false, font: { color: ui.muted } }],
       } as Record<string, unknown>,
     }
@@ -77,13 +91,13 @@ export function buildDonutFigure(
       },
     ] as Record<string, unknown>[],
     layout: {
-      height: 260,
+      height: 200,
       showlegend: false,
       ...transparent,
       margin: { t: 8, b: 8, l: 8, r: 8 },
       font: { color: ui.muted },
       annotations: [
-        { text: centre, x: 0.5, y: 0.5, showarrow: false, align: 'center', font: { size: 18, color: ui.ink } },
+        { text: centre, x: 0.5, y: 0.5, showarrow: false, align: 'center', font: { size: 16, color: ui.ink } },
       ],
     } as Record<string, unknown>,
   }
@@ -98,7 +112,7 @@ export function buildBarsFigure(
     return {
       data: [] as Record<string, unknown>[],
       layout: {
-        height: 280, ...transparent, margin: { t: 8, b: 8, l: 8, r: 8 },
+        height: 150, ...transparent, margin: { t: 8, b: 8, l: 8, r: 8 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, showarrow: false, font: { color: ui.muted } }],
       } as Record<string, unknown>,
     }
@@ -120,13 +134,13 @@ export function buildBarsFigure(
       },
     ] as Record<string, unknown>[],
     layout: {
-      height: 280,
+      height: 150, // roughly half the previous 280; width unchanged
       showlegend: false,
       ...transparent,
-      margin: { t: 8, b: 84, l: 44, r: 12 },
+      margin: { t: 6, b: 54, l: 40, r: 10 },
       dragmode: false, // tap a bar to read its value; no pan/zoom
       font: { color: ui.muted },
-      xaxis: { tickangle: -30, automargin: true, fixedrange: true, tickfont: { size: 11 } },
+      xaxis: { tickangle: -35, automargin: true, fixedrange: true, tickfont: { size: 10 } },
       yaxis: { showticklabels: !censor, gridcolor: ui.grid, zeroline: false, fixedrange: true },
     } as Record<string, unknown>,
   }

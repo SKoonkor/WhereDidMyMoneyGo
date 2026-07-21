@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { Txn } from '../../db'
-import { categoryBreakdown, hiddenCost, sliceTotal } from '../../lib/analytics/composition'
+import {
+  categoryBreakdown, hiddenCost, sliceTotal,
+  expenseBucketBreakdown, subcategoryBreakdown,
+} from '../../lib/analytics/composition'
 import { shade, buildDonutFigure, buildBarsFigure, RAMP } from './figure'
+import { DEFAULT_BUDGET } from '../../data/defaults'
 
 const T = (over: Partial<Txn>): Txn => ({
   id: 0, period: '2026-07-10', account: 'Cash', amount: 0,
@@ -63,6 +67,57 @@ describe('hidden-cost slice colour', () => {
     const colors = (fig.data[0].marker as { colors: string[] }).colors
     expect(colors[1]).toBe('#5a6472') // slate for the hidden slice
     expect(colors[0]).not.toBe('#5a6472')
+  })
+})
+
+describe('expenseBucketBreakdown', () => {
+  const A = DEFAULT_BUDGET.assignments // Bills/Food/Household = Needs; Travel/Beauty default → Wants
+
+  it('lists Needs (amount-desc) then Wants, tagged with bucket', () => {
+    const rows = [
+      T({ type: 'Expense', category: 'Food', amount: 100 }),
+      T({ type: 'Expense', category: 'Travel', amount: 300 }),
+      T({ type: 'Expense', category: 'Bills', amount: 200 }),
+      T({ type: 'Income', category: 'Salary', amount: 999 }), // ignored
+    ]
+    expect(expenseBucketBreakdown(rows, A).map((s) => [s.category, s.bucket])).toEqual([
+      ['Bills', 'Needs'], ['Food', 'Needs'], ['Travel', 'Wants'],
+    ])
+  })
+
+  it('folds a bucket tail past the cap into "Other"', () => {
+    // 9 Wants categories, cap 8 → 7 named + Other. (All default-Wants names.)
+    const rows = Array.from({ length: 9 }, (_, i) => T({ type: 'Expense', category: `W${i}`, amount: 90 - i }))
+    const wants = expenseBucketBreakdown(rows, A, 8, 'Other')
+    expect(wants).toHaveLength(8)
+    expect(wants[7]).toEqual({ category: 'Other', amount: (90 - 7) + (90 - 8), bucket: 'Wants' })
+  })
+})
+
+describe('subcategoryBreakdown', () => {
+  it('nests categories (total-desc) → subcategories (amount-desc); blanks → —', () => {
+    const rows = [
+      T({ type: 'Expense', category: 'Food', subcategory: 'Lunch', amount: 170 }),
+      T({ type: 'Expense', category: 'Food', subcategory: 'Dinner', amount: 300 }),
+      T({ type: 'Expense', category: 'Bills', amount: 1200 }),
+    ]
+    const g = subcategoryBreakdown(rows, 'Expense')
+    expect(g.map((x) => [x.category, x.total])).toEqual([['Bills', 1200], ['Food', 470]])
+    expect(g[1].subs).toEqual([{ name: 'Dinner', amount: 300 }, { name: 'Lunch', amount: 170 }])
+    expect(g[0].subs).toEqual([{ name: '—', amount: 1200 }]) // blank subcategory normalised
+  })
+})
+
+describe('bucket slice colours', () => {
+  it('colours Needs from the blue ramp and Wants from the orange ramp', () => {
+    const slices = [
+      { category: 'Bills', amount: 200, bucket: 'Needs' as const },
+      { category: 'Travel', amount: 300, bucket: 'Wants' as const },
+    ]
+    const fig = buildBarsFigure(slices, { currency: 'THB', kind: 'expense', censor: false, ui, noData: 'No data' })
+    const colors = (fig.data[0].marker as { color: string[] }).color
+    expect(colors[0]).toBe(shade(1, RAMP.needs)[0]) // Needs → blue
+    expect(colors[1]).toBe(shade(1, RAMP.wants)[0]) // Wants → orange
   })
 })
 

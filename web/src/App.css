@@ -137,6 +137,69 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   flex: 1 1 280px;
   min-width: 0;
 }
+/* Pie view: two donuts always side by side (halves their size). Bars view keeps
+   the wrapping split so each bar chart keeps its width and just stacks. */
+.compo-split.pie {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Period presets + sort controls card. */
+.compo-controls > * + * { margin-top: 12px; }
+.compo-dates input {
+  height: 40px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.compo-sort {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.compo-sort .seg { flex: 1 1 220px; margin-bottom: 0; }
+
+/* Needs/Wants subtotal caption beneath the Expense chart. */
+.compo-buckets {
+  font-size: 13px;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* Expandable category → subcategory summary (ported from the Dash pie page). */
+.compo-cats { margin-top: 16px; }
+.subcat-summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 6px 0;
+}
+.subcat-summary:hover { filter: brightness(1.1); }
+.compo-cats-grid {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.compo-cat-col { flex: 1 1 260px; min-width: 0; }
+.compo-cat-h { margin: 0 0 8px; font-size: 15px; }
+.subcat-group {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 6px;
+  margin-top: 4px;
+}
+.subcat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 0;
+}
+.subcat-row .subcat-name { padding-left: 14px; color: var(--ink); }
+.subcat-amt { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 
 /* Home dashboard. */
 .dash-card {
