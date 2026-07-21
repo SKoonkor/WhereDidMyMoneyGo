@@ -204,6 +204,8 @@ const TH: Record<string, string> = {
   Outcome: 'ผลลัพธ์',
   'Funds last through age {age}': 'เงินอยู่ได้ถึงอายุ {age}',
   'Funds run out at age {age}': 'เงินหมดเมื่ออายุ {age}',
+  'Funds last through': 'เงินอยู่ได้ถึง',
+  'Funds run out': 'เงินหมด',
   'Plan succeeds': 'แผนสำเร็จ',
   '{prob} of {n} runs': '{prob} จาก {n} รอบ',
   'If goals bought': 'หากซื้อเป้าหมาย',

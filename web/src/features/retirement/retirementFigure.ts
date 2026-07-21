@@ -110,7 +110,7 @@ export function buildRetirementMcFigure(
 
   // Retirement age marker.
   vline(retirementAge, ui.muted, 'dot')
-  annotations.push({ x: retirementAge, xref: 'x', yref: 'paper', y: 1.0, yanchor: 'bottom', showarrow: false, text: `${labels.retire}: ${fmtAge(retirementAge)}${suffix}`, font: { color: ui.ink, size: 12 } })
+  annotations.push({ x: retirementAge, xref: 'x', yref: 'paper', y: 0.02, yanchor: 'bottom', xanchor: 'center', showarrow: false, text: labels.retire, font: { color: ui.muted, size: 12 } })
 
   // Vertical event band: 16–84% age spread + dashed median + leader label. Censored
   // median (past life expectancy) shows a right-edge "life+" label instead.
@@ -223,7 +223,7 @@ export function buildRetirementFigure(
 
   // Retirement age marker.
   vline(retAge, ui.muted, 'dot')
-  annotations.push({ x: retAge, xref: 'x', yref: 'paper', y: 1.0, yanchor: 'bottom', showarrow: false, text: `${labels.retire}: ${fmtAge(retAge)}${suffix}`, font: { color: ui.ink, size: 12 } })
+  annotations.push({ x: retAge, xref: 'x', yref: 'paper', y: 0.02, yanchor: 'bottom', xanchor: 'center', showarrow: false, text: labels.retire, font: { color: ui.muted, size: 12 } })
 
   // Funds-running-out marker (red line within life expectancy; else a right-edge note).
   if (depletionAge != null) {
@@ -274,5 +274,3 @@ export function buildRetirementFigure(
     } as Dict,
   }
 }
-
-const fmtAge = (a: number) => (Number.isInteger(a) ? String(a) : a.toFixed(1))

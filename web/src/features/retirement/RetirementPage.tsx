@@ -16,7 +16,20 @@ function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return v || fallback
 }
-const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+// Compact money: 12.22M / 72.82k / 350. Returns just the number+suffix (no currency).
+function abbrevNum(n: number, unit?: 'M' | 'k' | ''): string {
+  const u = unit ?? (Math.abs(n) >= 1e6 ? 'M' : Math.abs(n) >= 1e3 ? 'k' : '')
+  if (u === 'M') return (n / 1e6).toFixed(2) + 'M'
+  if (u === 'k') return (n / 1e3).toFixed(2) + 'k'
+  return String(Math.round(n))
+}
+// A lo–hi money range sharing one unit (picked from the larger bound), suffixed once.
+function moneyRange(lo: number, hi: number, currency: string): string {
+  const m = Math.max(Math.abs(lo), Math.abs(hi))
+  const unit: 'M' | 'k' | '' = m >= 1e6 ? 'M' : m >= 1e3 ? 'k' : ''
+  return `(${abbrevNum(lo, unit)}–${abbrevNum(hi, unit)} ${currency})`
+}
+const yrRange = (lo: number, hi: number) => `(${Math.round(lo)}–${Math.round(hi)} ${t('yo')})`
 const num = (s: string) => (Number.isFinite(Number(s)) ? Number(s) : 0)
 
 // Only zoom in/out on the trajectory plot's modebar (no pan/select/reset/logo).
@@ -108,7 +121,7 @@ export function RetirementPage() {
     future: t('Future money'), today: t("Today's money"), withoutGoals: t('Without goals'),
     balanceFuture: t('Balance (future money)'), balanceToday: t("Balance (today's money)"),
     afterFactor: t('use ×Time rule'), afterPlain: t('buy immediately'),
-    factorToday: t("use ×Time rule (today's money)"), retire: t('Retire'), freedom: t('Financial freedom'),
+    factorToday: t("Today's money"), retire: t('Retirement age'), freedom: t('Financial freedom'),
     depleted: t('Funds depleted'), bought: (name, age) => t('{name} bought · age {age}', { name, age }),
     medianSuffix: t(' (median)'), success: (pct) => t('Success: {pct}%', { pct }),
   }
@@ -118,7 +131,7 @@ export function RetirementPage() {
     [mc, res, currency, showReal, ui],
   )
 
-  const money = (n: number) => `${fmt(n)} ${currency}`
+  const money = (n: number) => `${abbrevNum(n)} ${currency}`
   const yo = (a: number) => `${a.toFixed(0)} ${t('yo')}`
   const goalsExist = goalsCfg && Object.keys(goalsCfg.goals).length > 0
 
@@ -227,53 +240,67 @@ export function RetirementPage() {
       )}
 
       {/* ── Summary (Python-style results block) ── */}
-      <ResultsBlock res={res} mc={mc} money={money} yo={yo} />
+      <ResultsBlock res={res} mc={mc} money={money} yo={yo} currency={currency} />
     </div>
   )
 }
 
 // Key/value results, plus a strategy comparison table when goals are overlaid.
-function ResultsBlock({ res, mc, money, yo }: {
+// Uncertainty ranges (from the Monte-Carlo bands) show only when `mc` is present.
+function ResultsBlock({ res, mc, money, yo, currency }: {
   res: ReturnType<typeof computeRetirement>
   mc: ReturnType<typeof simulateRetirementMc> | null
   money: (n: number) => string
   yo: (a: number) => string
+  currency: string
 }) {
-  const median = mc ? t(' (median)') : ''
+  const goals = res.hasGoals
+  const last = res.balanceReal.length - 1
 
   // Deterministic base (goal-factor strategy when goals are overlaid).
-  const potBase = res.hasGoals ? res.summaryFactor!.potAtRetirement : res.balanceAtRetirement
-  const coveredBase = res.hasGoals ? res.summaryFactor!.covered : res.covered
-  const depAgeBase = res.hasGoals ? res.summaryFactor!.depletionAge : res.depletionAge
-  const endBase = res.hasGoals ? res.summaryFactor!.endingReal : res.endingReal
+  const potBase = goals ? res.summaryFactor!.potAtRetirement : res.balanceAtRetirement
+  const coveredBase = goals ? res.summaryFactor!.covered : res.covered
+  const depAgeBase = goals ? res.summaryFactor!.depletionAge : res.depletionAge
+  const endBase = goals ? res.summaryFactor!.endingReal : res.endingReal
 
-  // Monte-Carlo overrides pick the median (p50) path.
-  const potShown = mc ? (mc.factorNominal ?? mc.nominal).p50[res.retireMonth] : potBase
+  // Monte-Carlo overrides pick the median (p50) path + a 16–84% range.
+  const potBand = mc ? (mc.factorNominal ?? mc.nominal) : null
+  const endBand = mc ? (mc.factorReal ?? mc.real) : null
+  const potShown = potBand ? potBand.p50[res.retireMonth] : potBase
+  const potRange = potBand ? moneyRange(potBand.p16[res.retireMonth], potBand.p84[res.retireMonth], currency) : undefined
   const freedomShown = mc ? mc.freedom?.p50 ?? null : res.financialFreedomAge
+  const freedomRange = mc && mc.freedom ? yrRange(mc.freedom.p16, mc.freedom.p84) : undefined
   const covered = mc ? mc.depletion === null || mc.depletion.p50 === null : coveredBase
   const depAge = mc ? mc.depletion?.p50 ?? null : depAgeBase
-  const endReal = mc ? mc.real.p50[mc.real.p50.length - 1] : endBase
-
-  const outcome = covered
-    ? { text: t('Funds last through age {age}', { age: res.lifeExpectancy.toFixed(0) }), tone: 'amt-income' }
-    : { text: t('Funds run out at age {age}', { age: (depAge ?? res.lifeExpectancy).toFixed(0) }), tone: 'amt-expense' }
+  const depRange = mc && mc.depletion && mc.depletion.p16 != null && mc.depletion.p84 != null
+    ? yrRange(mc.depletion.p16, mc.depletion.p84) : undefined
+  const endReal = endBand ? endBand.p50[last] : endBase
+  const endRange = endBand ? moneyRange(endBand.p16[last], endBand.p84[last], currency) : undefined
 
   return (
     <section className="card">
       <h2 className="dash-title" style={{ marginTop: 0 }}>{t('Summary')}</h2>
       {mc && (
-        <Row label={t('Plan succeeds')} value={t('{prob} of {n} runs', { prob: `${(mc.successProb * 100).toFixed(0)}%`, n: mc.nMc })} accent />
+        <Metric label={t('Plan succeeds')} value={t('{prob} of {n} runs', { prob: `${(mc.successProb * 100).toFixed(0)}%`, n: mc.nMc })} accent />
       )}
-      <Row label={t('Pot at retirement') + median} value={money(potShown)} accent />
-      <Row label={t('Monthly expense at retirement')} value={money(res.expenseAtRetirement)} />
-      <Row label={t('Pension (monthly)')} value={money(res.pension)} />
-      <Row label={t('Years in retirement')} value={res.yearsInRetirement.toFixed(0)} />
-      <Row label={t('Financial freedom') + median} value={freedomShown != null ? yo(freedomShown) : t('Not reached')} />
-      <Row label={t('Total contributions')} value={money(res.totalContributions)} />
-      <Row label={t('Outcome')} value={outcome.text} tone={outcome.tone} />
-      {covered && <Row label={t('Ending (today’s money)') + median} value={money(endReal)} />}
+      {/* Pot / Outcome / Ending live in the strategy table once goals are overlaid. */}
+      {!goals && <Metric label={t('Pot at retirement')} value={money(potShown)} range={potRange} accent />}
+      <Metric label={t('Monthly expense at retirement')} value={money(res.expenseAtRetirement)} />
+      <Metric label={t('Pension (monthly)')} value={money(res.pension)} />
+      <Metric label={t('Years in retirement')} value={res.yearsInRetirement.toFixed(0)} />
+      <Metric label={t('Financial freedom')} value={freedomShown != null ? yo(freedomShown) : t('Not reached')} range={freedomShown != null ? freedomRange : undefined} />
+      <Metric label={t('Total contributions')} value={money(res.totalContributions)} />
+      {!goals && (
+        <OutcomeMetric
+          covered={covered}
+          age={covered ? res.lifeExpectancy : depAge ?? res.lifeExpectancy}
+          range={covered ? undefined : depRange}
+          yo={yo}
+        />
+      )}
+      {!goals && covered && <Metric label={t('Ending (today’s money)')} value={money(endReal)} range={endRange} />}
 
-      {res.hasGoals && <StrategyTable res={res} money={money} yo={yo} />}
+      {goals && <StrategyTable res={res} money={money} yo={yo} />}
     </section>
   )
 }
@@ -339,11 +366,32 @@ function StrategyTable({ res, money, yo }: {
   )
 }
 
-function Row({ label, value, tone, accent }: { label: string; value: string; tone?: string; accent?: boolean }) {
+// A label + a right-aligned value, with an optional uncertainty range centred on a
+// muted sub-line beneath the value.
+function Metric({ label, value, range, tone, accent }: { label: string; value: string; range?: string; tone?: string; accent?: boolean }) {
   return (
     <div className="ret-row">
       <span className="ret-row-label">{label}</span>
-      <span className={`ret-row-value${accent ? ' accent' : ''}${tone ? ` ${tone}` : ''}`}>{value}</span>
+      <span className="ret-metric">
+        <span className={`ret-metric-value${accent ? ' accent' : ''}${tone ? ` ${tone}` : ''}`}>{value}</span>
+        {range && <span className="ret-metric-range">{range}</span>}
+      </span>
+    </div>
+  )
+}
+
+// Outcome: a coloured phrase on line 1, then the age (+ range) as a normal metric.
+function OutcomeMetric({ covered, age, range, yo }: { covered: boolean; age: number; range?: string; yo: (a: number) => string }) {
+  return (
+    <div className="ret-row">
+      <span className="ret-row-label">{t('Outcome')}</span>
+      <span className="ret-metric">
+        <span className={`ret-metric-phrase ${covered ? 'amt-income' : 'amt-expense'}`}>
+          {covered ? t('Funds last through') : t('Funds run out')}
+        </span>
+        <span className="ret-metric-value">{yo(age)}</span>
+        {range && <span className="ret-metric-range">{range}</span>}
+      </span>
     </div>
   )
 }
