@@ -218,6 +218,10 @@ const TH: Record<string, string> = {
   'use ×Time rule': 'ใช้กฎ ×เท่า',
   "use ×Time rule (today's money)": 'ใช้กฎ ×เท่า (มูลค่าเงินวันนี้)',
   'Goals to overlay': 'เป้าหมายที่จะซ้อนทับ',
+  'Reset inputs': 'รีเซ็ตค่าที่กรอก',
+  'Reset inputs?': 'รีเซ็ตค่าที่กรอก?',
+  'This clears everything you entered and restores the default values. This cannot be undone.':
+    'การทำเช่นนี้จะล้างทุกอย่างที่คุณกรอกและคืนค่าเริ่มต้น ไม่สามารถย้อนกลับได้',
   'Income Tax': 'ภาษีเงินได้บุคคล',
   'Estimate your yearly income tax.': 'ประเมินภาษีเงินได้ประจำปีของคุณ',
   'Estimate your personal income tax for a year. Model: {country}.': 'ประเมินภาษีเงินได้บุคคลธรรมดาสำหรับปีหนึ่ง แบบจำลอง: {country}',

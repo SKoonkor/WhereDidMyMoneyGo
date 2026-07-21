@@ -14,11 +14,13 @@ import {
   DEFAULT_CATEGORIES,
   DEFAULT_GOALS,
   DEFAULT_RECONCILE,
+  DEFAULT_RETIREMENT,
   DEFAULT_SETTINGS,
   type BudgetCfg,
   type Categories,
   type GoalsCfg,
   type ReconcileState,
+  type RetirementInputs,
   type Settings,
 } from './data/defaults'
 import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
@@ -52,7 +54,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax' | 'retirement'
   value: unknown
 }
 
@@ -262,6 +264,13 @@ export async function getGoals(): Promise<GoalsCfg> {
 }
 export async function saveGoals(cfg: GoalsCfg): Promise<void> {
   await db.config.put({ key: 'goals', value: cfg })
+}
+
+export async function getRetirementInputs(): Promise<RetirementInputs> {
+  return { ...DEFAULT_RETIREMENT, ...((await db.config.get('retirement'))?.value as RetirementInputs) }
+}
+export async function saveRetirementInputs(v: RetirementInputs): Promise<void> {
+  await db.config.put({ key: 'retirement', value: v })
 }
 
 export async function getReconcileState(): Promise<ReconcileState> {

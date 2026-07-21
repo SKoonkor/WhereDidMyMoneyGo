@@ -1225,6 +1225,20 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 .inline-link { color: var(--accent); }
 
+/* Neutral (outlined) and solid-destructive button variants + modal action row. */
+.btn.ghost { background: transparent; border-color: var(--border); color: var(--ink); }
+.btn.solid-danger { background: var(--expense); border-color: var(--expense); color: #fff; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+/* Full-width "Reset inputs" at the very end of the retirement page. */
+.ret-reset {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  background: transparent;
+  border-color: var(--expense);
+  color: var(--expense);
+}
+
 /* Multi-select account chips (Settings → Savings pool). */
 .chip-choices { display: flex; flex-wrap: wrap; gap: 6px; }
 .choice-chip {

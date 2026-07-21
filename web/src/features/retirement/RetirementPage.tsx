@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getGoals } from '../../db'
+import { getGoals, getRetirementInputs, saveRetirementInputs } from '../../db'
+import { DEFAULT_RETIREMENT } from '../../data/defaults'
+import { Modal } from '../../components/Modal'
 import { useSettings } from '../transactions/useConfig'
 import { useTheme } from '../../prefs'
 import { goalFactor } from '../../lib/analytics/goals'
@@ -49,11 +51,9 @@ const num = (s: string) => (Number.isFinite(Number(s)) ? Number(s) : 0)
 // Only zoom in/out on the trajectory plot's modebar (no pan/select/reset/logo).
 const PLOT_CONFIG = { displayModeBar: true, displaylogo: false, modeBarButtons: [['zoomIn2d', 'zoomOut2d']] }
 
-// Defaults mirror the Dash retirement mode (RETIRE_DEFAULTS).
-const D = {
-  curAge: '30', retAge: '60', life: '85', principal: '0', deposit: '10000',
-  increase: '3', rate: '6', infl: '3', bonus: '0', pension: '0', expense: '30000',
-}
+// Defaults mirror the Dash retirement mode (RETIRE_DEFAULTS); shared with the
+// config store so "Reset inputs" and first-run seeding agree.
+const D = DEFAULT_RETIREMENT
 
 export function RetirementPage() {
   const settings = useSettings()
@@ -74,14 +74,54 @@ export function RetirementPage() {
   const [bonus, setBonus] = useState(D.bonus)
   const [pension, setPension] = useState(D.pension)
   const [expense, setExpense] = useState(D.expense)
-  const [showReal, setShowReal] = useState(true)
-  const [includeGoals, setIncludeGoals] = useState(false)
+  const [showReal, setShowReal] = useState(D.showReal)
+  const [includeGoals, setIncludeGoals] = useState(D.includeGoals)
   // Which goals to overlay; null = all of them (the default when goals first load).
-  const [picked, setPicked] = useState<string[] | null>(null)
-  const [useMc, setUseMc] = useState(false)
-  const [volReturn, setVolReturn] = useState('15')
-  const [volInfl, setVolInfl] = useState('1')
-  const [volDeposit, setVolDeposit] = useState('2')
+  const [picked, setPicked] = useState<string[] | null>(D.picked)
+  const [useMc, setUseMc] = useState(D.useMc)
+  const [volReturn, setVolReturn] = useState(D.volReturn)
+  const [volInfl, setVolInfl] = useState(D.volInfl)
+  const [volDeposit, setVolDeposit] = useState(D.volDeposit)
+  // Hydration gate: don't persist until the stored inputs have loaded, so the
+  // initial default render can't clobber what the user saved last time.
+  const [hydrated, setHydrated] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+
+  // Assemble the current inputs into one persistable object.
+  const inputs = useMemo(
+    () => ({
+      curAge, retAge, life, principal, deposit, increase, rate, infl, bonus, pension, expense,
+      showReal, includeGoals, useMc, picked, volReturn, volInfl, volDeposit,
+    }),
+    [curAge, retAge, life, principal, deposit, increase, rate, infl, bonus, pension, expense, showReal, includeGoals, useMc, picked, volReturn, volInfl, volDeposit],
+  )
+
+  // Apply a stored/default snapshot to every field at once.
+  const applyInputs = (v: typeof DEFAULT_RETIREMENT) => {
+    setCurAge(v.curAge); setRetAge(v.retAge); setLife(v.life)
+    setPrincipal(v.principal); setDeposit(v.deposit); setIncrease(v.increase)
+    setRate(v.rate); setInfl(v.infl); setBonus(v.bonus); setPension(v.pension); setExpense(v.expense)
+    setShowReal(v.showReal); setIncludeGoals(v.includeGoals); setUseMc(v.useMc); setPicked(v.picked)
+    setVolReturn(v.volReturn); setVolInfl(v.volInfl); setVolDeposit(v.volDeposit)
+  }
+
+  // Load saved inputs once on mount.
+  useEffect(() => {
+    let cancelled = false
+    getRetirementInputs().then((v) => {
+      if (cancelled) return
+      applyInputs(v)
+      setHydrated(true)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  // Persist on every change once hydrated (Reset writes defaults through here too).
+  useEffect(() => {
+    if (hydrated) void saveRetirementInputs(inputs)
+  }, [hydrated, inputs])
+
+  const doReset = () => { applyInputs(DEFAULT_RETIREMENT); setConfirmReset(false) }
 
   const allGoalNames = useMemo(() => (goalsCfg ? Object.keys(goalsCfg.goals) : []), [goalsCfg])
   const pickedSet = useMemo(() => new Set(picked ?? allGoalNames), [picked, allGoalNames])
@@ -255,6 +295,22 @@ export function RetirementPage() {
 
       {/* ── Summary (Python-style results block) ── */}
       <ResultsBlock res={res} mc={mc} money={money} yo={yo} currency={currency} />
+
+      {/* ── Reset inputs (guarded by a confirmation modal) ── */}
+      <button type="button" className="btn ret-reset" onClick={() => setConfirmReset(true)}>
+        {t('Reset inputs')}
+      </button>
+      {confirmReset && (
+        <Modal title={t('Reset inputs?')} onClose={() => setConfirmReset(false)}>
+          <p className="muted" style={{ margin: '4px 0 16px' }}>
+            {t('This clears everything you entered and restores the default values. This cannot be undone.')}
+          </p>
+          <div className="modal-actions">
+            <button type="button" className="btn ghost" onClick={() => setConfirmReset(false)}>{t('Cancel')}</button>
+            <button type="button" className="btn solid-danger" onClick={doReset}>{t('Reset inputs')}</button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

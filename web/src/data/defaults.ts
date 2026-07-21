@@ -123,3 +123,24 @@ export const DEFAULT_BUDGET: BudgetCfg = {
   assignments: { ...DEFAULT_ASSIGN },
   subAssignments: {},
 }
+
+// ── Retirement planner inputs ────────────────────────────────────────────────
+// Persisted so the page reopens with the user's last entries instead of these
+// defaults. All numeric fields are kept as strings (they mirror the text inputs);
+// `picked` = null means "overlay every goal" (the initial state). Numeric defaults
+// mirror the Dash retirement mode (RETIRE_DEFAULTS).
+export interface RetirementInputs {
+  curAge: string; retAge: string; life: string
+  principal: string; deposit: string; increase: string; rate: string; infl: string
+  bonus: string; pension: string; expense: string
+  showReal: boolean; includeGoals: boolean; useMc: boolean
+  picked: string[] | null
+  volReturn: string; volInfl: string; volDeposit: string
+}
+
+export const DEFAULT_RETIREMENT: RetirementInputs = {
+  curAge: '30', retAge: '60', life: '85', principal: '0', deposit: '10000',
+  increase: '3', rate: '6', infl: '3', bonus: '0', pension: '0', expense: '30000',
+  showReal: true, includeGoals: false, useMc: false, picked: null,
+  volReturn: '15', volInfl: '1', volDeposit: '2',
+}
