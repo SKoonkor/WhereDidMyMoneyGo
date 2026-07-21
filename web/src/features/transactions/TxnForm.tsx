@@ -6,7 +6,7 @@ import {
 import { useAccounts, useCategories } from './useConfig'
 import { ChipPicker } from './ChipPicker'
 import { CategoryPicker } from './CategoryPicker'
-import { t } from '../../i18n'
+import { t, getLang } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
 // Saving isn't a separate kind — it's a Transfer into a savings account, and
@@ -98,7 +98,8 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
             className={k === kind ? 'seg-btn active' : 'seg-btn'}
             onClick={() => setKind(k)}
           >
-            {t(k)}
+            {/* Concise Transfer label on this control; row labels keep the full โอนข้ามบัญชี. */}
+            {k === 'Transfer' && getLang() === 'th' ? t('Transfer (short)') : t(k)}
           </button>
         ))}
       </div>
