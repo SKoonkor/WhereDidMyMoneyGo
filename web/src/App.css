@@ -1468,6 +1468,30 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .calc-total-value { font-size: 18px; font-weight: 600; color: var(--ink); }
 .calc-total-value.accent { color: var(--accent); }
 
+/* ── Retirement: Plan-settings section headings + results block ─────────────── */
+.ret-group-title {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ret-group-title:first-child { margin-top: 4px; }
+.ret-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  border-top: 1px solid var(--border-soft);
+  font-size: 14px;
+}
+.ret-row:first-of-type { border-top: none; }
+.ret-row-label { color: var(--muted); }
+.ret-row-value { font-weight: 600; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.ret-row-value.accent { color: var(--accent); }
+
 /* ── Income Tax ────────────────────────────────────────────────────────────── */
 .tax-refill {
   display: inline-block;

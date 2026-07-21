@@ -7,7 +7,6 @@ import { useTheme } from '../../prefs'
 import { goalFactor } from '../../lib/analytics/goals'
 import { computeSchedule, COMPOUNDING, type CompoundGoal } from '../../lib/analytics/compound'
 import { buildCompoundFigure, type UiColors, type CompoundLabels } from './figure'
-import { RetirementSection } from './RetirementSection'
 import { Plot } from '../../components/Plot'
 import { t } from '../../i18n'
 
@@ -33,7 +32,6 @@ export function CompoundPage() {
   const [rate, setRate] = useState(DEFAULTS.rate)
   const [compounding, setCompounding] = useState(DEFAULTS.compounding)
   const [includeGoals, setIncludeGoals] = useState(false)
-  const [mode, setMode] = useState<'calc' | 'retire'>('calc')
 
   // Goals in Financial-Goals rank order (object key order) with their factors.
   const goals: CompoundGoal[] = useMemo(() => {
@@ -78,19 +76,9 @@ export function CompoundPage() {
     <div>
       <h1 className="h1">{t('Compound Interest')}</h1>
       <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
-        {mode === 'calc'
-          ? t('See how regular deposits grow over time. A learning tool — it does not use your tracked data.')
-          : t('Project a full retirement plan: save, retire, then draw down against inflating expenses.')}
+        {t('See how regular deposits grow over time. A learning tool — it does not use your tracked data.')}
       </p>
 
-      <div className="seg" style={{ marginBottom: 12, maxWidth: 320 }}>
-        <button type="button" className={mode === 'calc' ? 'seg-btn active' : 'seg-btn'} onClick={() => setMode('calc')}>{t('Calculator')}</button>
-        <button type="button" className={mode === 'retire' ? 'seg-btn active' : 'seg-btn'} onClick={() => setMode('retire')}>{t('Retirement')}</button>
-      </div>
-
-      {mode === 'retire' && <RetirementSection currency={currency} />}
-
-      {mode === 'calc' && (<>
       <section className="card">
         <div className="calc-form">
           <label className="calc-field">
@@ -160,7 +148,6 @@ export function CompoundPage() {
           {t('Totals are taken at the set period; drag the chart to scroll past it.')}
         </p>
       </section>
-      </>)}
     </div>
   )
 }

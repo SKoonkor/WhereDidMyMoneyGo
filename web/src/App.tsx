@@ -16,6 +16,7 @@ import { FlowPage } from './features/flow/FlowPage'
 import { BudgetPage } from './features/budget/BudgetPage'
 import { GoalsPage } from './features/goals/GoalsPage'
 import { CompoundPage } from './features/compound/CompoundPage'
+import { RetirementPage } from './features/retirement/RetirementPage'
 import { IncomeTaxPage } from './features/tax/IncomeTaxPage'
 import { ReconcilePage } from './features/reconcile/ReconcilePage'
 import { BottomNav } from './components/BottomNav'
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="/flow" element={<FlowPage />} />
             <Route path="/budget" element={<BudgetPage />} />
             <Route path="/goals" element={<GoalsPage />} />
+            <Route path="/retirement" element={<RetirementPage />} />
             <Route path="/compound" element={<CompoundPage />} />
             <Route path="/income-tax" element={<IncomeTaxPage />} />
             <Route path="/reconcile" element={<ReconcilePage />} />
