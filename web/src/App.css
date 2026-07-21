@@ -126,38 +126,57 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   margin: 0 auto;
 }
 
-/* Income & Expense composition — two panels, stacked on narrow, side-by-side wide. */
+/* Income & Expense composition — Bars stack full-width (one chart per row);
+   Pie shows the two donuts side by side. */
 .compo-split {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 16px;
   margin-top: 12px;
 }
 .compo-panel {
-  flex: 1 1 280px;
   min-width: 0;
 }
-/* Pie view: two donuts always side by side (halves their size). Bars view keeps
-   the wrapping split so each bar chart keeps its width and just stacks. */
+/* Pie view: two donuts always side by side (halves their size), with less card
+   padding so each donut fills more of its box. */
 .compo-split.pie {
   display: grid;
   grid-template-columns: 1fr 1fr;
 }
+.compo-split.pie .compo-panel { padding: 6px 6px 8px; }
 
-/* Period presets + sort controls card. */
+/* Period picker + sort controls card. */
 .compo-controls > * + * { margin-top: 12px; }
-.compo-dates input {
-  height: 40px;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.compo-sort {
+/* Label-left / control-right row (Select period, Sort expenses). */
+.compo-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
 }
+.compo-row .muted { flex: 0 0 auto; }
+.compo-row .pick-summary { flex: 1 1 220px; width: auto; }
 .compo-sort .seg { flex: 1 1 220px; margin-bottom: 0; }
+/* Custom range: two date pickers, one per line. */
+.compo-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.compo-dates input {
+  height: 40px;
+  appearance: none;
+  -webkit-appearance: none;
+}
+/* Gap between the config card and the Pie/Bars toggle. */
+.compo-view-seg { margin-top: 14px; }
+
+/* Vertical option list inside the period picker sheet. */
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
 /* Needs/Wants subtotal caption beneath the Expense chart. */
 .compo-buckets {
@@ -165,6 +184,7 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   text-align: center;
   margin-top: 4px;
 }
+.nowrap { white-space: nowrap; }
 
 /* Expandable category → subcategory summary (ported from the Dash pie page). */
 .compo-cats { margin-top: 16px; }

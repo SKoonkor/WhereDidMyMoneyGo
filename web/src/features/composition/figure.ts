@@ -65,7 +65,7 @@ export function buildDonutFigure(
     return {
       data: [] as Record<string, unknown>[],
       layout: {
-        height: 200, ...transparent, margin: { t: 8, b: 8, l: 8, r: 8 },
+        height: 230, ...transparent, margin: { t: 4, b: 4, l: 4, r: 4 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, showarrow: false, font: { color: ui.muted } }],
       } as Record<string, unknown>,
     }
@@ -91,10 +91,10 @@ export function buildDonutFigure(
       },
     ] as Record<string, unknown>[],
     layout: {
-      height: 200,
+      height: 230,
       showlegend: false,
       ...transparent,
-      margin: { t: 8, b: 8, l: 8, r: 8 },
+      margin: { t: 4, b: 4, l: 4, r: 4 },
       font: { color: ui.muted },
       annotations: [
         { text: centre, x: 0.5, y: 0.5, showarrow: false, align: 'center', font: { size: 16, color: ui.ink } },

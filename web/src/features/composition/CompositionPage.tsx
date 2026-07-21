@@ -11,6 +11,7 @@ import {
 } from '../../lib/analytics/composition'
 import { buildDonutFigure, buildBarsFigure, type UiColors } from './figure'
 import { Plot } from '../../components/Plot'
+import { Modal } from '../../components/Modal'
 import { t } from '../../i18n'
 
 function cssVar(name: string, fallback: string): string {
@@ -76,6 +77,7 @@ export function CompositionPage() {
   const [view, setView] = useState<View>('pie')
   const [sort, setSort] = useState<Sort>('amount')
   const [preset, setPreset] = useState('30')
+  const [periodOpen, setPeriodOpen] = useState(false)
 
   const ref = useMemo(() => latestPeriod(all), [all])
   const [customStart, setCustomStart] = useState(() => addDays(latestPeriod(all), -120))
@@ -146,33 +148,45 @@ export function CompositionPage() {
       <h1 className="h1">{t('Income & Expense')}</h1>
 
       <div className="card compo-controls">
-        <div className="chip-choices">
-          {PRESETS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              className={p.key === preset ? 'choice-chip on' : 'choice-chip'}
-              onClick={() => setPreset(p.key)}
-            >
-              {t(p.label)}
-            </button>
-          ))}
+        <div className="compo-row">
+          <span className="muted">{t('Select period')}</span>
+          <button type="button" className="pick-summary" onClick={() => setPeriodOpen(true)}>
+            <span>{t(PRESETS.find((p) => p.key === preset)?.label ?? 'Last 30 days')}</span>
+            <span className="pick-summary-arrow">›</span>
+          </button>
         </div>
 
         {preset === 'custom' && (
-          <div className="row compo-dates">
-            <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
+          <div className="compo-dates">
+            <div className="field">
               <label>{t('Start date')}</label>
-              <input type="date" value={customStart} max={customEnd} onChange={(e) => setCustomStart(e.target.value)} />
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setCustomStart(v)
+                  if (v > customEnd) setCustomEnd(v) // keep End ≥ Start
+                }}
+              />
             </div>
-            <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
+            <div className="field">
               <label>{t('End date')}</label>
-              <input type="date" value={customEnd} min={customStart} onChange={(e) => setCustomEnd(e.target.value)} />
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setCustomEnd(v < customStart ? customStart : v) // clamp End ≥ Start
+                }}
+              />
             </div>
           </div>
         )}
 
-        <div className="compo-sort">
+        <div className="compo-row compo-sort">
           <span className="muted">{t('Sort expenses')}</span>
           <div className="seg">
             {(['amount', 'bucket'] as Sort[]).map((s) => (
@@ -184,7 +198,24 @@ export function CompositionPage() {
         </div>
       </div>
 
-      <div className="seg">
+      {periodOpen && (
+        <Modal title={t('Select period')} onClose={() => setPeriodOpen(false)}>
+          <div className="pick-list">
+            {PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={p.key === preset ? 'pick-cell on' : 'pick-cell'}
+                onClick={() => { setPreset(p.key); setPeriodOpen(false) }}
+              >
+                {t(p.label)}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      <div className="seg compo-view-seg">
         {(['pie', 'bars'] as View[]).map((v) => (
           <button key={v} type="button" className={v === view ? 'seg-btn active' : 'seg-btn'} onClick={() => setView(v)}>
             {t(v === 'pie' ? 'Pie' : 'Bars')}
@@ -205,9 +236,14 @@ export function CompositionPage() {
             <Plot data={figs.expense.data} layout={figs.expense.layout} ariaLabel={t('Expense')} style={{ width: '100%' }} />
             {buckets && (
               <div className="compo-buckets muted">
-                <b style={{ color: '#3b7dd8' }}>{t('Needs')}</b> {pct(buckets.needs, buckets.exp)}
-                {'  ·  '}
-                <b style={{ color: '#e07b39' }}>{t('Wants')}</b> {pct(buckets.wants, buckets.exp)} {t('of expense')}
+                <span className="nowrap">
+                  <b style={{ color: '#3b7dd8' }}>{t('Needs')}</b> {pct(buckets.needs, buckets.exp)}
+                </span>
+                {' | '}
+                <span className="nowrap">
+                  <b style={{ color: '#e07b39' }}>{t('Wants')}</b> {pct(buckets.wants, buckets.exp)}
+                </span>{' '}
+                {t('of expense')}
               </div>
             )}
           </div>

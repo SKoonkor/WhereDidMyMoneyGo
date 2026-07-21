@@ -37,6 +37,7 @@ const TH: Record<string, string> = {
   'Last year': 'ย้อนหลัง 1 ปี',
   'All time': 'ทั้งหมด',
   'Selected period': 'ช่วงที่เลือก',
+  'Select period': 'เลือกช่วงเวลา',
   'Sort expenses': 'จัดเรียงรายจ่าย',
   'By amount': 'ตามจำนวนเงิน',
   'By Needs/Wants': 'ตามจำเป็น/อยากได้',
