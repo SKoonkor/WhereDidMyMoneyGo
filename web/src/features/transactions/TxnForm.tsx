@@ -3,7 +3,7 @@ import {
   addTxn, updateTxn, addTransfer, updateTransfer, deleteTxn,
   addAccount, addCategory, addSubcategory, type Txn, type TxnType,
 } from '../../db'
-import { useAccounts, useCategories } from './useConfig'
+import { useAccounts, useCategories, useBaseCurrency } from './useConfig'
 import { ChipPicker } from './ChipPicker'
 import { CategoryPicker } from './CategoryPicker'
 import { t, getLang } from '../../i18n'
@@ -27,6 +27,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: () => void }) {
   const accounts = useAccounts()
   const categories = useCategories()
+  const currency = useBaseCurrency()
 
   const [kind, setKind] = useState<Kind>(editing ? kindOf(editing) : 'Expense')
   const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? today())
@@ -95,7 +96,9 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
           <button
             key={k}
             type="button"
-            className={k === kind ? 'seg-btn active' : 'seg-btn'}
+            // Active button fills with its type colour (Income green, Expense
+            // dark-red, Transfer grey) to match the transaction-list amounts.
+            className={k === kind ? `seg-btn active is-${k.toLowerCase()}` : 'seg-btn'}
             onClick={() => setKind(k)}
           >
             {/* Concise Transfer label on this control; row labels keep the full โอนข้ามบัญชี. */}
@@ -110,7 +113,7 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
           <input type="date" value={period} onChange={(e) => setPeriod(e.target.value)} />
         </div>
         <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
-          <label>{t('Amount')}</label>
+          <label>{t('Amount')} ({currency})</label>
           <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
         </div>
       </div>
@@ -119,18 +122,18 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
         <>
           <div className="field pick-field">
             <label>{t('From')}</label>
-            <ChipPicker value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} />
+            <ChipPicker value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} title={t('From')} />
           </div>
           <div className="field pick-field">
             <label>{t('To')}</label>
-            <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} />
+            <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} title={t('To')} />
           </div>
         </>
       ) : (
         <>
           <div className="field pick-field">
             <label>{t('Account')}</label>
-            <ChipPicker value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} />
+            <ChipPicker value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} title={t('Account')} />
           </div>
           <div className="field pick-field">
             <label>{t('Category')}</label>
@@ -152,7 +155,7 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
       <div className="row">
         <div className="field">
           <label>{t('Note')}</label>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="" />
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('Shows in your transaction list')} />
         </div>
       </div>
 

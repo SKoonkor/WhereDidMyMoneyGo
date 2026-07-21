@@ -269,6 +269,14 @@
   background: var(--surface-2);
   color: var(--ink);
 }
+/* Date and Amount share identical box metrics so they align and never overlap —
+   the native date input otherwise renders taller than the text input on WebKit. */
+.txn-form .field input {
+  height: 40px;
+  line-height: 1.2;
+  appearance: none;
+  -webkit-appearance: none;
+}
 
 .txn-list {
   list-style: none;
@@ -277,26 +285,45 @@
 }
 .txn-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 10px 4px;
   border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
 }
-.txn-item .cat {
+/* Left column: category (over subcategory), muted — the row's classifier. */
+.txn-item .txn-cat {
+  flex: 0 0 88px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.txn-cat-main,
+.txn-cat-sub { overflow-wrap: anywhere; }
+/* Middle column: note (bold) over account / transfer flow. */
+.txn-item .txn-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.txn-primary { overflow-wrap: anywhere; }
+.txn-primary {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
 .txn-sub {
   font-size: 12px;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
-.txn-item {
-  cursor: pointer;
+.txn-item .amt {
+  flex: 0 0 auto;
+  text-align: right;
+  white-space: nowrap;
 }
 .txn-item .amt.income {
   color: var(--income);
@@ -335,10 +362,36 @@
   margin-top: 8px;
 }
 .day-head {
-  font-size: 12px;
-  padding: 10px 4px 2px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 4px 4px;
   border-bottom: 1px solid var(--border-soft);
 }
+.day-date {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.day-num {
+  font-size: 20px;
+  font-weight: 700;
+}
+.day-badge {
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+.day-totals {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+}
+.day-totals .income { color: var(--income); }
+.day-totals .expense { color: var(--expense); }
 
 /* Modal (bottom sheet on phones). */
 .modal-backdrop {
@@ -410,6 +463,12 @@
   border-color: var(--accent);
   color: #fff;
 }
+/* Transaction type selector: the active button fills with its type colour
+   (matching the transaction-list amounts). Scoped to these modifiers so other
+   .seg toggles keep the accent active style. */
+.seg-btn.active.is-income { background: var(--income); border-color: var(--income); }
+.seg-btn.active.is-expense { background: var(--expense); border-color: var(--expense); }
+.seg-btn.active.is-transfer { background: var(--muted); border-color: var(--muted); }
 
 /* Money Flow: forecast-horizon control row. The seg fills the rest of the row. */
 .flow-controls {
@@ -886,6 +945,64 @@
   cursor: pointer;
   padding: 0;
 }
+
+/* Summary row that opens the picker sheet ("value ›"). */
+.pick-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.pick-summary .muted { color: var(--muted); }
+.pick-summary-arrow { color: var(--muted); flex: 0 0 auto; }
+
+/* Pop-up grid picker (slide 15): 3-column cells; an expandable category's
+   subcategory block slots in as a following full-width row. */
+.pick-sheet { display: flex; flex-direction: column; gap: 8px; }
+.pick-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.pick-subgrid {
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.pick-cell {
+  position: relative;
+  min-height: 52px;
+  padding: 10px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.pick-subgrid .pick-cell { background: var(--surface); }
+.pick-cell.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pick-cell.add { border-style: dashed; color: var(--muted); }
+.pick-caret {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1;
+}
+.pick-cell.on .pick-caret { color: #fff; }
 
 /* ── Calculator forms (Compound Interest / Retirement) ─────────────────────── */
 .calc-form {

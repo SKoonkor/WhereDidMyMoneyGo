@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { addMonths, monthKeyOf, filterByMonth, collapseTransfers, groupByDay, monthSummary } from './month'
+import { addMonths, monthKeyOf, filterByMonth, collapseTransfers, groupByDay, monthSummary, daySummary } from './month'
 import type { Txn } from '../../db'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -37,6 +37,16 @@ describe('month utils', () => {
       T({ type: 'Transfer-In', amount: 500, transferId: 'a' }),
     ]
     expect(monthSummary(rows)).toEqual({ income: 5000, expense: 200, net: 4800 })
+  })
+
+  it('daySummary totals Income and Expense per day (transfers excluded)', () => {
+    const rows = [
+      T({ type: 'Income', amount: 500 }),
+      T({ type: 'Expense', amount: 170 }),
+      T({ type: 'Expense', amount: 303 }),
+      T({ type: 'Transfer-Out', amount: 10000, transferId: 'a' }),
+    ]
+    expect(daySummary(rows)).toEqual({ income: 500, expense: 473 })
   })
 
   it('groups by day, newest day first', () => {

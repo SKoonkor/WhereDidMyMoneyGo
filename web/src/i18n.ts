@@ -27,6 +27,8 @@ const TH: Record<string, string> = {
   Saving: 'เงินออม',
   Date: 'วันที่',
   Note: 'โน้ต',
+  Select: 'เลือก',
+  'Shows in your transaction list': 'จะแสดงในรายการจดบันทึก',
   Save: 'บันทึก',
   Cancel: 'ยกเลิก',
   Delete: 'ลบ',

@@ -48,6 +48,28 @@ export function groupByDay(txns: Txn[]): [string, Txn[]][] {
   return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
 }
 
+// A day's Income and Expense totals (transfers excluded), for the day header.
+export function daySummary(rows: Txn[]): { income: number; expense: number } {
+  let income = 0
+  let expense = 0
+  for (const t of rows) {
+    if (t.type === 'Income') income += t.amount
+    else if (t.type === 'Expense') expense += t.amount
+  }
+  return { income, expense }
+}
+
+// Split a "YYYY-MM-DD" key into a day-of-month number + short localized weekday
+// (e.g. { dayNum: "29", weekday: "Fri" / "ศ." }) for the daily group header.
+export function dayHeaderParts(dayIso: string): { dayNum: string; weekday: string } {
+  const [y, m, d] = dayIso.split('-').map(Number)
+  const locale = getLang() === 'th' ? 'th-TH' : 'en-US'
+  return {
+    dayNum: String(d),
+    weekday: new Date(y, m - 1, d).toLocaleDateString(locale, { weekday: 'short' }),
+  }
+}
+
 export interface MonthSummary {
   income: number
   expense: number

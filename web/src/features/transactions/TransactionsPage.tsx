@@ -3,7 +3,7 @@ import { useLiveTxns } from '../useLiveTxns'
 import { useBaseCurrency } from './useConfig'
 import {
   addMonths, currentMonthKey, monthLabel, filterByMonth, collapseTransfers,
-  groupByDay, monthSummary,
+  groupByDay, monthSummary, daySummary, dayHeaderParts,
 } from './month'
 import { TxnForm } from './TxnForm'
 import { Modal } from '../../components/Modal'
@@ -18,26 +18,31 @@ function isTransfer(x: Txn) {
 
 function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
   const transfer = isTransfer(x)
-  // "Category · Subcategory" (or the transfer's A → B) — the descriptor of the row.
-  const catLabel = transfer
-    ? x.type === 'Transfer-Out'
-      ? `${x.account} → ${x.category}`
-      : `${x.category} → ${x.account}`
-    : x.category + (x.subcategory ? ` · ${x.subcategory}` : '')
   const cls = x.type === 'Income' ? 'income' : transfer ? 'transfer' : 'expense'
   const sign = x.type === 'Income' ? '+' : transfer ? '' : '−'
 
-  // The user's note leads the row when present; the category/subcategory (and
-  // "Transfer" tag) fall back to a smaller, fainter line beneath it.
+  // Left column: category over subcategory (transfers show the "Transfer" tag).
+  // Middle column: the note leads (falling back to the category), with the
+  // account beneath — or the "from → to" flow for a transfer (on the collapsed
+  // Transfer-Out leg, account=from and category=to).
   const note = x.note?.trim()
-  const primary = note ? note : transfer ? t('Transfer') : catLabel
-  const sub = note ? (transfer ? `${t('Transfer')} · ${catLabel}` : catLabel) : transfer ? catLabel : ''
+  const flow = transfer
+    ? x.type === 'Transfer-Out'
+      ? `${x.account} → ${x.category}`
+      : `${x.category} → ${x.account}`
+    : ''
+  const main = note || (transfer ? flow : x.category)
+  const detail = transfer ? (note ? flow : '') : x.account
 
   return (
     <li className="txn-item" onClick={onTap}>
-      <span className="cat">
-        <span className="txn-primary">{primary}</span>
-        {sub && <span className="txn-sub">{sub}</span>}
+      <span className="txn-cat">
+        <span className="txn-cat-main">{transfer ? t('Transfer') : x.category}</span>
+        {!transfer && x.subcategory && <span className="txn-cat-sub">{x.subcategory}</span>}
+      </span>
+      <span className="txn-main">
+        <span className="txn-primary">{main}</span>
+        {detail && <span className="txn-sub">{detail}</span>}
       </span>
       <span className={`amt money ${cls}`}>{sign}{fmt(x.amount)}</span>
     </li>
@@ -80,16 +85,29 @@ export function TransactionsPage() {
       {days.length === 0 ? (
         <p className="muted" style={{ marginTop: 20 }}>{t('No transactions yet')}</p>
       ) : (
-        days.map(([day, rows]) => (
-          <div key={day} className="day-group">
-            <div className="day-head muted">{day}</div>
-            <ul className="txn-list">
-              {rows.map((x) => (
-                <RowLine key={x.id} x={x} onTap={() => setEditing(x)} />
-              ))}
-            </ul>
-          </div>
-        ))
+        days.map(([day, rows]) => {
+          const { dayNum, weekday } = dayHeaderParts(day)
+          const { income, expense } = daySummary(rows)
+          return (
+            <div key={day} className="day-group">
+              <div className="day-head">
+                <span className="day-date">
+                  <span className="day-num">{dayNum}</span>
+                  <span className="day-badge">{weekday}</span>
+                </span>
+                <span className="day-totals">
+                  {income > 0 && <span className="money income">+{fmt(income)}</span>}
+                  {expense > 0 && <span className="money expense">−{fmt(expense)}</span>}
+                </span>
+              </div>
+              <ul className="txn-list">
+                {rows.map((x) => (
+                  <RowLine key={x.id} x={x} onTap={() => setEditing(x)} />
+                ))}
+              </ul>
+            </div>
+          )
+        })
       )}
 
       {editing && (
