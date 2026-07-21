@@ -23,14 +23,23 @@ function kindOf(txn: Txn): Kind {
 const today = () => new Date().toISOString().slice(0, 10)
 
 // Add or edit a transaction. `editing` is the row tapped (for a transfer, the
-// collapsed Transfer-Out leg). Closes via onClose after a successful save/delete.
-export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: () => void }) {
+// collapsed Transfer-Out leg); `initialDate` pre-fills the date when adding (e.g.
+// tapping a day header). Closes via onClose after a successful save/delete.
+export function TxnForm({
+  editing,
+  onClose,
+  initialDate,
+}: {
+  editing?: Txn | null
+  onClose: () => void
+  initialDate?: string
+}) {
   const accounts = useAccounts()
   const categories = useCategories()
   const currency = useBaseCurrency()
 
   const [kind, setKind] = useState<Kind>(editing ? kindOf(editing) : 'Expense')
-  const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? today())
+  const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? initialDate ?? today())
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
   const [note, setNote] = useState(editing?.note ?? '')
   // Single-row fields (Income/Expense) — start unselected so the picker prompts

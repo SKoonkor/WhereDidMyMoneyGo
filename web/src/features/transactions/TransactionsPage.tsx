@@ -54,6 +54,7 @@ export function TransactionsPage() {
   const currency = useBaseCurrency()
   const [month, setMonth] = useState(currentMonthKey())
   const [editing, setEditing] = useState<Txn | null>(null)
+  const [adding, setAdding] = useState<string | null>(null) // date to pre-fill
 
   const monthTxns = useMemo(() => filterByMonth(all, month), [all, month])
   const summary = useMemo(() => monthSummary(monthTxns), [monthTxns])
@@ -90,7 +91,8 @@ export function TransactionsPage() {
           const { income, expense } = daySummary(rows)
           return (
             <div key={day} className="day-group">
-              <div className="day-head">
+              {/* Tapping the day header adds a transaction pre-dated to that day. */}
+              <div className="day-head" role="button" tabIndex={0} onClick={() => setAdding(day)}>
                 <span className="day-date">
                   <span className="day-num">{dayNum}</span>
                   <span className={dow === 0 ? 'day-badge sun' : 'day-badge'}>{weekday}</span>
@@ -113,6 +115,12 @@ export function TransactionsPage() {
       {editing && (
         <Modal title={t('Edit transaction')} onClose={() => setEditing(null)}>
           <TxnForm editing={editing} onClose={() => setEditing(null)} />
+        </Modal>
+      )}
+
+      {adding && (
+        <Modal title={t('Add transaction')} onClose={() => setAdding(null)}>
+          <TxnForm initialDate={adding} onClose={() => setAdding(null)} />
         </Modal>
       )}
     </div>

@@ -370,6 +370,7 @@
   padding: 8px 4px;
   border-top: 1px solid var(--border-soft);
   border-bottom: 1px solid var(--border-soft);
+  cursor: pointer;
 }
 .day-date {
   display: flex;
@@ -1038,9 +1039,10 @@
 .pick-caret {
   display: block;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   line-height: 1;
+  transform: scaleX(1.7); /* wider "v" so sub-category availability reads clearly */
 }
 .pick-cell.on .pick-caret { color: #fff; }
 
