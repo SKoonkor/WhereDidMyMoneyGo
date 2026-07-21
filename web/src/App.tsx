@@ -44,11 +44,23 @@ function Header() {
         <span className="dot">.</span>
       </NavLink>
       <div className="header-tools">
-        <button className="tool-btn" onClick={toggleTheme} aria-label="Toggle theme">
-          {theme === 'dark' ? '☀︎' : '☾'}
+        {/* Sliding pill + masked eye — ported from the Dash app; the visuals swap
+            purely in CSS off html[data-theme] / html[data-censor]. */}
+        <button
+          className="theme-switch"
+          onClick={toggleTheme}
+          aria-label="Toggle light/dark mode"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          <span className="tt-knob" />
         </button>
-        <button className="tool-btn" onClick={toggleCensor} aria-label="Toggle privacy">
-          {censor ? '🙈' : '👁'}
+        <button
+          className="censor-toggle"
+          onClick={toggleCensor}
+          aria-label="Toggle privacy"
+          title={censor ? 'Show amounts' : 'Hide amounts'}
+        >
+          <span className="ct-eye" />
         </button>
       </div>
     </header>
