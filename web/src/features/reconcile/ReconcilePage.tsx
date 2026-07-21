@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { applyReconciliation, getReconcileState } from '../../db'
+import { Modal } from '../../components/Modal'
 import { useLiveTxns } from '../useLiveTxns'
 import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
 import { useCensor } from '../../prefs'
-import {
-  trackedBalances, computeAdjustments, hiddenCostTotal, isReminderDue,
-} from '../../lib/analytics/reconcile'
+import { trackedBalances, hiddenCostTotal, isReminderDue } from '../../lib/analytics/reconcile'
 import { t } from '../../i18n'
 
+const EPS = 0.005 // ignore sub-cent discrepancies
 const money2 = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const signed2 = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + money2(Math.abs(n))
 const toneClass = (n: number) => (n > 0 ? 'amt-income' : n < 0 ? 'amt-expense' : '')
@@ -21,40 +21,42 @@ export function ReconcilePage() {
   const reconState = useLiveQuery(() => getReconcileState(), [])
 
   const tracked = useMemo(() => trackedBalances(all, accounts), [all, accounts])
-  const [actuals, setActuals] = useState<Record<string, string>>({})
+  // Only accounts the user types a new balance into are reconciled; blank = leave
+  // as-is. (No prefill — that's what made an accidental Apply so easy to trigger.)
+  const [adjust, setAdjust] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
-
-  // Seed any account not yet entered from its tracked balance (keeps user edits).
-  useEffect(() => {
-    setActuals((prev) => {
-      let changed = false
-      const next = { ...prev }
-      for (const a of Object.keys(tracked)) {
-        if (!(a in next)) { next[a] = tracked[a].toFixed(2); changed = true }
-      }
-      return changed ? next : prev
-    })
-  }, [tracked])
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const order = Object.keys(tracked)
-  const diffs = order.map((a) => {
-    const raw = actuals[a]
-    const val = raw === '' || raw == null ? tracked[a] : Number(raw)
-    return Number.isFinite(val) ? val - tracked[a] : 0
+  // Per row: whether a balance was entered, and its rounded delta (new − tracked).
+  const rows = order.map((a) => {
+    const raw = adjust[a]
+    if (raw == null || raw.trim() === '') return { entered: false, delta: 0, next: tracked[a] }
+    const num = Number(raw)
+    if (!Number.isFinite(num)) return { entered: false, delta: 0, next: tracked[a] }
+    return { entered: true, delta: Math.round((num - tracked[a]) * 100) / 100, next: num }
   })
-  const totalDiff = diffs.reduce((s, d) => s + d, 0)
+  const totalDiff = rows.reduce((s, r) => s + (r.entered ? r.delta : 0), 0)
+
+  // The accounts that will actually change (entered + a ≥ half-cent discrepancy).
+  const pending = order
+    .map((a, i) => ({ account: a, tracked: tracked[a], ...rows[i] }))
+    .filter((p) => p.entered && Math.abs(p.delta) >= EPS)
 
   const hidden = useMemo(() => hiddenCostTotal(all), [all])
   const lastReconciled = reconState?.lastReconciled ?? null
   const due = isReminderDue(lastReconciled)
 
-  async function apply() {
-    const actualNums: Record<string, number | null> = {}
-    for (const a of order) {
-      const raw = actuals[a]
-      actualNums[a] = raw === '' || raw == null ? null : Number(raw)
-    }
-    const n = await applyReconciliation(computeAdjustments(tracked, actualNums))
+  function requestApply() {
+    setMsg('')
+    if (pending.length === 0) { setMsg(t('No discrepancies — nothing to record.')); return }
+    setConfirmOpen(true)
+  }
+
+  async function confirmApply() {
+    const n = await applyReconciliation(pending.map((p) => ({ account: p.account, delta: p.delta })))
+    setConfirmOpen(false)
+    setAdjust({}) // clear inputs so the same values can't be re-applied by accident
     setMsg(n === 0 ? t('No discrepancies — nothing to record.') : t('Recorded {n} balance adjustment(s).', { n }))
   }
 
@@ -67,13 +69,13 @@ export function ReconcilePage() {
 
       <section className="card">
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-          {t('Enter balances as the app shows them — liabilities like Credit Card are negative. Accounts you leave unchanged record nothing.')}
+          {t('Enter balances as the app shows them — liabilities like Credit Card are negative. Only accounts you type a new balance into are reconciled.')}
         </p>
 
         <div className="recon-head">
           <span className="recon-acct">{t('Account')}</span>
           <span className="recon-num">{t('Tracked')}</span>
-          <span className="recon-num">{t('Actual')}</span>
+          <span className="recon-num">{t('Adjust')}</span>
           <span className="recon-num">{t('Discrepancy')}</span>
         </div>
 
@@ -86,12 +88,13 @@ export function ReconcilePage() {
                 className="recon-input"
                 type="number"
                 inputMode="decimal"
-                value={actuals[a] ?? ''}
-                onChange={(e) => setActuals((p) => ({ ...p, [a]: e.target.value }))}
+                placeholder={money2(tracked[a])}
+                value={adjust[a] ?? ''}
+                onChange={(e) => setAdjust((p) => ({ ...p, [a]: e.target.value }))}
               />
             </span>
-            <span className={`recon-num ${toneClass(diffs[i])}`}>
-              <span className="money">{signed2(diffs[i])}</span>
+            <span className={`recon-num ${rows[i].entered ? toneClass(rows[i].delta) : 'muted'}`}>
+              {rows[i].entered ? <span className="money">{signed2(rows[i].delta)}</span> : '—'}
             </span>
           </div>
         ))}
@@ -102,10 +105,41 @@ export function ReconcilePage() {
         </div>
 
         <div className="recon-actions">
-          <button type="button" className="btn" onClick={apply}>{t('Apply reconciliation')}</button>
+          <button type="button" className="btn" onClick={requestApply}>{t('Apply reconciliation')}</button>
           {msg && <span className="muted" style={{ alignSelf: 'center', fontSize: 14 }}>{msg}</span>}
         </div>
       </section>
+
+      {confirmOpen && (
+        <Modal title={t('Confirm reconciliation')} onClose={() => setConfirmOpen(false)}>
+          <p className="muted" style={{ fontSize: 13, margin: '2px 0 12px' }}>
+            {t('These balance adjustments will be recorded, dated today:')}
+          </p>
+          <div className="recon-confirm-list">
+            {pending.map((p) => (
+              <div key={p.account} className="recon-confirm-row">
+                <span className="recon-confirm-acct">{p.account}</span>
+                <span className="recon-confirm-change">
+                  <span className="money muted">{money2(p.tracked)}</span>
+                  <span className="recon-confirm-arrow">→</span>
+                  <span className="money">{money2(p.next)}</span>
+                  <span className={`recon-confirm-delta ${toneClass(p.delta)}`}>
+                    <span className="money">{signed2(p.delta)}</span>
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="recon-confirm-total">
+            <span>{t('Total discrepancy to record')}</span>
+            <span className={toneClass(totalDiff)}><span className="money">{signed2(totalDiff)}</span> {censor ? '' : currency}</span>
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn ghost" onClick={() => setConfirmOpen(false)}>{t('Cancel')}</button>
+            <button type="button" className="btn" onClick={confirmApply}>{t('Confirm')}</button>
+          </div>
+        </Modal>
+      )}
 
       <section className="card">
         <div className="recon-summary-row">

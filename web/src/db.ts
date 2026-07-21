@@ -24,6 +24,7 @@ import {
   type Settings,
 } from './data/defaults'
 import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
+import { RECON_CATEGORY, ADJUST_IN, ADJUST_OUT } from './lib/analytics/reconcile'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
 // "add" choices are Income / Expense / Transfer; a Transfer expands into the two
@@ -287,32 +288,60 @@ export async function saveTax(cfg: TaxCfg): Promise<void> {
   await db.config.put({ key: 'tax', value: cfg })
 }
 
-// Write one balance-adjustment row per account whose actual balance differs from
-// the tracked balance (|delta| ≥ half a cent): Adjustment-In for a positive gap,
+// Record a balance-adjustment per account whose actual balance differs from the
+// tracked balance (|delta| ≥ half a cent): Adjustment-In for a positive gap,
 // Adjustment-Out for a negative one. These carry the recorded "hidden cost". The
-// reconciliation is always stamped as done today. Returns the rows written.
+// reconciliation is always stamped as done today.
+//
+// Reconciling the same account twice on the same day MERGES into a single row for
+// that day: any existing same-day Reconciliation rows for the account are folded
+// into one (signed) row, and a net-zero result removes it entirely. Returns the
+// number of accounts affected.
 export async function applyReconciliation(
   adjustments: Array<{ account: string; delta: number }>,
   period?: string,
 ): Promise<number> {
+  const EPS = 0.005
   const day = period ?? new Date().toISOString().slice(0, 10)
   const cur = await currency()
-  const rows = adjustments
-    .filter((a) => Math.abs(a.delta) >= 0.005)
-    .map(
-      (a) =>
-        ({
+  const pending = adjustments.filter((a) => Math.abs(a.delta) >= EPS)
+  if (pending.length === 0) {
+    await saveReconcileState({ lastReconciled: day })
+    return 0
+  }
+
+  // Existing same-day Reconciliation rows, grouped per account (signed + row ids).
+  const sameDay = (await db.transactions.where('period').equals(day).toArray()).filter(
+    (r) => r.category === RECON_CATEGORY && (r.type === ADJUST_IN || r.type === ADJUST_OUT),
+  )
+  const existing: Record<string, { signed: number; ids: number[] }> = {}
+  for (const r of sameDay) {
+    const e = existing[r.account] ?? (existing[r.account] = { signed: 0, ids: [] })
+    e.signed += r.type === ADJUST_IN ? r.amount : -r.amount
+    e.ids.push(r.id)
+  }
+
+  let changed = 0
+  await db.transaction('rw', db.transactions, async () => {
+    for (const a of pending) {
+      const prior = existing[a.account]
+      const combined = Math.round(((prior?.signed ?? 0) + a.delta) * 100) / 100
+      if (prior?.ids.length) await db.transactions.bulkDelete(prior.ids) // collapse prior rows
+      if (Math.abs(combined) >= EPS) {
+        await db.transactions.add({
           period: day,
           account: a.account,
-          amount: Math.round(Math.abs(a.delta) * 100) / 100,
-          type: a.delta > 0 ? 'Adjustment-In' : 'Adjustment-Out',
-          category: 'Reconciliation',
+          amount: Math.round(Math.abs(combined) * 100) / 100,
+          type: combined > 0 ? ADJUST_IN : ADJUST_OUT,
+          category: RECON_CATEGORY,
           currency: cur,
-        }) as Txn,
-    )
-  if (rows.length) await db.transactions.bulkAdd(rows)
+        } as Txn)
+      }
+      changed++
+    }
+  })
   await saveReconcileState({ lastReconciled: day })
-  return rows.length
+  return changed
 }
 
 // ── Transactions ─────────────────────────────────────────────────────────────

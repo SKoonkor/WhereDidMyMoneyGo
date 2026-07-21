@@ -1325,6 +1325,37 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 .recon-due { color: #f39c12; font-weight: 600; }
 
+/* Reconciliation confirmation modal: per-account "tracked → new (±delta)" list. */
+.recon-confirm-list { display: flex; flex-direction: column; }
+.recon-confirm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.recon-confirm-acct { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.recon-confirm-change {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  text-align: right;
+}
+.recon-confirm-arrow { color: var(--muted); }
+.recon-confirm-delta { font-weight: 600; min-width: 64px; text-align: right; }
+.recon-confirm-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0 4px;
+  margin-top: 4px;
+  border-top: 2px solid var(--border);
+  font-weight: 600;
+}
+
 /* ── Chip-grid pickers (Add-transaction sheet) ─────────────────────────────── */
 .pick-field { margin-bottom: 12px; }
 .pick-grid { display: flex; flex-wrap: wrap; gap: 6px; }
