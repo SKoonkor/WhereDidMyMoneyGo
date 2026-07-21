@@ -15,6 +15,7 @@ export interface FlowUi {
 }
 
 const EXPENSE_COLOR = '#e74c3c'
+const INCOME_COLOR = '#2ecc71'
 const FORECAST_COLOR = '#3498db'
 const BAR_OUTLINE = 'rgba(0,0,0,0.6)'
 
@@ -84,7 +85,9 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
       showlegend: false,
       marker: {
         color: accountColor(account, i),
-        line: { color: BAR_OUTLINE, width: sub.map((b) => (b.incomeLike ? 1.6 : 0)) },
+        // Income now reads via a green up-arrow above the bar (added below); its
+        // dark outline is dropped. Transfer-/Adjustment-In keep the outline.
+        line: { color: BAR_OUTLINE, width: sub.map((b) => (b.incomeLike && b.type !== 'Income' ? 1.6 : 0)) },
       },
       customdata: sub.map((b) => [b.type, b.amount, b.cumAfter, b.date, b.category]),
       hovertemplate:
@@ -119,20 +122,11 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   shapes.push({ type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: 0, y1: 0, line: { color: EXPENSE_COLOR, width: 1.5 }, layer: 'below' })
   shapes.push({ type: 'line', xref: 'paper', yref: 'y', x0: 0, x1: 1, y0: flow.netWorth, y1: flow.netWorth, line: { color: ui.ink, width: 1.2, dash: 'dash' }, layer: 'below' })
 
-  // ── Annotations: net-worth label + latest-balances box ──────────────────────
+  // ── Annotations: net-worth label (latest balances now live in a card below) ──
   const nwTxt = censor ? '*****' : fmt(flow.netWorth)
   const annotations: Dict[] = [
     { x: 0, y: flow.netWorth, xref: 'paper', yref: 'y', xanchor: 'left', yanchor: 'bottom', showarrow: false, text: `${labels.netWorth} ${nwTxt} ${currency}`, font: { size: 11, color: ui.ink } },
   ]
-  const balLines = flow.accounts
-    .map((a) => `${a}: ${censor ? '*****' : fmt(flow.latestBalances[a] ?? 0)} ${currency}`)
-    .join('<br>')
-  const hiddenLine = flow.hidden ? `<br>${labels.hidden}: ${censor ? '*****' : signed(flow.hidden)} ${currency}` : ''
-  annotations.push({
-    x: 0.01, y: 0.99, xref: 'paper', yref: 'paper', xanchor: 'left', yanchor: 'top', showarrow: false, align: 'left',
-    text: `<b>${labels.balances}</b><br>${balLines}${hiddenLine}<br><b>${labels.netWorth}: ${nwTxt} ${currency}</b>`,
-    font: { size: 11, color: ui.ink }, bgcolor: ui.annoBg, bordercolor: ui.grid, borderwidth: 1, borderpad: 6,
-  })
 
   // ── Opening window: last `defaultDays` of data (+ forecast), y fit to it ─────
   const x0 = flow.lastDay - defaultDays * MS_PER_DAY
@@ -155,6 +149,25 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   const hi = Math.max(...his)
   const pad = Math.max((hi - lo) * 0.08, 1)
 
+  // ── Green up-arrow above each Income bar (replaces the old dark outline) ──────
+  // A fixed-size triangle marker set a hair above the bar top, so every income
+  // reads the same regardless of amount. y is fixed (yaxis.fixedrange) so a small
+  // data-unit standoff stays visually constant.
+  const incomeBars = flow.bars.filter((b) => b.type === 'Income')
+  if (incomeBars.length) {
+    const standoff = Math.max((hi - lo) * 0.02, 0.5)
+    data.push({
+      type: 'scatter',
+      mode: 'markers',
+      x: incomeBars.map((b) => b.x),
+      y: incomeBars.map((b) => b.base + b.height + standoff),
+      marker: { symbol: 'triangle-up', size: 9, color: INCOME_COLOR },
+      hoverinfo: 'skip',
+      showlegend: false,
+      cliponaxis: false,
+    })
+  }
+
   return {
     data,
     layout: {
@@ -176,7 +189,6 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
 }
 
 const dayMs = (iso: string): number => new Date(iso.slice(0, 10) + 'T00:00:00Z').getTime()
-const signed = (n: number) => (n >= 0 ? '+' : '') + fmt(n)
 
 // Width of the calendar month starting at `startMs` (UTC), in ms.
 function monthWidth(startMs: number): number {

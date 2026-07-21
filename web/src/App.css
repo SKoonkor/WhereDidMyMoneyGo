@@ -644,6 +644,45 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .seg-btn.active.is-expense { background: var(--expense); border-color: var(--expense); }
 .seg-btn.active.is-transfer { background: var(--muted); border-color: var(--muted); }
 
+/* Money Flow: latest-balances box below the plot. */
+.flow-balances {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+.flow-bal-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.flow-bal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.flow-bal-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.flow-bal-amt {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.flow-bal-net {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
 /* Money Flow: forecast-horizon control row. The seg fills the rest of the row. */
 .flow-controls {
   display: flex;
@@ -654,6 +693,41 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .flow-controls .seg {
   flex: 1;
   margin-bottom: 0;
+}
+
+/* Money Flow: forecast scrubber. */
+.flow-slider { margin-bottom: 12px; }
+.flow-slider-read {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+.flow-slider-read b { font-size: 16px; }
+.flow-range {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  outline: none;
+}
+.flow-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface);
+  cursor: pointer;
+}
+.flow-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
 }
 
 /* Small button variant + destructive tint (used by Manage). */

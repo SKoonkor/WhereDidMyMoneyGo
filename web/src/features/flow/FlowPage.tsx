@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveTxns } from '../useLiveTxns'
 import { useBaseCurrency } from '../transactions/useConfig'
 import { useTheme, useCensor } from '../../prefs'
@@ -11,6 +11,14 @@ import { t } from '../../i18n'
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
   return v || fallback
+}
+
+const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function fmtDay(iso: string): string {
+  const d = new Date(iso.slice(0, 10) + 'T00:00:00Z')
+  return `${String(d.getUTCDate()).padStart(2, '0')}/${MONTHS[d.getUTCMonth()]}/${d.getUTCFullYear()}`
 }
 
 const HORIZONS: Array<{ label: string; days: number }> = [
@@ -26,6 +34,8 @@ export function FlowPage() {
   const [theme] = useTheme()
   const [censor] = useCensor()
   const [horizon, setHorizon] = useState(30)
+
+  const [sliderIdx, setSliderIdx] = useState(0)
 
   const fc = useMemo(() => runForecast(all, horizon), [all, horizon])
   const flow = useMemo(() => {
@@ -64,12 +74,63 @@ export function FlowPage() {
     [flow, fc, currency, censor, ui],
   )
 
+  // Slider stops: day-offsets from today (0) out to the horizon — daily for the
+  // 30-day view, weekly for the longer horizons (> 45 d).
+  const stops = useMemo(() => {
+    if (!fc) return [] as number[]
+    const step = horizon <= 45 ? 1 : 7
+    const s: number[] = []
+    for (let d = 0; d <= horizon; d += step) s.push(d)
+    if (s[s.length - 1] !== horizon) s.push(horizon)
+    return s
+  }, [fc, horizon])
+
+  // Default the slider to the far end (the target date) when the horizon changes.
+  useEffect(() => { setSliderIdx(stops.length ? stops.length - 1 : 0) }, [stops.length])
+
+  const idx = Math.min(sliderIdx, Math.max(stops.length - 1, 0))
+  const dayOffset = stops[idx] ?? 0
+  const sliderDate = fc ? fc.dates[dayOffset] : ''
+  const sliderAmount = fc ? fc.median[dayOffset] : 0
+
   return (
     <div>
       <h1 className="h1">{t('Money Flow')}</h1>
       <p className="muted" style={{ marginTop: -4, marginBottom: 14 }}>
         {t('Running balance across your accounts, with a forward forecast.')}
       </p>
+
+      {/* Plot first, then the forecast controls below it. */}
+      <div className="card" style={{ padding: 8 }}>
+        <Plot data={fig.data} layout={fig.layout} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
+      </div>
+
+      {/* Latest balances live in their own box below the plot. */}
+      {flow.bars.length > 0 && (
+        <div className="card flow-balances">
+          <div className="flow-bal-title">{t('Latest balances')}</div>
+          <ul className="flow-bal-list">
+            {flow.accounts.map((a) => (
+              <li key={a}>
+                <span className="flow-bal-name">{a}</span>
+                <span className="flow-bal-amt">{censor ? '*****' : fmt(flow.latestBalances[a] ?? 0)} {currency}</span>
+              </li>
+            ))}
+            {flow.hidden !== 0 && (
+              <li className="muted">
+                <span className="flow-bal-name">{t('Hidden cost (untracked)')}</span>
+                <span className="flow-bal-amt">
+                  {censor ? '*****' : (flow.hidden >= 0 ? '+' : '') + fmt(flow.hidden)} {currency}
+                </span>
+              </li>
+            )}
+          </ul>
+          <div className="flow-bal-net">
+            <span>{t('Net worth')}</span>
+            <span>{censor ? '*****' : fmt(flow.netWorth)} {currency}</span>
+          </div>
+        </div>
+      )}
 
       <div className="flow-controls">
         <span className="muted" style={{ fontSize: 13 }}>{t('Forecast')}:</span>
@@ -87,9 +148,27 @@ export function FlowPage() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 8 }}>
-        <Plot data={fig.data} layout={fig.layout} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
-      </div>
+      {/* Forecast slider: scrub from today to the horizon to read the projection. */}
+      {fc && stops.length > 1 && (
+        <div className="card flow-slider">
+          <div className="flow-slider-read">
+            {t('Forecast amount')}:{' '}
+            <b>{censor ? '*****' : fmt(sliderAmount)} {currency}</b>{' '}
+            {t('on')} {fmtDay(sliderDate)}
+          </div>
+          <input
+            className="flow-range"
+            type="range"
+            min={0}
+            max={stops.length - 1}
+            step={1}
+            value={idx}
+            onChange={(e) => setSliderIdx(Number(e.target.value))}
+            aria-label={t('Forecast amount')}
+          />
+        </div>
+      )}
+
       {!fc && flow.bars.length > 0 && (
         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
           {t('Add a few more weeks of history to see a forecast.')}
