@@ -18,8 +18,12 @@ const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 function fmtDay(iso: string): string {
   const d = new Date(iso.slice(0, 10) + 'T00:00:00Z')
-  return `${String(d.getUTCDate()).padStart(2, '0')}/${MONTHS[d.getUTCMonth()]}/${d.getUTCFullYear()}`
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
+
+// Pan-only interaction: keep horizontal pan, but disable the double-tap autozoom
+// (axis reset) so a stray double-tap doesn't jump the view.
+const FLOW_PLOT_CONFIG = { doubleClick: false as const, scrollZoom: false }
 
 const HORIZONS: Array<{ label: string; days: number }> = [
   { label: '30 d', days: 30 },
@@ -85,8 +89,8 @@ export function FlowPage() {
     return s
   }, [fc, horizon])
 
-  // Default the slider to the far end (the target date) when the horizon changes.
-  useEffect(() => { setSliderIdx(stops.length ? stops.length - 1 : 0) }, [stops.length])
+  // Default the slider to day 0 (today) when the horizon changes.
+  useEffect(() => { setSliderIdx(0) }, [stops.length])
 
   const idx = Math.min(sliderIdx, Math.max(stops.length - 1, 0))
   const dayOffset = stops[idx] ?? 0
@@ -102,7 +106,7 @@ export function FlowPage() {
 
       {/* Plot first, then the forecast controls below it. */}
       <div className="card" style={{ padding: 8 }}>
-        <Plot data={fig.data} layout={fig.layout} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
+        <Plot data={fig.data} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
       </div>
 
       {/* Latest balances live in their own box below the plot. */}

@@ -236,14 +236,16 @@ export function CompositionPage() {
             <Plot data={figs.expense.data} layout={figs.expense.layout} ariaLabel={t('Expense')} style={{ width: '100%' }} />
             {buckets && (
               <div className="compo-buckets muted">
-                <span className="nowrap">
-                  <b style={{ color: '#3b7dd8' }}>{t('Needs')}</b> {pct(buckets.needs, buckets.exp)}
-                </span>
-                {' | '}
-                <span className="nowrap">
-                  <b style={{ color: '#e07b39' }}>{t('Wants')}</b> {pct(buckets.wants, buckets.exp)}
-                </span>{' '}
-                {t('of expense')}
+                <div className="compo-buckets-line">
+                  <span className="nowrap">
+                    <b style={{ color: '#3b7dd8' }}>{t('Needs')}</b> {pct(buckets.needs, buckets.exp)}
+                  </span>
+                  {' | '}
+                  <span className="nowrap">
+                    <b style={{ color: '#e07b39' }}>{t('Wants')}</b> {pct(buckets.wants, buckets.exp)}
+                  </span>
+                </div>
+                <div>{t('of expense')}</div>
               </div>
             )}
           </div>

@@ -55,7 +55,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
     return {
       data: [] as Dict[],
       layout: {
-        height: 460, ...transparent, margin: { t: 40, b: 40, l: 60, r: 20 },
+        height: 230, ...transparent, margin: { t: 40, b: 40, l: 60, r: 20 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted, size: 16 } }],
       } as Dict,
     }
@@ -171,7 +171,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   return {
     data,
     layout: {
-      height: 460,
+      height: 230,
       barmode: 'overlay',
       bargap: 0,
       ...transparent,

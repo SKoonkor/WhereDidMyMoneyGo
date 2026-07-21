@@ -702,31 +702,46 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   margin-bottom: 10px;
 }
 .flow-slider-read b { font-size: 16px; }
+/* The input is a tall, full-width touch target so you can start dragging from
+   anywhere along the bar; the visible track stays thin and the dot stays 20px,
+   but the thumb's hit-box is 40px (painted transparent outside a 10px radius). */
 .flow-range {
   width: 100%;
   appearance: none;
   -webkit-appearance: none;
+  height: 40px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  touch-action: pan-y;
+}
+.flow-range::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 3px;
   background: var(--surface-2);
-  outline: none;
 }
 .flow-range::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 40px;
+  height: 40px;
+  margin-top: -17px; /* centre the 40px thumb on the 6px track */
+  border: none;
   border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid var(--surface);
+  background: radial-gradient(circle, var(--accent) 0 10px, transparent 10px);
   cursor: pointer;
 }
+.flow-range::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+}
 .flow-range::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--surface);
+  width: 40px;
+  height: 40px;
+  border: none;
   border-radius: 50%;
-  background: var(--accent);
+  background: radial-gradient(circle, var(--accent) 0 10px, transparent 10px);
   cursor: pointer;
 }
 
