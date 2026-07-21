@@ -1162,8 +1162,11 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   gap: 10px;
   padding: 9px 4px;
   border-bottom: 1px solid var(--border-soft);
+  transition: box-shadow 0.15s ease;
 }
 .goal-row:last-of-type { border-bottom: none; }
+/* Whole draggable rows (the pinned .base row lives outside .goal-list). */
+.goal-list .goal-row { cursor: grab; touch-action: none; user-select: none; }
 .goal-row.base { opacity: 0.95; }
 .goal-label { flex: 1; min-width: 0; font-size: 14px; }
 .goal-tag { color: var(--accent); font-size: 12px; }
@@ -1197,6 +1200,7 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .goal-del:hover { color: var(--expense); }
 
 .goal-add { display: flex; flex-direction: column; gap: 8px; }
+.goal-add-btn { width: 100%; margin-top: 12px; }
 .goal-add input {
   padding: 9px 10px;
   border-radius: 8px;
@@ -1242,9 +1246,13 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   user-select: none;
 }
 .goal-row.dragging {
+  position: relative;
+  z-index: 2;
   background: var(--surface-2);
   border-radius: 8px;
-  opacity: 0.9;
+  border-bottom-color: transparent;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  cursor: grabbing;
 }
 .goal-pin { flex: 0 0 auto; font-size: 13px; opacity: 0.7; }
 
