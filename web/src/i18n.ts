@@ -28,6 +28,8 @@ const TH: Record<string, string> = {
   Date: 'วันที่',
   Note: 'โน้ต',
   Select: 'เลือก',
+  'Select account': 'เลือกบัญชี',
+  'Select category': 'เลือกหมวดหมู่',
   'Shows in your transaction list': 'จะแสดงในรายการจดบันทึก',
   Save: 'บันทึก',
   Cancel: 'ยกเลิก',

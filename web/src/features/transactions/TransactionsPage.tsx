@@ -86,14 +86,14 @@ export function TransactionsPage() {
         <p className="muted" style={{ marginTop: 20 }}>{t('No transactions yet')}</p>
       ) : (
         days.map(([day, rows]) => {
-          const { dayNum, weekday } = dayHeaderParts(day)
+          const { dayNum, weekday, dow } = dayHeaderParts(day)
           const { income, expense } = daySummary(rows)
           return (
             <div key={day} className="day-group">
               <div className="day-head">
                 <span className="day-date">
                   <span className="day-num">{dayNum}</span>
-                  <span className="day-badge">{weekday}</span>
+                  <span className={dow === 0 ? 'day-badge sun' : 'day-badge'}>{weekday}</span>
                 </span>
                 <span className="day-totals">
                   {income > 0 && <span className="money income">+{fmt(income)}</span>}

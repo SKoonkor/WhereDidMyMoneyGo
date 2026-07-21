@@ -59,14 +59,17 @@ export function daySummary(rows: Txn[]): { income: number; expense: number } {
   return { income, expense }
 }
 
-// Split a "YYYY-MM-DD" key into a day-of-month number + short localized weekday
-// (e.g. { dayNum: "29", weekday: "Fri" / "ศ." }) for the daily group header.
-export function dayHeaderParts(dayIso: string): { dayNum: string; weekday: string } {
+// Split a "YYYY-MM-DD" key into a day-of-month number, short localized weekday
+// (e.g. { dayNum: "29", weekday: "Fri" / "ศ." }), and the weekday index (0=Sun)
+// for the daily group header.
+export function dayHeaderParts(dayIso: string): { dayNum: string; weekday: string; dow: number } {
   const [y, m, d] = dayIso.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
   const locale = getLang() === 'th' ? 'th-TH' : 'en-US'
   return {
     dayNum: String(d),
-    weekday: new Date(y, m - 1, d).toLocaleDateString(locale, { weekday: 'short' }),
+    weekday: date.toLocaleDateString(locale, { weekday: 'short' }),
+    dow: date.getDay(),
   }
 }
 

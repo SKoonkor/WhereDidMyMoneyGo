@@ -33,14 +33,15 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
   const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? today())
   const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
   const [note, setNote] = useState(editing?.note ?? '')
-  // Single-row fields (Income/Expense).
-  const [account, setAccount] = useState(editing?.account ?? accounts[0] ?? '')
+  // Single-row fields (Income/Expense) — start unselected so the picker prompts
+  // "Select account / category" rather than pre-choosing one.
+  const [account, setAccount] = useState(editing?.account ?? '')
   const [category, setCategory] = useState(editing?.category ?? '')
   const [subcategory, setSubcategory] = useState(editing?.subcategory ?? '')
   // Transfer fields — for the Out leg, account=from and category=to.
-  const [from, setFrom] = useState(editing?.account ?? accounts[0] ?? '')
+  const [from, setFrom] = useState(editing?.account ?? '')
   const [to, setTo] = useState(
-    editing && kindOf(editing) === 'Transfer' ? editing.category : accounts[1] ?? '',
+    editing && kindOf(editing) === 'Transfer' ? editing.category : '',
   )
 
   const catNames = useMemo(
@@ -48,12 +49,11 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
     [kind, categories],
   )
 
-  // Default the category to the first available option so a row never falls back
-  // to the literal word "Category". Runs when the kind (hence the option list)
-  // changes and the current pick isn't valid for it.
+  // Clear the category if it isn't valid for the current kind's option list
+  // (e.g. after switching Expense↔Income) — but never auto-select one.
   useEffect(() => {
-    if (kind !== 'Transfer' && catNames.length && !catNames.includes(category)) {
-      setCategory(catNames[0])
+    if (kind !== 'Transfer' && category && !catNames.includes(category)) {
+      setCategory('')
       setSubcategory('')
     }
   }, [kind, catNames, category])
@@ -64,15 +64,16 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
     if (!value || value <= 0) return
 
     if (kind === 'Transfer') {
-      if (from === to) return
+      if (!from || !to || from === to) return
       const tr = { period, amount: value, from, to, note: note || undefined }
       if (editing?.transferId) await updateTransfer(editing.transferId, tr)
       else await addTransfer(tr)
     } else {
+      if (!account || !category) return // require an explicit pick
       const type: TxnType = kind // Income | Expense map 1:1
       const row = {
         period, account, amount: value, type,
-        category: category || t('Category'),
+        category,
         subcategory: kind === 'Expense' ? subcategory || undefined : undefined,
         note: note || undefined,
       }
@@ -110,7 +111,12 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
       <div className="row">
         <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Date')}</label>
-          <input type="date" value={period} onChange={(e) => setPeriod(e.target.value)} />
+          {/* Blur on pick so the native calendar closes and applies immediately. */}
+          <input
+            type="date"
+            value={period}
+            onChange={(e) => { setPeriod(e.target.value); e.target.blur() }}
+          />
         </div>
         <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Amount')} ({currency})</label>
@@ -122,18 +128,18 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
         <>
           <div className="field pick-field">
             <label>{t('From')}</label>
-            <ChipPicker value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} title={t('From')} />
+            <ChipPicker value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} title={t('From')} placeholder={t('Select account')} />
           </div>
           <div className="field pick-field">
             <label>{t('To')}</label>
-            <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} title={t('To')} />
+            <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} title={t('To')} placeholder={t('Select account')} />
           </div>
         </>
       ) : (
         <>
           <div className="field pick-field">
             <label>{t('Account')}</label>
-            <ChipPicker value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} title={t('Account')} />
+            <ChipPicker value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} title={t('Account')} placeholder={t('Select account')} />
           </div>
           <div className="field pick-field">
             <label>{t('Category')}</label>
@@ -147,6 +153,7 @@ export function TxnForm({ editing, onClose }: { editing?: Txn | null; onClose: (
               onSubcategory={setSubcategory}
               onAddCategory={(n) => addCategory(kind === 'Income' ? 'income' : 'expense', n)}
               onAddSubcategory={(n) => addSubcategory(category, n)}
+              placeholder={t('Select category')}
             />
           </div>
         </>

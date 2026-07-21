@@ -1,14 +1,14 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { t } from '../../i18n'
 import { Modal } from '../../components/Modal'
 
-// A tappable summary row ("Food · Lunch ›") that opens a 3-column grid sheet
+// A tappable summary row ("Food/Lunch ›") that opens a 3-column grid sheet
 // (slide 15). A category with subcategories shows a ▾ under its name; tapping it
-// marks it selected and expands its subcategories as a full-width block right
-// under that category's row (chevron flips to ▴), including a "None" cell that
-// keeps the row category-only and a "＋ Add" cell. Tapping a subcategory — or a
-// category that has none — commits the pick and closes. Income categories have no
-// subcategories, so they always select-and-close.
+// marks it selected and smoothly expands its subcategories as a full-width block
+// right under that category's row (chevron flips to ▴), including a "None" cell
+// that keeps the row category-only and a "＋ Add" cell. Tapping a subcategory — or
+// a category that has none — commits the pick and closes. Income categories have
+// no subcategories, so they always select-and-close.
 export function CategoryPicker({
   kind,
   category,
@@ -19,6 +19,7 @@ export function CategoryPicker({
   onSubcategory,
   onAddCategory,
   onAddSubcategory,
+  placeholder,
 }: {
   kind: 'Income' | 'Expense'
   category: string
@@ -29,14 +30,34 @@ export function CategoryPicker({
   onSubcategory: (v: string) => void
   onAddCategory: (name: string) => Promise<void> | void
   onAddSubcategory: (name: string) => Promise<void> | void
+  placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+  // `mounted` keeps a collapsing block in the DOM so it can animate closed, and
+  // `shown` toggles the .open class that drives the height transition.
+  const [mounted, setMounted] = useState<string | null>(null)
+  const [shown, setShown] = useState(false)
   const [adding, setAdding] = useState<'cat' | 'sub' | null>(null)
   const [draft, setDraft] = useState('')
 
   const hasSubs = (c: string) => kind === 'Expense' && subsOf(c).length > 0
-  const close = () => { setOpen(false); setAdding(null); setDraft(''); setExpanded(null) }
+  const close = () => {
+    setOpen(false); setAdding(null); setDraft('')
+    setExpanded(null); setMounted(null); setShown(false)
+  }
+
+  // Drive the expand/collapse animation from `expanded`.
+  useEffect(() => {
+    if (expanded) {
+      setMounted(expanded)
+      const id = requestAnimationFrame(() => setShown(true))
+      return () => cancelAnimationFrame(id)
+    }
+    setShown(false)
+    const id = setTimeout(() => setMounted(null), 260)
+    return () => clearTimeout(id)
+  }, [expanded])
 
   function openSheet() {
     // Re-open showing the current selection's subcategories when relevant.
@@ -62,8 +83,8 @@ export function CategoryPicker({
   async function commitAdd() {
     const name = draft.trim()
     if (!name) return
-    if (adding === 'sub' && expanded) {
-      if (!subsOf(expanded).includes(name)) await onAddSubcategory(name)
+    if (adding === 'sub' && mounted) {
+      if (!subsOf(mounted).includes(name)) await onAddSubcategory(name)
       onSubcategory(name)
       close()
     } else {
@@ -80,12 +101,12 @@ export function CategoryPicker({
   const rows: string[][] = []
   for (let i = 0; i < cells.length; i += 3) rows.push(cells.slice(i, i + 3))
 
-  const summary = category ? category + (subcategory ? ` · ${subcategory}` : '') : ''
+  const summary = category ? category + (subcategory ? `/${subcategory}` : '') : ''
 
   return (
     <>
       <button type="button" className="pick-summary" onClick={openSheet}>
-        <span className={summary ? '' : 'muted'}>{summary || t('Select')}</span>
+        <span className={summary ? '' : 'muted'}>{summary || placeholder || t('Select')}</span>
         <span className="pick-summary-arrow">›</span>
       </button>
 
@@ -127,28 +148,30 @@ export function CategoryPicker({
                     )}
                   </div>
 
-                  {expanded && row.includes(expanded) && (
-                    <div className="pick-sheet-grid pick-subgrid">
-                      <button
-                        type="button"
-                        className={subcategory === '' ? 'pick-cell on' : 'pick-cell'}
-                        onClick={() => pickSub('')}
-                      >
-                        {t('None')}
-                      </button>
-                      {subsOf(expanded).map((s) => (
+                  {mounted && row.includes(mounted) && (
+                    <div className={shown ? 'pick-subwrap open' : 'pick-subwrap'}>
+                      <div className="pick-sheet-grid pick-subgrid">
                         <button
-                          key={s}
                           type="button"
-                          className={s === subcategory ? 'pick-cell on' : 'pick-cell'}
-                          onClick={() => pickSub(s)}
+                          className={subcategory === '' ? 'pick-cell on' : 'pick-cell'}
+                          onClick={() => pickSub('')}
                         >
-                          {s}
+                          {t('None')}
                         </button>
-                      ))}
-                      <button type="button" className="pick-cell add" onClick={() => { setAdding('sub'); setDraft('') }}>
-                        ＋ {t('Add')}
-                      </button>
+                        {subsOf(mounted).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            className={s === subcategory ? 'pick-cell on' : 'pick-cell'}
+                            onClick={() => pickSub(s)}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                        <button type="button" className="pick-cell add" onClick={() => { setAdding('sub'); setDraft('') }}>
+                          ＋ {t('Add')}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </Fragment>

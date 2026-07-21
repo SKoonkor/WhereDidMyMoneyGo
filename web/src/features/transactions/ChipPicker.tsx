@@ -13,6 +13,7 @@ export function ChipPicker({
   onAddNew,
   addPlaceholder,
   title,
+  placeholder,
 }: {
   value: string
   options: string[]
@@ -20,6 +21,7 @@ export function ChipPicker({
   onAddNew?: (name: string) => Promise<void> | void
   addPlaceholder?: string
   title?: string
+  placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -44,7 +46,7 @@ export function ChipPicker({
   return (
     <>
       <button type="button" className="pick-summary" onClick={() => setOpen(true)}>
-        <span className={value ? '' : 'muted'}>{value || t('Select')}</span>
+        <span className={value ? '' : 'muted'}>{value || placeholder || t('Select')}</span>
         <span className="pick-summary-arrow">›</span>
       </button>
 
