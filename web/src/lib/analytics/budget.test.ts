@@ -3,7 +3,7 @@ import type { Txn } from '../../db'
 import { DEFAULT_BUDGET, type BudgetCfg } from '../../data/defaults'
 import {
   budgetPeriod, budgetIncome, spendingByBucket, monthPieData, budgetSummary,
-  bucketTone, hiddenCostIn, bucketForTxn, subcatMonthVsAvg,
+  monthBudgetSummary, bucketTone, hiddenCostIn, bucketForTxn, subcatMonthVsAvg,
 } from './budget'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -152,6 +152,22 @@ describe('budgetSummary', () => {
     expect(s.buckets.Needs).toEqual({ target: 10000, spent: 5000, remaining: 5000 })
     expect(s.buckets.Wants).toEqual({ target: 6000, spent: 3000, remaining: 3000 })
     // Savings actual = income − needs − wants = 12000; target = 4000; ahead 8000.
+    expect(s.buckets.Savings).toEqual({ target: 4000, spent: 12000, remaining: 8000 })
+  })
+})
+
+describe('monthBudgetSummary', () => {
+  it('scopes spend to the selected calendar month (targets from current income)', () => {
+    const txns = [
+      T({ id: 1, period: '2026-07-02', category: 'Food', amount: 5000 }), // Needs, July
+      T({ id: 2, period: '2026-07-04', category: 'Travel', amount: 3000 }), // Wants, July
+      T({ id: 3, period: '2026-06-20', category: 'Food', amount: 9999 }), // June → excluded
+    ]
+    const cfg: BudgetCfg = { ...DEFAULT_BUDGET, mode: 'fixed', fixedIncome: 20000 }
+    const s = monthBudgetSummary(txns, cfg, '2026-07', new Date(2026, 6, 15))
+    expect([s.start, s.end]).toEqual(['2026-07-01', '2026-08-01'])
+    expect(s.buckets.Needs).toEqual({ target: 10000, spent: 5000, remaining: 5000 })
+    expect(s.buckets.Wants).toEqual({ target: 6000, spent: 3000, remaining: 3000 })
     expect(s.buckets.Savings).toEqual({ target: 4000, spent: 12000, remaining: 8000 })
   })
 })

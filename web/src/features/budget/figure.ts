@@ -21,7 +21,6 @@ export interface BudgetPieOpts {
   remaining: number
   total: number
   budget: number
-  title: string
   currency: string
   ui: BudgetUi
   censor: boolean
@@ -29,19 +28,14 @@ export interface BudgetPieOpts {
 }
 
 export function buildBudgetPie(pie: PieItem[], opts: BudgetPieOpts) {
-  const { remaining, total, budget, title, currency, ui, censor, labels } = opts
-
-  const titleAnno: Dict = {
-    text: `<b>${title}</b>`, x: 0.5, y: 1.16, xref: 'paper', yref: 'paper',
-    showarrow: false, xanchor: 'center', font: { size: 14, color: ui.ink },
-  }
+  const { remaining, total, budget, currency, ui, censor, labels } = opts
 
   if (pie.length === 0 || budget <= 0) {
     return {
       data: [] as Dict[],
       layout: {
-        height: 300, ...transparent, showlegend: false, margin: { t: 48, b: 14, l: 14, r: 14 },
-        annotations: [titleAnno, { text: labels.noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted } }],
+        height: 300, ...transparent, showlegend: false, margin: { t: 14, b: 14, l: 14, r: 14 },
+        annotations: [{ text: labels.noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted } }],
       } as Dict,
     }
   }
@@ -96,10 +90,9 @@ export function buildBudgetPie(pie: PieItem[], opts: BudgetPieOpts) {
       height: 300,
       showlegend: false,
       ...transparent,
-      margin: { t: 48, b: 14, l: 14, r: 14 },
+      margin: { t: 14, b: 14, l: 14, r: 14 },
       font: { color: ui.muted },
       annotations: [
-        titleAnno,
         {
           text: censor ? `*****<br><span style="font-size:0.7em;color:${ui.muted}">${labels.ofBudget}</span>` : centre,
           x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, xanchor: 'center', yanchor: 'middle', align: 'center',

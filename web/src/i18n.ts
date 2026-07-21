@@ -104,6 +104,12 @@ const TH: Record<string, string> = {
   'This': 'เดือนนี้',
   'Avg': 'เฉลี่ย',
   'No spending this month': 'ยังไม่มีรายจ่ายในเดือนนี้',
+  'Spending in the first {d} days of {month}, versus the first {d} days averaged over the previous {window}.':
+    'รายจ่าย {d} วันแรกของ {month} เทียบกับค่าเฉลี่ยรายจ่าย {d} วันแรกในช่วง {window} ที่ผ่านมา',
+  '1 month': '1 เดือน',
+  '3 months': '3 เดือน',
+  '6 months': '6 เดือน',
+  '1 year': '1 ปี',
   'Income & split': 'รายรับและสัดส่วน',
   'Fixed amount': 'คงที่',
   'Rolling average': 'เฉลี่ย',

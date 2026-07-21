@@ -2,11 +2,11 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getBudget, saveBudget, type Txn } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
-import { useSettings, useCategories, useBaseCurrency } from '../transactions/useConfig'
+import { useCategories, useBaseCurrency } from '../transactions/useConfig'
 import { useTheme, useCensor } from '../../prefs'
 import { addMonths, currentMonthKey, monthLabel } from '../transactions/month'
 import {
-  budgetIncome, budgetSummary, bucketFor, bucketForTxn, bucketTone, monthPieData,
+  budgetIncome, monthBudgetSummary, bucketFor, bucketForTxn, bucketTone, monthPieData,
   subcatMonthVsAvg, NEEDS, WANTS, SAVINGS, HIDDEN_LABEL,
 } from '../../lib/analytics/budget'
 import type { Bucket, BudgetCfg } from '../../data/defaults'
@@ -26,7 +26,6 @@ const BUCKET_ORDER: Bucket[] = [NEEDS, WANTS, SAVINGS]
 export function BudgetPage() {
   const all = useLiveTxns()
   const cfg = useLiveQuery(() => getBudget(), []) // undefined until loaded (avoids seeding defaults)
-  const settings = useSettings()
   const categories = useCategories()
   const currency = useBaseCurrency()
   const [theme] = useTheme()
@@ -43,8 +42,8 @@ export function BudgetPage() {
   }
 
   const summary = useMemo(
-    () => (cfg ? budgetSummary(all, cfg, settings.resetDay) : null),
-    [all, cfg, settings.resetDay],
+    () => (cfg ? monthBudgetSummary(all, cfg, month) : null),
+    [all, cfg, month],
   )
   const income = useMemo(() => (cfg ? budgetIncome(all, cfg) : 0), [all, cfg])
   const pieData = useMemo(
@@ -54,7 +53,7 @@ export function BudgetPage() {
   const fig = useMemo(() => {
     if (!pieData) return null
     return buildBudgetPie(pieData.pie, {
-      remaining: pieData.remaining, total: pieData.total, budget: income, title: monthLabel(month),
+      remaining: pieData.remaining, total: pieData.total, budget: income,
       currency, ui, censor,
       labels: { noData: t('No data'), remaining: t('Remaining budget'), ofBudget: t('of budget'), hidden: t('Hidden cost') },
     })
@@ -138,16 +137,14 @@ export function BudgetPage() {
 
       {/* ── Sub-category detail: this month vs date-of-month rolling average ── */}
       <SubcatDetail all={all} month={month} censor={censor} />
-
-      <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-        {t('The budget month starts on day {d}. Change it in Settings.', { d: settings.resetDay })}
-      </p>
     </div>
   )
 }
 
 // ── Sub-category detail: this-month spend vs a date-of-month rolling average ────
 const WINDOWS: [string, number][] = [['1M', 1], ['3M', 3], ['6M', 6], ['1Y', 12]]
+// Human phrase for the averaging window (used in the table's description line).
+const WINDOW_PHRASE: Record<number, string> = { 1: '1 month', 3: '3 months', 6: '6 months', 12: '1 year' }
 
 // Colour a "This" amount by how it compares to the average: red = spending more
 // than usual, green = less, muted = the same.
@@ -160,7 +157,13 @@ function toneClass(cur: number, avg: number): string {
 function SubcatDetail({ all, month, censor }: { all: Txn[]; month: string; censor: boolean }) {
   const [open, setOpen] = useState(false)
   const [win, setWin] = useState(3)
+  // Sub-categories collapsed by default → the table shows just main categories.
+  const [subOpen, setSubOpen] = useState(false)
   const groups = useMemo(() => subcatMonthVsAvg(all, month, win), [all, month, win])
+
+  // Day-of-month cutoff the comparison uses (today for the current month, else full).
+  const [y, m] = month.split('-').map(Number)
+  const dom = month === currentMonthKey() ? new Date().getDate() : new Date(y, m, 0).getDate()
 
   return (
     <section className="card budget-card">
@@ -184,12 +187,26 @@ function SubcatDetail({ all, month, censor }: { all: Txn[]; month: string; censo
             ))}
           </div>
 
+          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            {t('Spending in the first {d} days of {month}, versus the first {d} days averaged over the previous {window}.', {
+              d: dom, month: monthLabel(month), window: t(WINDOW_PHRASE[win]),
+            })}
+          </p>
+
           {groups.length === 0 ? (
             <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>{t('No spending this month')}</p>
           ) : (
-            <div className="subcat-table" style={{ marginTop: 12 }}>
+            <div className="subcat-table" style={{ marginTop: 6 }}>
               <div className="subcat-grid subcat-head">
-                <span className="subcat-name">{t('Sub-category')}</span>
+                <button
+                  type="button"
+                  className="subcat-name subcat-toggle"
+                  aria-expanded={subOpen}
+                  onClick={() => setSubOpen((o) => !o)}
+                >
+                  {subOpen ? t('Sub-category') : t('Category')}
+                  <span className="subcat-toggle-caret">{subOpen ? '⌄' : '›'}</span>
+                </button>
                 <span className="subcat-col">{t('This')}</span>
                 <span className="subcat-col">{t('Avg')}</span>
               </div>
@@ -200,7 +217,7 @@ function SubcatDetail({ all, month, censor }: { all: Txn[]; month: string; censo
                     <span className={`subcat-col ${toneClass(g.cur, g.avg)}`}>{money(g.cur, censor)}</span>
                     <span className="subcat-col muted">{money(g.avg, censor)}</span>
                   </div>
-                  {g.rows.map((r) => (
+                  {subOpen && g.rows.map((r) => (
                     <div key={r.sub} className="subcat-grid subcat-row">
                       <span className="subcat-name">{r.sub}</span>
                       <span className={`subcat-col ${toneClass(r.cur, r.avg)}`}>{money(r.cur, censor)}</span>

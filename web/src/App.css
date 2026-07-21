@@ -1113,6 +1113,22 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .subcat-head .subcat-name { color: var(--muted); }
 .subcat-col { text-align: right; font-variant-numeric: tabular-nums; }
 .subcat-col.muted { color: var(--muted); }
+/* Clickable header cell that toggles category-only ↔ sub-category rows. */
+.subcat-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-align: left;
+}
+.subcat-toggle:hover { color: var(--accent); }
+.subcat-toggle-caret { font-size: 12px; line-height: 1; }
 @media (min-width: 620px) {
   .subcat-grid { grid-template-columns: 1fr 96px 96px; }
 }

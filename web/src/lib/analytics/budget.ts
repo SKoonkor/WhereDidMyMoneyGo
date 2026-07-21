@@ -237,6 +237,31 @@ export function budgetSummary(txns: Txn[], cfg: BudgetCfg, resetDay = 1, today =
   }
 }
 
+// Same as budgetSummary but scoped to a calendar month ("YYYY-MM") instead of the
+// reset-day period — used so the Needs/Wants/Savings bars follow the month shown in
+// the donut. Targets use the current income base (stable across months); only the
+// spent figures change per selected month.
+export function monthBudgetSummary(txns: Txn[], cfg: BudgetCfg, month: string, today = new Date()): BudgetSummary {
+  const income = budgetIncome(txns, cfg, today)
+  const [y, m] = month.split('-').map(Number)
+  const start = iso(y, m, 1)
+  const end = m === 12 ? iso(y + 1, 1, 1) : iso(y, m + 1, 1)
+  const spent = spendingByBucket(txns, start, end, cfg.assignments, cfg.subAssignments)
+  const pct = cfg.percentages
+  const needsT = (income * (pct.Needs ?? 0)) / 100
+  const wantsT = (income * (pct.Wants ?? 0)) / 100
+  const savT = (income * (pct.Savings ?? 0)) / 100
+  const savActual = income - spent.Needs - spent.Wants
+  return {
+    income, mode: cfg.mode, start, end,
+    buckets: {
+      Needs: { target: needsT, spent: spent.Needs, remaining: needsT - spent.Needs },
+      Wants: { target: wantsT, spent: spent.Wants, remaining: wantsT - spent.Wants },
+      Savings: { target: savT, spent: savActual, remaining: savActual - savT },
+    },
+  }
+}
+
 // Traffic-light tone for a bucket's spend vs target. Needs/Wants: less is better
 // (green <50%, orange 50–85%, red >85%). Savings: more is better (green ≥90%,
 // orange 65–90%, red <65%).
