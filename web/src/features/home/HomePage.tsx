@@ -1,46 +1,38 @@
 import { useMemo } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { getBudget } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
 import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
-import { useTheme, useCensor } from '../../prefs'
-import { filterByMonth, currentMonthKey, monthSummary } from '../transactions/month'
+import { useCensor } from '../../prefs'
+import { currentMonthKey } from '../transactions/month'
 import { accountBalances } from '../../lib/balances'
-import { netWorth, netWorthTrend } from '../../lib/analytics/networth'
-import { buildNetWorthTrendFigure } from './figure'
+import { netWorth } from '../../lib/analytics/networth'
+import { monthBudgetSummary } from '../../lib/analytics/budget'
+import { useMoneyFlow, FLOW_PLOT_CONFIG } from '../flow/useMoneyFlow'
+import { ThisPeriodBudget } from '../budget/ThisPeriodBudget'
+import { SavingsPoolGauge } from '../goals/SavingsPoolGauge'
 import { Plot } from '../../components/Plot'
 import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
 
-function cssVar(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
-
 export function HomePage() {
   const all = useLiveTxns()
   const accounts = useAccounts()
   const currency = useBaseCurrency()
-  const [theme] = useTheme()
   const [censor] = useCensor()
 
   const nw = useMemo(() => netWorth(all), [all])
   const balances = useMemo(() => accountBalances(all), [all])
-  const month = currentMonthKey()
-  const summary = useMemo(() => monthSummary(filterByMonth(all, month)), [all, month])
-  const trend = useMemo(() => netWorthTrend(all, 180), [all])
 
-  // Re-read CSS variables when the theme toggles so the chart recolours.
-  const palette = useMemo(
-    () => ({
-      accent: cssVar('--accent', '#1abc9c'),
-      muted: cssVar('--muted', '#8a94a6'),
-      grid: cssVar('--border-soft', 'rgba(128,128,128,0.2)'),
-    }),
-    [theme],
-  )
-  const figure = useMemo(
-    () => buildNetWorthTrendFigure(trend, { palette, censor }),
-    [trend, palette, censor],
+  // Default money-flow figure (2 months history + 1 month forecast).
+  const { fig } = useMoneyFlow()
+
+  // Current-month budget summary for the "This period" bars.
+  const bcfg = useLiveQuery(() => getBudget(), [])
+  const budgetSummary = useMemo(
+    () => (bcfg ? monthBudgetSummary(all, bcfg, currentMonthKey()) : null),
+    [all, bcfg],
   )
 
   // Configured accounts in order, then any stray account that still holds money.
@@ -52,37 +44,31 @@ export function HomePage() {
 
   return (
     <div>
-      <h1 className="h1">{t('Home')}</h1>
-
+      {/* Net worth — masked as ****** in privacy mode (kept crisp, no CSS blur). */}
       <div className="card nw-hero">
         <div className="nw-label">{t('Net worth')}</div>
-        <div className="nw-value money">
-          {fmt(nw)} <span className="nw-cur">{currency}</span>
+        <div className="nw-value">
+          {censor ? '******' : fmt(nw)} <span className="nw-cur">{currency}</span>
         </div>
       </div>
 
-      {all.length > 0 && (
-        <div className="card dash-card">
-          <div className="dash-title">{t('Net worth · last 6 months')}</div>
-          <Plot data={figure.data} layout={figure.layout} ariaLabel={t('Net worth trend')} style={{ width: '100%' }} />
-        </div>
+      {/* Money flow: running balance + forward forecast (the default plot). */}
+      <div className="card dash-card">
+        <div className="dash-title">{t('Money Flow')}</div>
+        <Plot data={fig.data} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
+      </div>
+
+      {/* Budget — this period's 50/30/20 bars. */}
+      {budgetSummary && (
+        <section className="card budget-card">
+          <ThisPeriodBudget summary={budgetSummary} censor={censor} />
+        </section>
       )}
 
-      <div className="summary-strip card dash-card">
-        <div>
-          <div className="muted" style={{ fontSize: 12 }}>{t('Income')}</div>
-          <div className="money" style={{ color: 'var(--income)' }}>{fmt(summary.income)}</div>
-        </div>
-        <div>
-          <div className="muted" style={{ fontSize: 12 }}>{t('Expense')}</div>
-          <div className="money" style={{ color: 'var(--expense)' }}>{fmt(summary.expense)}</div>
-        </div>
-        <div>
-          <div className="muted" style={{ fontSize: 12 }}>{t('Net')}</div>
-          <div className="money">{fmt(summary.net)}</div>
-        </div>
-      </div>
+      {/* Savings pool gauge (Emergency Fund + ticked goals). */}
+      <SavingsPoolGauge />
 
+      {/* Per-account balances. */}
       <div className="card dash-card">
         <div className="dash-title">{t('Accounts')}</div>
         {acctRows.map(([name, bal]) => (

@@ -1,17 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLiveTxns } from '../useLiveTxns'
-import { useBaseCurrency } from '../transactions/useConfig'
-import { useTheme, useCensor } from '../../prefs'
-import { buildFlow } from '../../lib/analytics/moneyflow'
-import { forecast as runForecast } from '../../lib/analytics/forecast'
-import { buildFlowFigure, type FlowUi } from './figure'
+import { useMoneyFlow, FLOW_PLOT_CONFIG } from './useMoneyFlow'
 import { Plot } from '../../components/Plot'
 import { t } from '../../i18n'
-
-function cssVar(name: string, fallback: string): string {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
-  return v || fallback
-}
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 
@@ -21,10 +11,6 @@ function fmtDay(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
-// Pan-only interaction: keep horizontal pan, but disable the double-tap autozoom
-// (axis reset) so a stray double-tap doesn't jump the view.
-const FLOW_PLOT_CONFIG = { doubleClick: false as const, scrollZoom: false }
-
 const HORIZONS: Array<{ label: string; days: number }> = [
   { label: '30 d', days: 30 },
   { label: '90 d', days: 90 },
@@ -33,50 +19,10 @@ const HORIZONS: Array<{ label: string; days: number }> = [
 ]
 
 export function FlowPage() {
-  const all = useLiveTxns()
-  const currency = useBaseCurrency()
-  const [theme] = useTheme()
-  const [censor] = useCensor()
   const [horizon, setHorizon] = useState(30)
-
   const [sliderIdx, setSliderIdx] = useState(0)
 
-  const fc = useMemo(() => runForecast(all, horizon), [all, horizon])
-  const flow = useMemo(() => {
-    const fcEnd = fc ? new Date(fc.dates[fc.dates.length - 1] + 'T00:00:00Z').getTime() : undefined
-    return buildFlow(all, fcEnd)
-  }, [all, fc])
-
-  const ui: FlowUi = useMemo(
-    () => ({
-      ink: cssVar('--ink', '#e6e9ee'),
-      muted: cssVar('--muted', '#8a94a6'),
-      grid: cssVar('--border-soft', 'rgba(128,128,128,0.2)'),
-      band: cssVar('--muted', '#8a94a6'),
-      annoBg: cssVar('--surface-2', '#1b1f27'),
-    }),
-    [theme],
-  )
-
-  const fig = useMemo(
-    () =>
-      buildFlowFigure(flow, fc, {
-        currency,
-        defaultDays: 60,
-        censor,
-        ui,
-        noData: t('No transactions yet'),
-        labels: {
-          netWorth: t('Net worth'),
-          balances: t('Latest balances'),
-          amount: t('Amount'),
-          balanceAfter: t('Balance after'),
-          forecast: t('Forecast'),
-          hidden: t('Hidden cost (untracked)'),
-        },
-      }),
-    [flow, fc, currency, censor, ui],
-  )
+  const { fig, fc, flow, currency, censor } = useMoneyFlow(horizon, 60)
 
   // Slider stops: day-offsets from today (0) out to the horizon — daily for the
   // 30-day view, weekly for the longer horizons (> 45 d).

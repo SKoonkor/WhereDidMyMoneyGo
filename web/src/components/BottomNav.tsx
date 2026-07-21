@@ -38,11 +38,18 @@ function GridIcon() {
     </svg>
   )
 }
-function GearIcon() {
+// Settings: a crossed wrench + screwdriver, with a small hard-coded "EN/TH" marker
+// baked in (same regardless of app language) so users know the language switch lives
+// here. The tools sit in the upper area; the marker rides along the bottom edge.
+function ToolsIcon() {
   return (
     <svg viewBox="0 0 24 24" {...stroke}>
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M19.4 13.5a1.7 1.7 0 000-3l1.1-1.9-2-2-1.9 1.1a1.7 1.7 0 00-3 0L11.8 5.7l-2 2 1.1 1.9a1.7 1.7 0 000 3l-1.1 1.9 2 2 1.9-1.1a1.7 1.7 0 003 0l1.9 1.1 2-2z" />
+      {/* Wrench: open-end head + shaft running to lower-right. */}
+      <path d="M14.6 3.6a3.4 3.4 0 00-4.3 4.1l-6 6 2 2 6-6a3.4 3.4 0 004.1-4.3l-2 2-1.8-1.8z" />
+      {/* Screwdriver: handle upper-right, blade to lower-left. */}
+      <path d="M20 4l-1.6 1.6M18.4 5.6l-5.9 5.9 1.5 1.5 5.9-5.9zM12.5 11.5l-1.4 1.4" />
+      {/* Language marker. <text> needs its own fill since the shared stroke sets fill:none. */}
+      <text x="12" y="23" textAnchor="middle" fontSize="6" fontWeight="700" fill="currentColor" stroke="none">EN/TH</text>
     </svg>
   )
 }
@@ -69,7 +76,7 @@ export function BottomNav({ onAdd }: { onAdd: () => void }) {
         <span>{t('Apps')}</span>
       </NavLink>
       <NavLink to="/settings" className={tab}>
-        <GearIcon />
+        <ToolsIcon />
         <span>{t('Settings')}</span>
       </NavLink>
     </nav>
