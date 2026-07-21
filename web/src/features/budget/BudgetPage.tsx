@@ -6,12 +6,13 @@ import { useSettings, useCategories, useBaseCurrency } from '../transactions/use
 import { useTheme, useCensor } from '../../prefs'
 import { addMonths, currentMonthKey, monthLabel } from '../transactions/month'
 import {
-  budgetIncome, budgetSummary, bucketFor, bucketTone, monthPieData,
+  budgetIncome, budgetSummary, bucketFor, bucketForTxn, bucketTone, monthPieData,
   NEEDS, WANTS, SAVINGS, HIDDEN_LABEL,
 } from '../../lib/analytics/budget'
 import type { Bucket, BudgetCfg } from '../../data/defaults'
 import { buildBudgetPie, type BudgetUi } from './figure'
 import { Plot } from '../../components/Plot'
+import { useHold } from '../../lib/useHold'
 import { t } from '../../i18n'
 
 function cssVar(name: string, fallback: string): string {
@@ -47,7 +48,7 @@ export function BudgetPage() {
   )
   const income = useMemo(() => (cfg ? budgetIncome(all, cfg) : 0), [all, cfg])
   const pieData = useMemo(
-    () => (cfg ? monthPieData(all, month, income, cfg.assignments) : null),
+    () => (cfg ? monthPieData(all, month, income, cfg.assignments, cfg.subAssignments) : null),
     [all, cfg, month, income],
   )
   const fig = useMemo(() => {
@@ -65,6 +66,9 @@ export function BudgetPage() {
     <div>
       <h1 className="h1">{t('Budget')}</h1>
       <p className="muted" style={{ marginTop: -4, marginBottom: 14 }}>{t('Plan your spending with the 50/30/20 rule.')}</p>
+
+      {/* ── Budget settings (collapsible: Income & split + Category buckets) ── */}
+      <BudgetSettings cfg={cfg} save={save} expense={categories.expense} />
 
       {/* ── This period ─────────────────────────────────────────────── */}
       <section className="card budget-card">
@@ -132,16 +136,40 @@ export function BudgetPage() {
         )}
       </section>
 
-      {/* ── Income & split ───────────────────────────────────────────── */}
-      <IncomeSplitCard cfg={cfg} save={save} />
-
-      {/* ── Category buckets ─────────────────────────────────────────── */}
-      <BucketBoard cfg={cfg} categories={Object.keys(categories.expense)} save={save} />
-
       <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
         {t('The budget month starts on day {d}. Change it in Settings.', { d: settings.resetDay })}
       </p>
     </div>
+  )
+}
+
+// ── Collapsible "Budget settings" box: Income & split + Category buckets ───────
+function BudgetSettings({ cfg, save, expense }: {
+  cfg: BudgetCfg; save: (p: Partial<BudgetCfg>) => void; expense: Record<string, string[]>
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="card budget-card budget-settings">
+      <button
+        type="button"
+        className="budget-settings-head"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="dash-title" style={{ margin: 0 }}>{t('Budget settings')}</span>
+        <span className="budget-settings-caret">{open ? '⌃' : '⌄'}</span>
+      </button>
+
+      <div className={open ? 'budget-settings-body open' : 'budget-settings-body'}>
+        <div className="budget-settings-inner">
+          <IncomeSplitCard cfg={cfg} save={save} />
+          <BucketBoard cfg={cfg} expense={expense} save={save} />
+          <button type="button" className="btn budget-settings-collapse" onClick={() => setOpen(false)}>
+            {t('Collapse settings')}
+          </button>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -155,7 +183,7 @@ function IncomeSplitCard({ cfg, save }: { cfg: BudgetCfg; save: (p: Partial<Budg
   const total = cfg.percentages.Needs + cfg.percentages.Wants + cfg.percentages.Savings
 
   return (
-    <section className="card budget-card">
+    <section className="budget-subsection">
       <div className="dash-title">{t('Income & split')}</div>
 
       <div className="seg" style={{ marginTop: 8 }}>
@@ -195,35 +223,169 @@ function IncomeSplitCard({ cfg, save }: { cfg: BudgetCfg; save: (p: Partial<Budg
   )
 }
 
-// ── Needs / Wants tap-to-flip board ───────────────────────────────────────────
-function BucketBoard({ cfg, categories, save }: { cfg: BudgetCfg; categories: string[]; save: (p: Partial<BudgetCfg>) => void }) {
-  const flip = (cat: string) => {
+// ── Needs / Wants hold-to-swap board with per-subcategory splitting ────────────
+type Chip =
+  | { kind: 'cat'; cat: string; key: string; bucket: Bucket; hasSubs: boolean }
+  | { kind: 'sub'; cat: string; sub: string; key: string; bucket: Bucket }
+
+function BucketBoard({ cfg, expense, save }: {
+  cfg: BudgetCfg; expense: Record<string, string[]>; save: (p: Partial<BudgetCfg>) => void
+}) {
+  // One inline sub-cat strip open at a time. `mounted`/`shown` keep the strip in
+  // the DOM through the collapse transition (mirrors the category-picker pattern).
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [mounted, setMounted] = useState<string | null>(null)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (expanded) {
+      setMounted(expanded)
+      const r = requestAnimationFrame(() => setShown(true))
+      return () => cancelAnimationFrame(r)
+    }
+    setShown(false)
+    const tm = setTimeout(() => setMounted(null), 260)
+    return () => clearTimeout(tm)
+  }, [expanded])
+
+  // Flip a whole category's bucket; prune sub-overrides that now equal the parent.
+  const flipCat = (cat: string) => {
     const next: Bucket = bucketFor(cat, cfg.assignments) === NEEDS ? WANTS : NEEDS
-    save({ assignments: { ...cfg.assignments, [cat]: next } })
+    const subs = { ...cfg.subAssignments }
+    if (subs[cat]) {
+      const kept: Record<string, Bucket> = {}
+      for (const [sub, b] of Object.entries(subs[cat])) if (b !== next) kept[sub] = b
+      if (Object.keys(kept).length) subs[cat] = kept
+      else delete subs[cat]
+    }
+    save({ assignments: { ...cfg.assignments, [cat]: next }, subAssignments: subs })
   }
-  const cols: Record<'Needs' | 'Wants', string[]> = { Needs: [], Wants: [] }
-  for (const cat of categories) (bucketFor(cat, cfg.assignments) === NEEDS ? cols.Needs : cols.Wants).push(cat)
+
+  // Toggle a sub-cat's bucket. Landing on the parent's bucket deletes the override
+  // (so a split chip collapses back into its category).
+  const toggleSub = (cat: string, sub: string) => {
+    const parent = bucketFor(cat, cfg.assignments)
+    const to: Bucket = bucketForTxn(cat, sub, cfg.assignments, cfg.subAssignments) === NEEDS ? WANTS : NEEDS
+    const subs = { ...cfg.subAssignments }
+    const catMap = { ...(subs[cat] ?? {}) }
+    if (to === parent) delete catMap[sub]
+    else catMap[sub] = to
+    if (Object.keys(catMap).length) subs[cat] = catMap
+    else delete subs[cat]
+    save({ subAssignments: subs })
+  }
+
+  const toggleExpand = (cat: string) => setExpanded((cur) => (cur === cat ? null : cat))
+
+  const cols: Record<'Needs' | 'Wants', Chip[]> = { Needs: [], Wants: [] }
+  for (const cat of Object.keys(expense)) {
+    const b = bucketFor(cat, cfg.assignments)
+    cols[b === NEEDS ? 'Needs' : 'Wants'].push({ kind: 'cat', cat, key: `c:${cat}`, bucket: b, hasSubs: (expense[cat]?.length ?? 0) > 0 })
+  }
+  for (const [cat, m] of Object.entries(cfg.subAssignments)) {
+    for (const [sub, b] of Object.entries(m)) {
+      cols[b === NEEDS ? 'Needs' : 'Wants'].push({ kind: 'sub', cat, sub, key: `s:${cat}:${sub}`, bucket: b })
+    }
+  }
 
   return (
-    <section className="card budget-card">
+    <section className="budget-subsection">
       <div className="dash-title">{t('Category buckets')}</div>
-      <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>{t('Tap a category to move it between Needs and Wants. Savings is whatever income is left.')}</p>
+      <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>{t('Hold to swap · tap a category for its sub-categories.')}</p>
       <div className="budget-cols">
         {(['Needs', 'Wants'] as const).map((bucket) => (
           <div key={bucket} className="budget-col" data-bucket={bucket}>
             <div className="budget-col-head">{t(bucket)}</div>
             <div className="budget-chip-list">
-              {cols[bucket].map((cat) => (
-                <button key={cat} type="button" className={`budget-chip ${bucket.toLowerCase()}`} onClick={() => flip(cat)}>
-                  {cat}
-                </button>
-              ))}
+              {cols[bucket].map((chip) =>
+                chip.kind === 'cat' ? (
+                  <CatChip
+                    key={chip.key} cat={chip.cat} bucket={chip.bucket} hasSubs={chip.hasSubs}
+                    expanded={expanded === chip.cat}
+                    onHold={() => flipCat(chip.cat)}
+                    onTap={chip.hasSubs ? () => toggleExpand(chip.cat) : undefined}
+                  />
+                ) : (
+                  <SubChip
+                    key={chip.key} cat={chip.cat} sub={chip.sub} bucket={chip.bucket}
+                    onHold={() => toggleSub(chip.cat, chip.sub)}
+                    onTap={() => toggleExpand(chip.cat)}
+                  />
+                ),
+              )}
               {cols[bucket].length === 0 && <span className="muted" style={{ fontSize: 12 }}>—</span>}
             </div>
           </div>
         ))}
       </div>
+
+      {/* Inline sub-cat strip for the tapped category (hold a sub-cat to move it). */}
+      <div className={shown ? 'budget-subwrap open' : 'budget-subwrap'}>
+        <div className="budget-subgrid">
+          {mounted && (
+            <>
+              <div className="budget-substrip-head muted">
+                {mounted} · {t('Hold a sub-category to move it')}
+              </div>
+              <div className="budget-chip-list">
+                {(expense[mounted] ?? []).map((sub) => (
+                  <SubChip
+                    key={sub} cat={mounted} sub={sub}
+                    label={sub}
+                    bucket={bucketForTxn(mounted, sub, cfg.assignments, cfg.subAssignments)}
+                    onHold={() => toggleSub(mounted, sub)}
+                  />
+                ))}
+                {(expense[mounted]?.length ?? 0) === 0 && <span className="muted" style={{ fontSize: 12 }}>—</span>}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </section>
+  )
+}
+
+// A category chip: hold to flip its bucket, tap to open its sub-cat strip.
+function CatChip({ cat, bucket, hasSubs, expanded, onHold, onTap }: {
+  cat: string; bucket: Bucket; hasSubs: boolean; expanded: boolean
+  onHold: () => void; onTap?: () => void
+}) {
+  const hold = useHold(onHold, onTap)
+  return (
+    <button
+      type="button"
+      className={`budget-chip ${bucket.toLowerCase()}${hold.pressing ? ' pressing' : ''}`}
+      onPointerDown={hold.onPointerDown}
+      onPointerUp={hold.onPointerUp}
+      onPointerLeave={hold.onPointerLeave}
+      onPointerCancel={hold.onPointerCancel}
+      onClick={hold.onClick}
+    >
+      {cat}
+      {hasSubs && <span className="cat-caret">{expanded ? '▴' : '▾'}</span>}
+    </button>
+  )
+}
+
+// A sub-category chip: hold to move its bucket. In a column it shows "cat:sub"
+// (a split-off); in the strip it shows just the sub-cat name (`label`).
+function SubChip({ cat, sub, bucket, label, onHold, onTap }: {
+  cat: string; sub: string; bucket: Bucket; label?: string
+  onHold: () => void; onTap?: () => void
+}) {
+  const hold = useHold(onHold, onTap)
+  return (
+    <button
+      type="button"
+      className={`budget-chip ${bucket.toLowerCase()} sub${hold.pressing ? ' pressing' : ''}`}
+      onPointerDown={hold.onPointerDown}
+      onPointerUp={hold.onPointerUp}
+      onPointerLeave={hold.onPointerLeave}
+      onPointerCancel={hold.onPointerCancel}
+      onClick={hold.onClick}
+    >
+      {label ?? `${cat}:${sub}`}
+    </button>
   )
 }
 

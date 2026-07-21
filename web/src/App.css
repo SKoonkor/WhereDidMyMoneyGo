@@ -1036,6 +1036,76 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 .budget-chip.needs { border-color: rgba(31, 95, 168, 0.55); }
 .budget-chip.wants { border-color: rgba(217, 115, 13, 0.55); }
+/* Chips are held (not tapped) to swap — don't let the gesture scroll or select. */
+.budget-chip {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.budget-chip.pressing {
+  transform: scale(0.94);
+  box-shadow: 0 0 0 2px var(--accent) inset;
+}
+.budget-chip.sub { border-style: dashed; }
+.budget-chip .cat-caret {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+/* Collapsible "Budget settings" box. */
+.budget-settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.budget-settings-caret { color: var(--muted); font-size: 18px; line-height: 1; }
+/* Smooth height via grid-rows (same technique as the category picker). */
+.budget-settings-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.budget-settings-body.open { grid-template-rows: 1fr; }
+.budget-settings-inner { overflow: hidden; min-height: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .budget-settings-body { transition: none; }
+}
+.budget-settings-collapse { width: 100%; margin-top: 12px; }
+
+/* Income & split / Category buckets as sub-sections inside the settings box. */
+.budget-subsection { margin-top: 16px; }
+.budget-subsection:first-child { margin-top: 12px; }
+
+/* Inline sub-category strip beneath the two bucket columns. */
+.budget-subwrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.25s ease, opacity 0.25s ease;
+  margin-top: 4px;
+}
+.budget-subwrap.open { grid-template-rows: 1fr; opacity: 1; }
+.budget-subwrap > .budget-subgrid { overflow: hidden; min-height: 0; }
+.budget-subgrid {
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.budget-substrip-head { font-size: 12px; margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .budget-subwrap { transition: none; }
+}
 
 /* ── Financial Goals + Savings Pool ────────────────────────────────────────── */
 .goals-gauge-card { margin-bottom: 16px; padding: 4px 8px; }

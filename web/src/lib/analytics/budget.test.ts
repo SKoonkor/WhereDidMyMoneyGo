@@ -3,7 +3,7 @@ import type { Txn } from '../../db'
 import { DEFAULT_BUDGET, type BudgetCfg } from '../../data/defaults'
 import {
   budgetPeriod, budgetIncome, spendingByBucket, monthPieData, budgetSummary,
-  bucketTone, hiddenCostIn,
+  bucketTone, hiddenCostIn, bucketForTxn,
 } from './budget'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -68,6 +68,28 @@ describe('spendingByBucket', () => {
     const spent = spendingByBucket(txns, '2026-07-01', '2026-08-01', DEFAULT_BUDGET.assignments)
     expect(spent).toEqual({ Needs: 4600, Wants: 2500 })
   })
+
+  it('honours a sub-category override, moving that subcat’s spend to the other bucket', () => {
+    const txns = [
+      T({ id: 1, period: '2026-07-02', category: 'Food', subcategory: 'Lunch', amount: 1000 }), // Needs (parent)
+      T({ id: 2, period: '2026-07-03', category: 'Food', subcategory: 'Dinner', amount: 400 }), // → Wants (override)
+      T({ id: 3, period: '2026-07-04', category: 'Food', amount: 100 }), // blank subcat → parent Needs
+    ]
+    const subAssignments = { Food: { Dinner: 'Wants' as const } }
+    const spent = spendingByBucket(txns, '2026-07-01', '2026-08-01', DEFAULT_BUDGET.assignments, subAssignments)
+    expect(spent).toEqual({ Needs: 1100, Wants: 400 })
+  })
+})
+
+describe('bucketForTxn', () => {
+  const A = { Food: 'Needs' as const }
+  it('uses a sub-override, else the category, else Wants', () => {
+    const S = { Food: { Dinner: 'Wants' as const } }
+    expect(bucketForTxn('Food', 'Dinner', A, S)).toBe('Wants') // override
+    expect(bucketForTxn('Food', 'Lunch', A, S)).toBe('Needs') // parent
+    expect(bucketForTxn('Food', undefined, A, S)).toBe('Needs') // blank → parent
+    expect(bucketForTxn('Mystery', 'x', A, S)).toBe('Wants') // unknown → Wants
+  })
 })
 
 describe('monthPieData', () => {
@@ -101,6 +123,20 @@ describe('monthPieData', () => {
     // but Travel then overflows. Needs are protected, Wants get cut.
     expect(d.pie.map((p) => p.label)).toEqual(['Bills', 'Food'])
     expect(d.list.map((p) => p.label)).toEqual(['Travel'])
+  })
+
+  it('splits a category with a sub-override into "cat" + "cat:subcat" items', () => {
+    const txns = [
+      T({ id: 1, period: '2026-07-02', category: 'Food', subcategory: 'Lunch', amount: 1000 }),
+      T({ id: 2, period: '2026-07-03', category: 'Food', subcategory: 'Dinner', amount: 400 }),
+    ]
+    const d = monthPieData(txns, '2026-07', 10000, A, { Food: { Dinner: 'Wants' } })
+    // Food (Needs, 1000) ordered before the split Food:Dinner (Wants, 400).
+    expect(d.pie.map((p) => [p.label, p.bucket, p.amount])).toEqual([
+      ['Food', 'Needs', 1000],
+      ['Food:Dinner', 'Wants', 400],
+    ])
+    expect(d.total).toBe(1400) // total preserved by the split
   })
 })
 

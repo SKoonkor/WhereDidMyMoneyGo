@@ -100,6 +100,10 @@ export interface BudgetCfg {
   rollingMonths: number
   percentages: Record<Bucket, number>
   assignments: Record<string, Bucket> // expense category → Needs | Wants
+  // Per-subcategory overrides (category → subcat → bucket). An entry exists only
+  // when it differs from the parent category's bucket; setting it equal to the
+  // parent removes it (so a subcat moved back auto-collapses into its category).
+  subAssignments: Record<string, Record<string, Bucket>>
 }
 
 // A sensible starting Needs/Wants map for the seed categories; anything else
@@ -117,4 +121,5 @@ export const DEFAULT_BUDGET: BudgetCfg = {
   rollingMonths: 6,
   percentages: { Needs: 50, Wants: 30, Savings: 20 },
   assignments: { ...DEFAULT_ASSIGN },
+  subAssignments: {},
 }

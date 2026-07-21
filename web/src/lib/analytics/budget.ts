@@ -21,6 +21,18 @@ export function bucketFor(category: string, assignments: Record<string, Bucket>)
   return assignments[category] ?? WANTS
 }
 
+// Bucket for a single transaction, honouring a per-subcategory override when one
+// exists (only named subcats can be split); otherwise the category assignment.
+export function bucketForTxn(
+  category: string,
+  subcategory: string | undefined,
+  assignments: Record<string, Bucket>,
+  subAssignments: Record<string, Record<string, Bucket>>,
+): Bucket {
+  const s = subAssignments[category]?.[subcategory ?? '']
+  return s ?? assignments[category] ?? WANTS
+}
+
 // ── Date helpers (all on YYYY-MM-DD strings; lexicographic compare = chronological) ─
 const pad = (n: number) => String(n).padStart(2, '0')
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`
@@ -75,14 +87,16 @@ const inWindow = (t: Txn, start: string, end: string) => {
   return d >= start && d < end
 }
 
-// Σ expense per Needs/Wants bucket in [start, end).
+// Σ expense per Needs/Wants bucket in [start, end), honouring subcat overrides.
 export function spendingByBucket(
-  txns: Txn[], start: string, end: string, assignments: Record<string, Bucket>,
+  txns: Txn[], start: string, end: string,
+  assignments: Record<string, Bucket>,
+  subAssignments: Record<string, Record<string, Bucket>> = {},
 ): Record<'Needs' | 'Wants', number> {
   const spent = { Needs: 0, Wants: 0 }
   for (const t of txns) {
     if (t.type !== 'Expense' || !inWindow(t, start, end)) continue
-    const b = bucketFor(t.category, assignments)
+    const b = bucketForTxn(t.category, t.subcategory, assignments, subAssignments)
     if (b === NEEDS) spent.Needs += t.amount
     else spent.Wants += t.amount // Savings is never an assignment target
   }
@@ -132,18 +146,30 @@ export interface MonthPie {
 // budget. Needs fill first (largest→smallest), then Wants; over-budget spend
 // spills into `list`, and under-budget leaves a `remaining` filler slice.
 export function monthPieData(
-  txns: Txn[], month: string, budget: number, assignments: Record<string, Bucket>,
+  txns: Txn[], month: string, budget: number,
+  assignments: Record<string, Bucket>,
+  subAssignments: Record<string, Record<string, Bucket>> = {},
 ): MonthPie {
   const [y, m] = month.split('-').map(Number)
   const start = iso(y, m, 1)
   const end = m === 12 ? iso(y + 1, 1, 1) : iso(y, m + 1, 1)
 
-  const byCat = spendingByCategory(txns, start, end)
+  // Group by an "effective label": a split subcat becomes its own "cat:subcat"
+  // item in its override bucket; everything else groups under the category.
+  const groups = new Map<string, PieItem>()
+  for (const t of txns) {
+    if (t.type !== 'Expense' || !inWindow(t, start, end)) continue
+    const sub = t.subcategory ?? ''
+    const override = subAssignments[t.category]?.[sub]
+    const label = override ? `${t.category}:${sub}` : t.category
+    const bucket = override ?? assignments[t.category] ?? WANTS
+    const g = groups.get(label)
+    if (g) g.amount += t.amount
+    else groups.set(label, { label, amount: t.amount, bucket })
+  }
   const needs: PieItem[] = []
   const wants: PieItem[] = []
-  for (const [cat, amount] of Object.entries(byCat)) {
-    ;(bucketFor(cat, assignments) === NEEDS ? needs : wants).push({ label: cat, amount, bucket: bucketFor(cat, assignments) })
-  }
+  for (const item of groups.values()) (item.bucket === NEEDS ? needs : wants).push(item)
   needs.sort((a, b) => b.amount - a.amount)
   wants.sort((a, b) => b.amount - a.amount)
   const ordered = [...needs, ...wants]
@@ -192,7 +218,7 @@ export interface BudgetSummary {
 export function budgetSummary(txns: Txn[], cfg: BudgetCfg, resetDay = 1, today = new Date()): BudgetSummary {
   const income = budgetIncome(txns, cfg, today)
   const [start, end] = budgetPeriod(today, resetDay)
-  const spent = spendingByBucket(txns, start, end, cfg.assignments)
+  const spent = spendingByBucket(txns, start, end, cfg.assignments, cfg.subAssignments)
   const pct = cfg.percentages
   const needsT = (income * (pct.Needs ?? 0)) / 100
   const wantsT = (income * (pct.Wants ?? 0)) / 100
