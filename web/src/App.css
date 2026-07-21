@@ -1477,7 +1477,13 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   text-transform: uppercase;
   color: var(--muted);
 }
+.ret-group-title:not(:first-child) {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}
 .ret-group-title:first-child { margin-top: 4px; }
+.calc-unit { color: var(--muted); font-weight: 400; }
 .ret-row {
   display: flex;
   align-items: baseline;

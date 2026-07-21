@@ -15,13 +15,30 @@ const SAVING_COLOR = '#3498db'
 const EXPENSE_COLOR = '#e74c3c'
 const PLAIN_COLOR = '#e84393'
 const FREEDOM_COLOR = '#f1c40f'
-const GOAL_COLOR = '#8e44ad'
-const GOAL_COLORS = [GOAL_COLOR, '#5b2c6f']
+// Alternate purple shades for goal overlay lines + leader labels (by x-order).
+const GOAL_COLORS = ['#af7ac5', '#7d3c98']
 
 const maxOf = (a: number[]) => a.reduce((m, v) => (v > m ? v : m), -Infinity)
 function rgba(hex: string, alpha: number): string {
   const h = hex.replace('#', '')
   return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${alpha})`
+}
+
+// Label with a short 30° leader line linking it to its vertical marker at `x` (port
+// of _leader_label in figures/retirement.py). The text floats up and to the side —
+// right when the marker sits in the left 60% of the axis, else left — so the
+// connector never strikes through the text. Pixel offsets keep the 30° angle.
+function leaderLabel(annotations: Dict[], x0: number, x1: number, x: number, yPaper: number, text: string, color: string) {
+  const frac = x1 > x0 ? (x - x0) / (x1 - x0) : 0
+  const toRight = frac <= 0.6
+  const dx = toRight ? 34 : -34
+  annotations.push({
+    x, xref: 'x', yref: 'paper', y: yPaper,
+    ax: dx, ay: -Math.abs(dx) * 0.5774, axref: 'pixel', ayref: 'pixel',
+    text, showarrow: true, arrowhead: 0, arrowwidth: 1.2, arrowcolor: color,
+    xanchor: toRight ? 'left' : 'right', yanchor: 'bottom',
+    font: { color, size: 12 },
+  })
 }
 
 export interface RetLabels {
@@ -58,7 +75,6 @@ export function buildRetirementMcFigure(
   const x0 = ages[0]
   const x1 = ages[ages.length - 1]
   const suffix = labels.yo
-  const med = labels.medianSuffix
   const data: Dict[] = []
   const shapes: Dict[] = []
   const annotations: Dict[] = []
@@ -80,29 +96,24 @@ export function buildRetirementMcFigure(
   const prim = hasGoals ? mc.factorNominal! : mc.nominal
   addBand(prim.p16, prim.p84, rgba(INCOME_COLOR, 0.18))
   if (hasGoals) {
-    line(mc.nominal.p50, labels.withoutGoals + med, ui.muted, 1.5, 'dot', labels.withoutGoals)
-    line(mc.factorNominal!.p50, labels.afterFactor + med, INCOME_COLOR, 2.5, undefined, labels.future)
-    line(mc.plainNominal!.p50, labels.afterPlain + med, PLAIN_COLOR, 2.5, undefined, labels.today)
-    if (showReal) line(mc.factorReal!.p50, labels.factorToday + med, SAVING_COLOR, 2, 'dash', labels.today)
+    line(mc.nominal.p50, labels.withoutGoals, ui.muted, 1.5, 'dot', labels.withoutGoals)
+    line(mc.plainNominal!.p50, labels.afterPlain, PLAIN_COLOR, 2.5, undefined, labels.today)
+    line(mc.factorNominal!.p50, labels.afterFactor, INCOME_COLOR, 2.5, undefined, labels.future)
+    if (showReal) line(mc.factorReal!.p50, labels.factorToday, SAVING_COLOR, 2, 'dash', labels.today)
   } else {
-    line(mc.nominal.p50, labels.balanceFuture + med, INCOME_COLOR, 2.5, undefined, labels.future)
-    if (showReal) line(mc.real.p50, labels.balanceToday + med, SAVING_COLOR, 2, 'dash', labels.today)
+    line(mc.nominal.p50, labels.balanceFuture, INCOME_COLOR, 2.5, undefined, labels.future)
+    if (showReal) line(mc.real.p50, labels.balanceToday, SAVING_COLOR, 2, 'dash', labels.today)
   }
 
   const vline = (x: number, color: string, dash: string, width = 1.5) =>
     shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: x, x1: x, y0: 0, y1: 1, line: { color, dash, width } })
-  const sideLabel = (x: number, yPaper: number, text: string, color: string) => {
-    const frac = x1 > x0 ? (x - x0) / (x1 - x0) : 0
-    const [xanchor, xshift] = frac > 0.6 ? ['right', -4] : ['left', 4]
-    annotations.push({ x, xref: 'x', yref: 'paper', y: yPaper, yanchor: 'top', xanchor, xshift, showarrow: false, text, font: { color, size: 12 } })
-  }
 
   // Retirement age marker.
   vline(retirementAge, ui.muted, 'dot')
   annotations.push({ x: retirementAge, xref: 'x', yref: 'paper', y: 1.0, yanchor: 'bottom', showarrow: false, text: `${labels.retire}: ${fmtAge(retirementAge)}${suffix}`, font: { color: ui.ink, size: 12 } })
 
-  // Vertical event band: 16–84% age spread + dashed median + label. Censored median
-  // (past life expectancy) shows a right-edge "life+" label instead.
+  // Vertical event band: 16–84% age spread + dashed median + leader label. Censored
+  // median (past life expectancy) shows a right-edge "life+" label instead.
   const eventBand = (ev: DepEvent | Event | null, color: string, yPaper: number, label: string) => {
     if (!ev || ev.p16 == null) return
     const p16 = ev.p16
@@ -114,16 +125,13 @@ export function buildRetirementMcFigure(
       return
     }
     vline(p50, color, 'dash')
-    sideLabel(p50, yPaper, `${label}: ${p50.toFixed(0)}${suffix}`, color)
+    leaderLabel(annotations, x0, x1, p50, yPaper, `${label}: ${p50.toFixed(0)}${suffix}`, color)
   }
 
   eventBand(mc.depletion, EXPENSE_COLOR, 0.92, labels.depleted)
   eventBand(mc.freedom, FREEDOM_COLOR, 0.84, labels.freedom)
   const goalEvs = (mc.goalEvents ?? []).filter((e) => e.prob > 0)
   goalEvs.forEach((e, i) => eventBand(e as unknown as Event, GOAL_COLORS[i % 2], 0.76 - (i % 3) * 0.06, e.name))
-
-  // Success-probability note (fraction of paths whose money lasts to life expectancy).
-  annotations.push({ xref: 'paper', x: 0.02, xanchor: 'left', yref: 'paper', y: 0.98, yanchor: 'top', showarrow: false, text: labels.success((mc.successProb * 100).toFixed(0)), font: { color: ui.ink, size: 13 } })
 
   const yTop = maxOf(prim.p84) * 1.08 || 1
 
@@ -137,8 +145,8 @@ export function buildRetirementMcFigure(
       hovermode: 'x unified',
       hoverlabel: { bgcolor: ui.anno, bordercolor: ui.grid, font: { color: ui.ink } },
       dragmode: 'pan',
-      legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, font: { color: ui.muted, size: 11 } },
-      margin: { t: 64, b: 44, l: 64, r: 20 },
+      legend: { orientation: 'h', entrywidthmode: 'fraction', entrywidth: 0.5, yanchor: 'bottom', y: 1.02, font: { color: ui.muted, size: 11 } },
+      margin: { t: 64, b: 44, l: 48, r: 10 },
       shapes,
       annotations,
     } as Dict,
@@ -190,8 +198,8 @@ export function buildRetirementFigure(
     const fNom = res.balanceFactorNominal!
     const pNom = res.balancePlainNominal!
     line(res.balanceNominal, labels.withoutGoals, ui.muted, 1.5, 'dot', labels.withoutGoals)
-    line(fNom, labels.afterFactor, INCOME_COLOR, 2.5, undefined, labels.future)
     line(pNom, labels.afterPlain, PLAIN_COLOR, 2.5, undefined, labels.today)
+    line(fNom, labels.afterFactor, INCOME_COLOR, 2.5, undefined, labels.future)
     if (showReal) line(res.balanceFactorReal!, labels.factorToday, SAVING_COLOR, 2, 'dash', labels.today)
     markers(fNom, res.goalHitsFactor, 'circle', INCOME_COLOR)
     markers(pNom, res.goalHitsPlain, 'diamond', PLAIN_COLOR)
@@ -212,12 +220,6 @@ export function buildRetirementFigure(
 
   const vline = (x: number, color: string, dash: string, width = 1.5) =>
     shapes.push({ type: 'line', xref: 'x', yref: 'paper', x0: x, x1: x, y0: 0, y1: 1, line: { color, dash, width } })
-  // Label anchored to the left/right of a vertical line depending on where it sits.
-  const sideLabel = (x: number, yPaper: number, text: string, color: string) => {
-    const frac = x1 > x0 ? (x - x0) / (x1 - x0) : 0
-    const [xanchor, xshift] = frac > 0.6 ? ['right', -4] : ['left', 4]
-    annotations.push({ x, xref: 'x', yref: 'paper', y: yPaper, yanchor: 'top', xanchor, xshift, showarrow: false, text, font: { color, size: 12 } })
-  }
 
   // Retirement age marker.
   vline(retAge, ui.muted, 'dot')
@@ -226,7 +228,7 @@ export function buildRetirementFigure(
   // Funds-running-out marker (red line within life expectancy; else a right-edge note).
   if (depletionAge != null) {
     vline(depletionAge, EXPENSE_COLOR, 'dot')
-    sideLabel(depletionAge, 0.92, `${labels.depleted}: ${depletionAge.toFixed(0)}${suffix}`, EXPENSE_COLOR)
+    leaderLabel(annotations, x0, x1, depletionAge, 0.92, `${labels.depleted}: ${depletionAge.toFixed(0)}${suffix}`, EXPENSE_COLOR)
   } else {
     const txt = lateDep != null ? `${labels.depleted}: ${lateDep.toFixed(0)}${suffix} →` : `${labels.depleted}: 100+${suffix} →`
     annotations.push({ xref: 'paper', x: 0.995, xanchor: 'right', yref: 'paper', y: 0.92, yanchor: 'top', showarrow: false, text: txt, font: { color: ui.muted, size: 12 } })
@@ -235,12 +237,17 @@ export function buildRetirementFigure(
   // Financial-freedom (FIRE) marker.
   if (res.financialFreedomAge != null) {
     vline(res.financialFreedomAge, FREEDOM_COLOR, 'dash')
-    sideLabel(res.financialFreedomAge, 0.84, `${labels.freedom}: ${res.financialFreedomAge.toFixed(0)}${suffix}`, FREEDOM_COLOR)
+    leaderLabel(annotations, x0, x1, res.financialFreedomAge, 0.84, `${labels.freedom}: ${res.financialFreedomAge.toFixed(0)}${suffix}`, FREEDOM_COLOR)
   }
 
-  // Goal-purchase guide lines (×factor buy age) — the buy markers carry the detail.
+  // Goal-purchase guide lines (×factor buy age) with alternating purple shades and a
+  // leader-labelled name·age; the buy markers still carry the hover detail.
   if (hasGoals) {
-    for (const h of res.goalHitsFactor ?? []) vline(h.age, GOAL_COLOR, 'dot', 1)
+    ;(res.goalHitsFactor ?? []).forEach((h, i) => {
+      const color = GOAL_COLORS[i % 2]
+      vline(h.age, color, 'dot', 1)
+      leaderLabel(annotations, x0, x1, h.age, 0.76 - (i % 3) * 0.06, `${h.name}: ${h.age.toFixed(0)}${suffix}`, color)
+    })
   }
 
   // Y-axis: cap to the "without goals" baseline height at retirement when goals are
@@ -260,8 +267,8 @@ export function buildRetirementFigure(
       hovermode: 'x unified',
       hoverlabel: { bgcolor: ui.anno, bordercolor: ui.grid, font: { color: ui.ink } },
       dragmode: 'pan',
-      legend: { orientation: 'h', yanchor: 'bottom', y: 1.02, font: { color: ui.muted, size: 11 } },
-      margin: { t: 64, b: 44, l: 64, r: 20 },
+      legend: { orientation: 'h', entrywidthmode: 'fraction', entrywidth: 0.5, yanchor: 'bottom', y: 1.02, font: { color: ui.muted, size: 11 } },
+      margin: { t: 64, b: 44, l: 48, r: 10 },
       shapes,
       annotations,
     } as Dict,

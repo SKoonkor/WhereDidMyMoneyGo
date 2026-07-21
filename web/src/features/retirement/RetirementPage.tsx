@@ -35,6 +35,7 @@ export function RetirementPage() {
   const [theme] = useTheme()
 
   const [open, setOpen] = useState(false)
+  const [goalBoxOpen, setGoalBoxOpen] = useState(true)
   const [curAge, setCurAge] = useState(D.curAge)
   const [retAge, setRetAge] = useState(D.retAge)
   const [life, setLife] = useState(D.life)
@@ -48,15 +49,28 @@ export function RetirementPage() {
   const [expense, setExpense] = useState(D.expense)
   const [showReal, setShowReal] = useState(true)
   const [includeGoals, setIncludeGoals] = useState(false)
+  // Which goals to overlay; null = all of them (the default when goals first load).
+  const [picked, setPicked] = useState<string[] | null>(null)
   const [useMc, setUseMc] = useState(false)
   const [volReturn, setVolReturn] = useState('15')
   const [volInfl, setVolInfl] = useState('1')
   const [volDeposit, setVolDeposit] = useState('2')
 
+  const allGoalNames = useMemo(() => (goalsCfg ? Object.keys(goalsCfg.goals) : []), [goalsCfg])
+  const pickedSet = useMemo(() => new Set(picked ?? allGoalNames), [picked, allGoalNames])
+
   const goals: CompoundGoal[] = useMemo(() => {
     if (!includeGoals || !goalsCfg) return []
-    return Object.keys(goalsCfg.goals).map((n) => [n, goalsCfg.goals[n], goalFactor(n, goalsCfg.factors)] as CompoundGoal)
-  }, [includeGoals, goalsCfg])
+    // Keep goal priority = rank order (object-key order), independent of pick order.
+    return allGoalNames
+      .filter((n) => pickedSet.has(n))
+      .map((n) => [n, goalsCfg.goals[n], goalFactor(n, goalsCfg.factors)] as CompoundGoal)
+  }, [includeGoals, goalsCfg, allGoalNames, pickedSet])
+
+  const toggleGoal = (name: string) => {
+    const cur = picked ?? allGoalNames
+    setPicked(cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name])
+  }
 
   const res = useMemo(
     () => computeRetirement({
@@ -93,8 +107,8 @@ export function RetirementPage() {
     age: t('Age'), value: (c) => t('Value ({currency})', { currency: c }), yo: t('yo'),
     future: t('Future money'), today: t("Today's money"), withoutGoals: t('Without goals'),
     balanceFuture: t('Balance (future money)'), balanceToday: t("Balance (today's money)"),
-    afterFactor: t('After buying (×factor)'), afterPlain: t('After buying (plain)'),
-    factorToday: t("×factor (today's money)"), retire: t('Retire'), freedom: t('Financial freedom'),
+    afterFactor: t('use ×Time rule'), afterPlain: t('buy immediately'),
+    factorToday: t("use ×Time rule (today's money)"), retire: t('Retire'), freedom: t('Financial freedom'),
     depleted: t('Funds depleted'), bought: (name, age) => t('{name} bought · age {age}', { name, age }),
     medianSuffix: t(' (median)'), success: (pct) => t('Success: {pct}%', { pct }),
   }
@@ -125,15 +139,15 @@ export function RetirementPage() {
           <div className="budget-settings-inner">
             <h3 className="ret-group-title">{t('Ages')}</h3>
             <div className="calc-form">
-              <Field label={t('Current age')} value={curAge} set={setCurAge} numeric />
-              <Field label={t('Retirement age')} value={retAge} set={setRetAge} numeric />
-              <Field label={t('Life expectancy')} value={life} set={setLife} numeric />
+              <Field label={t('Current age')} value={curAge} set={setCurAge} numeric unit={t('yr')} />
+              <Field label={t('Retirement age')} value={retAge} set={setRetAge} numeric unit={t('yr')} />
+              <Field label={t('Life expectancy')} value={life} set={setLife} numeric unit={t('yr')} />
             </div>
 
             <h3 className="ret-group-title">{t('Pre-retirement')}</h3>
             <div className="calc-form">
-              <Field label={t('Principal Amount')} value={principal} set={setPrincipal} />
-              <Field label={t('Monthly Deposit')} value={deposit} set={setDeposit} />
+              <Field label={t('Principal Amount')} value={principal} set={setPrincipal} unit={currency} />
+              <Field label={t('Monthly Deposit')} value={deposit} set={setDeposit} unit={currency} />
               <Field label={t('Yearly raise (%)')} value={increase} set={setIncrease} />
               <Field label={t('Annual Interest Rate (%)')} value={rate} set={setRate} />
               <Field label={t('Inflation (%)')} value={infl} set={setInfl} />
@@ -141,9 +155,9 @@ export function RetirementPage() {
 
             <h3 className="ret-group-title">{t('Post-retirement')}</h3>
             <div className="calc-form">
-              <Field label={t('Retirement bonus')} value={bonus} set={setBonus} />
-              <Field label={t('Monthly pension')} value={pension} set={setPension} />
-              <Field label={t('Monthly expense (today)')} value={expense} set={setExpense} />
+              <Field label={t('Retirement bonus')} value={bonus} set={setBonus} unit={currency} />
+              <Field label={t('Monthly pension')} value={pension} set={setPension} unit={currency} />
+              <Field label={t('Monthly expense (today)')} value={expense} set={setExpense} unit={currency} />
             </div>
 
             <button type="button" className="btn budget-settings-collapse" onClick={() => setOpen(false)}>
@@ -191,6 +205,26 @@ export function RetirementPage() {
           {t('Deposits stop at retirement; expenses (today’s money) then inflate and draw down the pot.')}
         </p>
       </section>
+
+      {/* ── Goals to overlay (collapsible): pick which goals to draw ── */}
+      {includeGoals && goalsExist && (
+        <section className="card budget-card budget-settings">
+          <button type="button" className="budget-settings-head" aria-expanded={goalBoxOpen} onClick={() => setGoalBoxOpen((o) => !o)}>
+            <span className="dash-title" style={{ margin: 0 }}>{t('Goals to overlay')}</span>
+            <span className="budget-settings-caret">{goalBoxOpen ? '⌃' : '⌄'}</span>
+          </button>
+          <div className={goalBoxOpen ? 'budget-settings-body open' : 'budget-settings-body'}>
+            <div className="budget-settings-inner">
+              {allGoalNames.map((name) => (
+                <label key={name} className="calc-toggle">
+                  <input type="checkbox" checked={pickedSet.has(name)} onChange={() => toggleGoal(name)} />
+                  <span>{name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Summary (Python-style results block) ── */}
       <ResultsBlock res={res} mc={mc} money={money} yo={yo} />
@@ -314,10 +348,10 @@ function Row({ label, value, tone, accent }: { label: string; value: string; ton
   )
 }
 
-function Field({ label, value, set, numeric, wide }: { label: string; value: string; set: (v: string) => void; numeric?: boolean; wide?: boolean }) {
+function Field({ label, value, set, numeric, wide, unit }: { label: string; value: string; set: (v: string) => void; numeric?: boolean; wide?: boolean; unit?: string }) {
   return (
     <label className={`calc-field${wide ? ' wide' : ''}`}>
-      <span>{label}</span>
+      <span>{label}{unit ? <span className="calc-unit"> ({unit})</span> : null}</span>
       <input value={value} onChange={(e) => set(e.target.value)} type="number" inputMode={numeric ? 'numeric' : 'decimal'} />
     </label>
   )
