@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getBudget } from '../../db'
@@ -27,6 +27,12 @@ export function HomePage() {
   const navigate = useNavigate()
   // Double-tapping a box asks whether to open that section's full page.
   const [navPrompt, setNavPrompt] = useState<{ label: string; to: string } | null>(null)
+  // A double-tap on a touchscreen fires a delayed "ghost" click ~300 ms later.
+  // That stray click would land on the just-opened dialog and dismiss it, so we
+  // ignore any dialog interaction until this window passes.
+  const promptOpenedAt = useRef(0)
+  const openPrompt = (p: { label: string; to: string }) => { promptOpenedAt.current = Date.now(); setNavPrompt(p) }
+  const promptSettling = () => Date.now() - promptOpenedAt.current < 400
 
   const nw = useMemo(() => netWorth(all), [all])
   const balances = useMemo(() => accountBalances(all), [all])
@@ -61,7 +67,7 @@ export function HomePage() {
       {/* Money flow: running balance + forward forecast (the default plot). */}
       <CollapsibleCard
         id="flow" title={t('Money Flow')} className="dash-card plot-card"
-        onNavigate={() => setNavPrompt({ label: t('Money Flow'), to: '/flow' })}
+        onNavigate={() => openPrompt({ label: t('Money Flow'), to: '/flow' })}
       >
         <Plot data={fig.data} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
       </CollapsibleCard>
@@ -70,7 +76,7 @@ export function HomePage() {
       {budgetSummary && (
         <CollapsibleCard
           id="budget" title={t('Budget')} className="budget-card"
-          onNavigate={() => setNavPrompt({ label: t('Budget'), to: '/budget' })}
+          onNavigate={() => openPrompt({ label: t('Budget'), to: '/budget' })}
         >
           <ThisPeriodBudget summary={budgetSummary} censor={censor} hidePeriodLabel />
         </CollapsibleCard>
@@ -79,7 +85,7 @@ export function HomePage() {
       {/* Savings pool gauge (Emergency Fund + ticked goals). */}
       <CollapsibleCard
         id="pool" title={t('Savings Pool')} className="goals-gauge-card"
-        onNavigate={() => setNavPrompt({ label: t('Financial Goals'), to: '/goals' })}
+        onNavigate={() => openPrompt({ label: t('Financial Goals'), to: '/goals' })}
       >
         <SavingsPoolGauge bare />
       </CollapsibleCard>
@@ -87,7 +93,7 @@ export function HomePage() {
       {/* Per-account balances. */}
       <CollapsibleCard
         id="accounts" title={t('Account balances')} className="dash-card"
-        onNavigate={() => setNavPrompt({ label: t('Transactions'), to: '/transactions' })}
+        onNavigate={() => openPrompt({ label: t('Transactions'), to: '/transactions' })}
       >
         {acctRows.map(([name, bal]) => (
           <div key={name} className="acct-row">
@@ -100,13 +106,13 @@ export function HomePage() {
       <p className="muted">{t('Your data is stored on this device only.')}</p>
 
       {navPrompt && (
-        <Modal title={t('Go to {section}?', { section: navPrompt.label })} onClose={() => setNavPrompt(null)}>
+        <Modal title={t('Go to {section}?', { section: navPrompt.label })} onClose={() => { if (!promptSettling()) setNavPrompt(null) }}>
           <p className="muted" style={{ margin: '0 0 14px' }}>
             {t('Open the full {section} page?', { section: navPrompt.label })}
           </p>
           <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn ghost" onClick={() => setNavPrompt(null)}>{t('Cancel')}</button>
-            <button type="button" className="btn btn-accent" onClick={() => { const to = navPrompt.to; setNavPrompt(null); navigate(to) }}>
+            <button type="button" className="btn ghost" onClick={() => { if (!promptSettling()) setNavPrompt(null) }}>{t('Cancel')}</button>
+            <button type="button" className="btn btn-accent" onClick={() => { if (promptSettling()) return; const to = navPrompt.to; setNavPrompt(null); navigate(to) }}>
               {t('Open')}
             </button>
           </div>
