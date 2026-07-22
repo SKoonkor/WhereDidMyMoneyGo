@@ -45,23 +45,27 @@ export function IntroMock() {
 }
 
 // A fake transactions screen: an Income / Expense / Net summary over a few sample
-// rows. All amounts and notes are invented so it shows the layout without exposing
-// any real spending. A highlighted ＋ ties it back to "record a transaction".
+// rows, with the tab bar overlaid at the bottom so it teasingly clips the last
+// row. All amounts and notes are invented — the layout without any real spending.
+// Category (+ optional subcategory) on the left, note over account in the middle,
+// amount on the right coloured by type (expense red, income green, transfer grey).
 export function RecordMock() {
   const rows = [
-    { cat: 'Groceries', note: 'Market', acct: 'Cash', amt: '−240', c: red },
-    { cat: 'Salary', note: 'Payday', acct: 'Bank', amt: '+40,000', c: green },
-    { cat: 'Transport', note: 'Taxi', acct: 'Card', amt: '−180', c: red },
+    { cat: 'Food', sub: 'Groceries', note: 'Market', acct: 'Cash', amt: '240', c: red },
+    { cat: 'Salary', sub: '', note: 'Payday', acct: 'Bank', amt: '11,500', c: green },
+    { cat: 'Transport', sub: 'Taxi', note: 'Taxi', acct: 'Card', amt: '180', c: red },
+    { cat: 'Transfer', sub: '', note: 'Credit Card Payment', acct: 'Bank → Card', amt: '2,000', c: muted },
   ]
+  const tabs = [{ x: 32, g: '⌂' }, { x: 84, g: '☰' }, { x: 196, g: '▦' }, { x: 248, g: '⚙' }]
   return (
     <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('Record a transaction')}>
       <Screen />
       {/* summary card: Income / Expense / Net */}
       <rect x="16" y="14" width="248" height="40" rx="10" fill="var(--surface)" stroke={line} />
       {[
-        { cx: 78, label: 'Income', val: '52,232', c: green },
-        { cx: 140, label: 'Expense', val: '51,145', c: red },
-        { cx: 202, label: 'Net', val: '1,087', c: ink },
+        { cx: 78, label: 'Income', val: '13,235', c: green },
+        { cx: 140, label: 'Expense', val: '12,253', c: red },
+        { cx: 202, label: 'Net', val: '982', c: ink },
       ].map((s) => (
         <g key={s.label}>
           <text x={s.cx} y="29" textAnchor="middle" fontSize="7" fill={muted}>{s.label}</text>
@@ -70,20 +74,25 @@ export function RecordMock() {
       ))}
       {/* transaction rows */}
       {rows.map((r, i) => {
-        const y = 64 + i * 30
+        const y = 58 + i * 25
         return (
           <g key={i}>
-            <text x="24" y={y + 16} fontSize="7" fill={muted}>{r.cat}</text>
-            <text x="70" y={y + 12} fontSize="9" fontWeight="700" fill={ink}>{r.note}</text>
-            <text x="70" y={y + 23} fontSize="6" fill={muted}>{r.acct}</text>
-            <text x="256" y={y + 16} textAnchor="end" fontSize="10" fontWeight="700" fill={r.c}>{r.amt}</text>
-            <line x1="16" y1={y + 28} x2="264" y2={y + 28} stroke={line} opacity="0.6" />
+            <text x="22" y={y + 10} fontSize="7.5" fill={ink} opacity="0.75">{r.cat}</text>
+            {r.sub && <text x="22" y={y + 19} fontSize="6.5" fill={muted}>{r.sub}</text>}
+            <text x="78" y={y + 9} fontSize="9" fontWeight="700" fill={ink}>{r.note}</text>
+            <text x="78" y={y + 18} fontSize="6.5" fill={muted}>{r.acct}</text>
+            <text x="256" y={y + 13} textAnchor="end" fontSize="10" fontWeight="700" fill={r.c}>{r.amt}</text>
+            <line x1="16" y1={y + 23} x2="264" y2={y + 23} stroke={line} opacity="0.6" />
           </g>
         )
       })}
-      {/* the highlighted + button */}
-      <circle cx="234" cy="158" r="16" fill={accent} />
-      <path d="M234 150v16M226 158h16" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
+      {/* tab bar overlaid at the bottom — clips the transfer row a little */}
+      <rect x="8" y="150" width="264" height="32" fill="var(--surface)" stroke={line} />
+      {tabs.map((tb) => (
+        <text key={tb.x} x={tb.x} y="172" textAnchor="middle" fontSize="13" fill={muted}>{tb.g}</text>
+      ))}
+      <circle cx="140" cy="163" r="14" fill={accent} />
+      <path d="M140 156v14M133 163h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   )
 }
@@ -160,6 +169,13 @@ const APP_MINIS: React.ReactNode[] = [
   </g>,
 ]
 
+// Short label under each tile. Feature names (kept as identifiers, not translated)
+// sit at the bottom-right and overflow the panel by a character or two.
+const APP_LABELS = ['Income/Expense', 'Money Flow', 'Budget', 'Retirement', 'Savings', 'Income Tax']
+// Panel outline with the bottom-right corner left open, so the overflowing label
+// appears to break out through the border rather than crossing over it.
+const PANEL_BORDER = 'M10,0 H54 A10,10 0 0,1 64,10 V34 M40,50 H10 A10,10 0 0,1 0,40 V10 A10,10 0 0,1 10,0'
+
 export function AppsMock() {
   return (
     <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('The apps & tools')}>
@@ -170,9 +186,11 @@ export function AppsMock() {
         const x = 30 + col * 78
         const y = 30 + row * 62
         return (
-          <g key={i}>
-            <rect x={x} y={y} width="64" height="50" rx="10" fill="var(--surface)" stroke={line} />
-            <g transform={`translate(${x} ${y})`}>{mini}</g>
+          <g key={i} transform={`translate(${x} ${y})`}>
+            <rect x="0" y="0" width="64" height="50" rx="10" fill="var(--surface)" />
+            {mini}
+            <path d={PANEL_BORDER} fill="none" stroke={line} />
+            <text x="70" y="48" textAnchor="end" fontSize="6" fontWeight="600" fill={muted}>{APP_LABELS[i]}</text>
           </g>
         )
       })}

@@ -2137,5 +2137,51 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 .tour-avatar-heart svg { width: 22px; height: 22px; display: block; }
 
+/* Inline (i) button inside the intro body + its explanation overlay. */
+.tour-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+}
+.tour-info-btn:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.tour-info-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.tour-info-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 340px;
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+.tour-info-title { font-size: 17px; font-weight: 700; margin: 0 0 10px; }
+.tour-info-body { font-size: 14px; line-height: 1.55; color: var(--muted); margin: 0 0 16px; }
+.tour-info-ok { width: 100%; }
+
 /* Language switch inside the install guide (top of the sheet). */
 .ig-lang { align-self: flex-start; max-width: 200px; }

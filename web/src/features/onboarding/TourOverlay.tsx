@@ -20,6 +20,9 @@ interface Step {
   mock: ReactNode
   title: string
   body: string
+  // When set, the body may contain an `{info}` slot rendered as an (i) button
+  // that opens the data explanation.
+  info?: boolean
   links?: Array<{ label: string; href: string; brand: Brand }>
 }
 
@@ -28,7 +31,8 @@ function steps(): Step[] {
     {
       mock: <IntroMock />,
       title: t('Welcome to Where Did My Money Go?'),
-      body: t('A simple way to track what you earn and spend. Everything you record is stored only on this phone — no account, no cloud, nothing ever leaves your device. Here’s a quick tour.'),
+      body: t('A simple way to track what you earn and spend. Everything you record is stored only on this phone — no account, no cloud, nothing ever leaves your device{info}. Here’s a quick tour.'),
+      info: true,
     },
     {
       mock: <RecordMock />,
@@ -78,14 +82,37 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
   const [i, setI] = useState(0)
   // Whether the closing step shows the payment QR instead of the photo.
   const [showQr, setShowQr] = useState(false)
+  // Whether the intro's data explanation (behind the (i) button) is open.
+  const [infoOpen, setInfoOpen] = useState(false)
   const last = all.length - 1
   const step = all[i]
 
   const next = () => (i < last ? setI(i + 1) : onClose())
   const back = () => setI((n) => Math.max(0, n - 1))
 
-  // Reset the QR toggle whenever the step changes, so it never lingers.
-  useEffect(() => { setShowQr(false) }, [i])
+  // Reset per-step toggles whenever the step changes, so nothing lingers.
+  useEffect(() => { setShowQr(false); setInfoOpen(false) }, [i])
+
+  // Render a step body, turning an `{info}` slot into an inline (i) button.
+  const renderBody = (s: Step): ReactNode => {
+    if (!s.info) return s.body
+    const parts = s.body.split('{info}')
+    return parts.map((part, idx) => (
+      <Fragment key={idx}>
+        {part}
+        {idx < parts.length - 1 && (
+          <button
+            type="button"
+            className="tour-info-btn"
+            aria-label={t('More about your data')}
+            onClick={() => setInfoOpen(true)}
+          >
+            i
+          </button>
+        )}
+      </Fragment>
+    ))
+  }
 
   // Arrow keys + Esc for desktop.
   useEffect(() => {
@@ -108,7 +135,7 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
 
         <div className="tour-text">
           <h2 className="tour-title">{step.title}</h2>
-          <p className="tour-body">{step.body}</p>
+          <p className="tour-body">{renderBody(step)}</p>
           {step.links && (
             <div className="tour-links">
               {step.links.map((l) => (
@@ -152,6 +179,20 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
           <button className="btn btn-accent" onClick={next}>{i === last ? t('Get started') : t('Next')}</button>
         </div>
       </div>
+
+      {/* Data explanation, opened by the (i) button. Its own overlay so it sits
+          above the tour (which already outranks the app's Modal z-index). */}
+      {infoOpen && (
+        <div className="tour-info-overlay" role="dialog" aria-modal="true" onClick={() => setInfoOpen(false)}>
+          <div className="tour-info-card" onClick={(e) => e.stopPropagation()}>
+            <h3 className="tour-info-title">{t('Your data & AI scanning')}</h3>
+            <p className="tour-info-body">
+              {t('Everything you type stays on this phone. The one exception is AI receipt scanning: if you turn it on and add your own API key, the photo you scan is sent to that AI provider to read it. The app never stores the photo — it keeps only the text it pulls out, and only after you confirm. What the provider does with the image is covered by that provider’s own privacy policy.')}
+            </p>
+            <button className="btn btn-accent tour-info-ok" onClick={() => setInfoOpen(false)}>{t('Got it')}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
