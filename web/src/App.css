@@ -1547,7 +1547,28 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   font-size: 13px;
 }
 .recon-head .recon-acct { font-weight: 400; }
+/* Adjust cell: a ± sign toggle + the balance input side by side. */
+.recon-adjust {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.recon-sign {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.recon-sign:active { filter: brightness(1.15); }
 .recon-input {
+  flex: 1;
+  min-width: 0;
   width: 100%;
   padding: 7px 8px;
   border-radius: 8px;

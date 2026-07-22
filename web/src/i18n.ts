@@ -302,6 +302,7 @@ const TH: Record<string, string> = {
   Tracked: 'ที่บันทึกไว้',
   Actual: 'จริง',
   Adjust: 'ปรับ',
+  'Toggle negative': 'สลับเป็นค่าติดลบ',
   Discrepancy: 'ส่วนต่าง',
   'Total discrepancy to record': 'ส่วนต่างรวมที่จะบันทึก',
   'Apply reconciliation': 'ยืนยันการปรับยอดบัญชี',

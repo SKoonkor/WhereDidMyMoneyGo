@@ -13,6 +13,22 @@ const money2 = (n: number) => n.toLocaleString(undefined, { minimumFractionDigit
 const signed2 = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + money2(Math.abs(n))
 const toneClass = (n: number) => (n > 0 ? 'amt-income' : n < 0 ? 'amt-expense' : '')
 
+// Keep only a valid signed decimal: an optional leading '-', digits, one dot.
+// (The field is type=text so the mobile decimal pad — which has no minus key —
+// can still hold a negative typed via the ± button.)
+function sanitizeNum(s: string): string {
+  // Negative if a '-' appears anywhere (the caret may sit before or after it),
+  // and it's cleared by deleting the '-'. Digits + a single dot otherwise.
+  const neg = s.includes('-')
+  let digits = s.replace(/[^0-9.]/g, '')
+  const dot = digits.indexOf('.')
+  if (dot !== -1) digits = digits.slice(0, dot + 1) + digits.slice(dot + 1).replace(/\./g, '')
+  return (neg ? '-' : '') + digits
+}
+// Flip the sign of the current entry ('' → '-', '12' ↔ '-12'), so liabilities
+// like a credit card can be entered negative without a minus key.
+const flipSign = (v: string) => (v.startsWith('-') ? v.slice(1) : '-' + v)
+
 export function ReconcilePage() {
   const all = useLiveTxns()
   const accounts = useAccounts()
@@ -82,14 +98,22 @@ export function ReconcilePage() {
           <div key={a} className="recon-row">
             <span className="recon-acct">{a}</span>
             <span className="recon-num muted"><span className="money">{money2(tracked[a])}</span></span>
-            <span className="recon-num">
+            <span className="recon-num recon-adjust">
+              <button
+                type="button"
+                className="recon-sign"
+                aria-label={t('Toggle negative')}
+                onClick={() => setAdjust((p) => ({ ...p, [a]: flipSign(p[a] ?? '') }))}
+              >
+                ±
+              </button>
               <input
                 className="recon-input"
-                type="number"
+                type="text"
                 inputMode="decimal"
-                placeholder={money2(tracked[a])}
+                placeholder=""
                 value={adjust[a] ?? ''}
-                onChange={(e) => setAdjust((p) => ({ ...p, [a]: e.target.value }))}
+                onChange={(e) => setAdjust((p) => ({ ...p, [a]: sanitizeNum(e.target.value) }))}
               />
             </span>
           </div>
