@@ -4,9 +4,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getAi, getNotifications, getSettings, saveAi, saveNotifications, saveSettings } from '../../db'
 import { useAccounts } from '../transactions/useConfig'
 import { useLang, useTheme, useCensor } from '../../prefs'
-import { DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
+import { AI_MODELS, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
-import { testConnection } from '../../lib/ai/claude'
+import { makeProvider } from '../../lib/ai'
 import { t } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
@@ -25,6 +25,13 @@ const PROVIDER_KEY_URL: Record<AiProvider, string> = {
   claude: 'https://console.anthropic.com/settings/keys',
   openai: 'https://platform.openai.com/api-keys',
   gemini: 'https://aistudio.google.com/app/apikey',
+}
+
+// A hint at each provider's key shape, shown as the masked field's placeholder.
+const PROVIDER_KEY_HINT: Record<AiProvider, string> = {
+  claude: 'sk-ant-…',
+  openai: 'sk-…',
+  gemini: 'AIza…',
 }
 
 // Preferences hub: language, theme, and privacy — all backed by localStorage
@@ -402,15 +409,22 @@ function AiSettings() {
 
   async function runTest() {
     setTest('testing'); setTestMsg('')
-    const r = await testConnection(form!)
+    const r = await makeProvider(form!).testConnection()
     if (r.ok) setTest('ok')
     else { setTest('err'); setTestMsg(r.error) }
   }
 
+  // Switching provider also swaps in that provider's default model (a Claude model
+  // id means nothing to Gemini), unless the user has typed a custom one for it.
+  function pickProvider(provider: AiProvider) {
+    const model = form!.model === AI_MODELS[form!.provider] ? AI_MODELS[provider] : form!.model
+    update({ provider, model })
+  }
+
   const providers: Array<{ value: AiProvider; label: string; ready: boolean }> = [
     { value: 'claude', label: 'Anthropic Claude', ready: true },
+    { value: 'gemini', label: 'Google Gemini', ready: true },
     { value: 'openai', label: 'OpenAI ChatGPT', ready: false },
-    { value: 'gemini', label: 'Google Gemini', ready: false },
   ]
 
   return (
@@ -432,7 +446,7 @@ function AiSettings() {
           <select
             value={form.provider}
             style={{ maxWidth: 260 }}
-            onChange={(e) => update({ provider: e.target.value as AiProvider })}
+            onChange={(e) => pickProvider(e.target.value as AiProvider)}
           >
             {providers.map((p) => (
               <option key={p.value} value={p.value} disabled={!p.ready}>
@@ -440,7 +454,7 @@ function AiSettings() {
               </option>
             ))}
           </select>
-          <span className="set-hint">{t('Only Claude can run directly in the browser today.')}</span>
+          <span className="set-hint">{t('Claude and Gemini run directly in the browser; Gemini has a free tier.')}</span>
         </div>
 
         <div className="set-field">
@@ -453,7 +467,7 @@ function AiSettings() {
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              placeholder="sk-ant-…"
+              placeholder={PROVIDER_KEY_HINT[form.provider]}
               style={{ maxWidth: 260, fontFamily: 'monospace' }}
               onChange={(e) => update({ apiKey: e.target.value })}
             />

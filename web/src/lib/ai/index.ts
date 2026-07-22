@@ -3,6 +3,7 @@
 // OpenAI/Gemini later is a new module + a switch arm here.
 import type { AiCfg } from '../../data/defaults'
 import { createClaudeProvider } from './claude'
+import { createGeminiProvider } from './gemini'
 import type { AiProvider } from './types'
 
 export type { AiProvider, ExtractContext, ExtractResult, ReceiptDraft, ReceiptImage, TestResult } from './types'
@@ -11,8 +12,10 @@ export function makeProvider(cfg: AiCfg): AiProvider {
   switch (cfg.provider) {
     case 'claude':
       return createClaudeProvider(cfg)
-    // 'openai' / 'gemini' can't be reached from the browser without a proxy and
-    // aren't selectable in Settings yet; fall back to Claude defensively.
+    case 'gemini':
+      return createGeminiProvider(cfg)
+    // 'openai' still needs a proxy (no browser CORS) and isn't selectable in
+    // Settings yet; fall back to Claude defensively.
     default:
       return createClaudeProvider(cfg)
   }

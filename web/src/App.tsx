@@ -4,9 +4,11 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
 import { useAppName } from './features/transactions/useConfig'
-import { getAi, getNotifications } from './db'
+import { addTxn, deleteTxn, getAccounts, getAi, getCategories, getNotifications } from './db'
 import { scheduleReminders } from './lib/notify'
 import { AiCapture } from './features/ai/AiCapture'
+import type { ReceiptDraft } from './lib/ai'
+import type { TxnPrefill } from './features/transactions/TxnForm'
 import { DEFAULT_SETTINGS } from './data/defaults'
 import { HomePage } from './features/home/HomePage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
@@ -28,6 +30,12 @@ import { Modal } from './components/Modal'
 import { Toast } from './components/Toast'
 import { TxnForm } from './features/transactions/TxnForm'
 import './App.css'
+
+// A transient bottom toast: a message plus an optional trailing action.
+interface ToastState {
+  message: string
+  action?: { label: string; onClick: () => void }
+}
 
 // Code-split the importer: it pulls in SheetJS (~500 kB), which shouldn't sit in
 // the initial bundle since import is an occasional action.
@@ -80,9 +88,48 @@ export default function App() {
   // set; otherwise the hold nudges the user to turn it on (a plain tap always
   // opens the manual Add sheet either way).
   const [capturing, setCapturing] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  // A scanned receipt awaiting review opens a prefilled Add form.
+  const [review, setReview] = useState<TxnPrefill | null>(null)
+  const [toast, setToast] = useState<ToastState | null>(null)
   const ai = useLiveQuery(() => getAi(), [])
   const aiReady = !!(ai?.enabled && ai.apiKey.trim())
+
+  // Turn an extracted receipt draft into either a review form (default) or, when
+  // the user has switched "Review before saving" off, a direct save with an Undo
+  // toast. If key fields can't be resolved we always fall back to the form.
+  async function handleExtracted(draft: ReceiptDraft) {
+    setCapturing(false)
+    const prefill: TxnPrefill = {
+      kind: 'Expense',
+      amount: draft.amount,
+      date: draft.date,
+      note: draft.merchant,
+      category: draft.category,
+    }
+    const cfg = await getAi()
+    if (cfg.confirmBeforeSave) { setReview(prefill); return }
+
+    // Review off → try to record it straight away.
+    const [accounts, cats] = await Promise.all([getAccounts(), getCategories()])
+    const account = accounts[0]
+    const category = draft.category && cats.expense[draft.category] ? draft.category : undefined
+    if (draft.amount && draft.amount > 0 && account && category) {
+      const id = await addTxn({
+        period: draft.date ?? new Date().toISOString().slice(0, 10),
+        account, amount: draft.amount, type: 'Expense', category,
+        note: draft.merchant, currency: draft.currency,
+      })
+      setToast({
+        message: t('Recorded {amount} to {account} from receipt.', {
+          amount: `${draft.amount} ${draft.currency ?? ''}`.trim(), account,
+        }),
+        action: { label: t('Undo'), onClick: () => { void deleteTxn(id) } },
+      })
+      return
+    }
+    // Couldn't fully resolve it — let the user finish in the form.
+    setReview(prefill)
+  }
   // Subscribe to the language at the root so a change in Settings re-renders the
   // whole tree immediately (t() is read during render; pages aren't memoized).
   useLang()
@@ -126,7 +173,7 @@ export default function App() {
           onAdd={() => setAdding(true)}
           onLongPress={() => {
             if (aiReady) setCapturing(true)
-            else setToast(t('Turn on AI receipt scanning in Settings to snap receipts.'))
+            else setToast({ message: t('Turn on AI receipt scanning in Settings to snap receipts.'), action: { label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } } })
           }}
         />
         {adding && (
@@ -137,15 +184,18 @@ export default function App() {
         {capturing && (
           <AiCapture
             onClose={() => setCapturing(false)}
-            // P7 will open the review/save form prefilled with this draft; for now
-            // the scan flow just closes the scanner.
-            onExtracted={() => setCapturing(false)}
+            onExtracted={(draft) => { void handleExtracted(draft) }}
           />
+        )}
+        {review && (
+          <Modal title={t('Review receipt')} onClose={() => setReview(null)}>
+            <TxnForm prefill={review} onClose={() => setReview(null)} />
+          </Modal>
         )}
         {toast && (
           <Toast
-            message={toast}
-            action={{ label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } }}
+            message={toast.message}
+            action={toast.action}
             onClose={() => setToast(null)}
           />
         )}

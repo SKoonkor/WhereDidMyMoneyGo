@@ -159,8 +159,8 @@ export const DEFAULT_NOTIFICATIONS: NotificationCfg = { enabled: false, time: '2
 // ── AI receipt scanning (bring-your-own-key) ─────────────────────────────────
 // Off by default → manual entry. When on with a key, long-pressing the "+" opens
 // the receipt scanner. The key is stored only on this device and sent only to the
-// chosen provider. Only 'claude' works from the browser today (CORS); openai/gemini
-// are kept in the union for a future proxy but aren't selectable yet (see lib/ai).
+// chosen provider. 'claude' and 'gemini' both work directly from the browser
+// (CORS); 'openai' stays in the union for a future proxy but isn't selectable yet.
 export type AiProvider = 'claude' | 'openai' | 'gemini'
 
 export interface AiCfg {
@@ -171,10 +171,18 @@ export interface AiCfg {
   confirmBeforeSave: boolean // ask the user to review extracted details before recording
 }
 
+// Default vision model per provider. Used to seed the model field and to reset it
+// when the user switches providers (a Claude model id is meaningless to Gemini).
+export const AI_MODELS: Record<AiProvider, string> = {
+  claude: 'claude-sonnet-5',
+  gemini: 'gemini-2.5-flash',
+  openai: 'gpt-4o',
+}
+
 export const DEFAULT_AI: AiCfg = {
   enabled: false,
   provider: 'claude',
   apiKey: '',
-  model: 'claude-sonnet-5',
+  model: AI_MODELS.claude,
   confirmBeforeSave: true,
 }

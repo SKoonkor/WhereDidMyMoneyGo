@@ -22,30 +22,48 @@ function kindOf(txn: Txn): Kind {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+// Values to pre-fill a fresh (non-editing) form — e.g. from an AI receipt scan.
+// Everything is optional; a missing field just starts blank/default. `account`
+// is intentionally absent (receipts don't say which account paid), so the user
+// always picks it. Ignored when `editing` is set.
+export interface TxnPrefill {
+  kind?: Kind
+  amount?: number | null
+  date?: string | null
+  note?: string
+  category?: string
+}
+
 // Add or edit a transaction. `editing` is the row tapped (for a transfer, the
 // collapsed Transfer-Out leg); `initialDate` pre-fills the date when adding (e.g.
-// tapping a day header). Closes via onClose after a successful save/delete.
+// tapping a day header); `prefill` seeds a new form from an AI receipt draft.
+// Closes via onClose after a successful save/delete.
 export function TxnForm({
   editing,
   onClose,
   initialDate,
+  prefill,
 }: {
   editing?: Txn | null
   onClose: () => void
   initialDate?: string
+  prefill?: TxnPrefill
 }) {
   const accounts = useAccounts()
   const categories = useCategories()
   const currency = useBaseCurrency()
 
-  const [kind, setKind] = useState<Kind>(editing ? kindOf(editing) : 'Expense')
-  const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? initialDate ?? today())
-  const [amount, setAmount] = useState(editing ? String(editing.amount) : '')
-  const [note, setNote] = useState(editing?.note ?? '')
+  const [kind, setKind] = useState<Kind>(editing ? kindOf(editing) : prefill?.kind ?? 'Expense')
+  const [period, setPeriod] = useState(editing?.period.slice(0, 10) ?? prefill?.date ?? initialDate ?? today())
+  const [amount, setAmount] = useState(
+    editing ? String(editing.amount) : prefill?.amount != null ? String(prefill.amount) : '',
+  )
+  const [note, setNote] = useState(editing?.note ?? prefill?.note ?? '')
   // Single-row fields (Income/Expense) — start unselected so the picker prompts
-  // "Select account / category" rather than pre-choosing one.
+  // "Select account / category" rather than pre-choosing one. A scanned category
+  // seeds `category` but is cleared below if it isn't a real category.
   const [account, setAccount] = useState(editing?.account ?? '')
-  const [category, setCategory] = useState(editing?.category ?? '')
+  const [category, setCategory] = useState(editing?.category ?? prefill?.category ?? '')
   const [subcategory, setSubcategory] = useState(editing?.subcategory ?? '')
   // Transfer fields — for the Out leg, account=from and category=to.
   const [from, setFrom] = useState(editing?.account ?? '')

@@ -427,6 +427,8 @@ const TH: Record<string, string> = {
   Provider: 'ผู้ให้บริการ',
   'needs a proxy, coming later': 'ต้องใช้พร็อกซี เร็ว ๆ นี้',
   'Only Claude can run directly in the browser today.': 'ปัจจุบันมีเพียง Claude ที่ทำงานในเบราว์เซอร์ได้โดยตรง',
+  'Claude and Gemini run directly in the browser; Gemini has a free tier.':
+    'Claude และ Gemini ทำงานในเบราว์เซอร์ได้โดยตรง; Gemini มีแพ็กเกจฟรี',
   'API key': 'คีย์ API',
   'Get an API key': 'ขอรับคีย์ API',
   Show: 'แสดง',
@@ -452,6 +454,9 @@ const TH: Record<string, string> = {
   'Add your API key in Settings first.': 'โปรดเพิ่มคีย์ API ในการตั้งค่าก่อน',
   'Turn on AI receipt scanning in Settings to snap receipts.':
     'เปิดการสแกนใบเสร็จด้วย AI ในการตั้งค่าเพื่อถ่ายใบเสร็จ',
+  'Review receipt': 'ตรวจสอบใบเสร็จ',
+  'Recorded {amount} to {account} from receipt.': 'บันทึก {amount} เข้าบัญชี {account} จากใบเสร็จแล้ว',
+  Undo: 'เลิกทำ',
   'Scan failed: {error}': 'สแกนไม่สำเร็จ: {error}',
   'Saved ✓': 'บันทึกแล้ว ✓',
   'Transfer (short)': 'โอน',
