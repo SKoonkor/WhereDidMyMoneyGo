@@ -14,6 +14,8 @@
   --accent: #1abc9c;
   --income: #2ecc71;
   --expense: #e74c3c;
+  /* Alternating day band in the transactions list — lighter than --bg in dark. */
+  --day-shade: #1b212c;
 }
 :root[data-theme='light'] {
   --bg: #f4f6f8;
@@ -28,6 +30,8 @@
   --accent: #16a085;
   --income: #27ae60;
   --expense: #c0392b;
+  /* Alternating day band — darker than --bg in light. */
+  --day-shade: #e7edf2;
 }
 
 * {

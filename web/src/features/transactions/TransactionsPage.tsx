@@ -6,6 +6,7 @@ import {
   groupByDay, monthSummary, daySummary, dayHeaderParts,
 } from './month'
 import { TxnForm } from './TxnForm'
+import { MonthYearPicker } from './MonthYearPicker'
 import { Modal } from '../../components/Modal'
 import type { Txn } from '../../db'
 import { t } from '../../i18n'
@@ -55,6 +56,8 @@ export function TransactionsPage() {
   const [month, setMonth] = useState(currentMonthKey())
   const [editing, setEditing] = useState<Txn | null>(null)
   const [adding, setAdding] = useState<string | null>(null) // date to pre-fill
+  const [picking, setPicking] = useState(false) // month/year selector open
+  const thisMonth = currentMonthKey()
 
   const monthTxns = useMemo(() => filterByMonth(all, month), [all, month])
   const summary = useMemo(() => monthSummary(monthTxns), [monthTxns])
@@ -63,9 +66,17 @@ export function TransactionsPage() {
   return (
     <div>
       <div className="month-nav">
-        <button className="tool-btn" onClick={() => setMonth((m) => addMonths(m, -1))} aria-label="Previous month">‹</button>
-        <span className="month-label">{monthLabel(month)}</span>
-        <button className="tool-btn" onClick={() => setMonth((m) => addMonths(m, 1))} aria-label="Next month">›</button>
+        <button className="tool-btn month-arrow" onClick={() => setMonth((m) => addMonths(m, -1))} aria-label="Previous month">‹</button>
+        <button type="button" className="month-label" onClick={() => setPicking(true)}>{monthLabel(month)}</button>
+        <button className="tool-btn month-arrow" onClick={() => setMonth((m) => addMonths(m, 1))} aria-label="Next month">›</button>
+        <button
+          type="button"
+          className="tool-btn today-btn"
+          onClick={() => setMonth(thisMonth)}
+          disabled={month === thisMonth}
+        >
+          {t('Today')}
+        </button>
       </div>
 
       <div className="summary-strip card">
@@ -86,11 +97,12 @@ export function TransactionsPage() {
       {days.length === 0 ? (
         <p className="muted" style={{ marginTop: 20 }}>{t('No transactions yet')}</p>
       ) : (
-        days.map(([day, rows]) => {
+        days.map(([day, rows], i) => {
           const { dayNum, weekday, dow } = dayHeaderParts(day)
           const { income, expense } = daySummary(rows)
+          // Alternating bands: the latest day (index 0) is shaded, then normal…
           return (
-            <div key={day} className="day-group">
+            <div key={day} className={`day-group${i % 2 === 0 ? ' is-shaded' : ''}`}>
               {/* Tapping the day header adds a transaction pre-dated to that day. */}
               <div className="day-head" role="button" tabIndex={0} onClick={() => setAdding(day)}>
                 <span className="day-date">
@@ -122,6 +134,14 @@ export function TransactionsPage() {
         <Modal title={t('Add transaction')} onClose={() => setAdding(null)}>
           <TxnForm initialDate={adding} onClose={() => setAdding(null)} />
         </Modal>
+      )}
+
+      {picking && (
+        <MonthYearPicker
+          value={month}
+          onSelect={(key) => setMonth(key)}
+          onClose={() => setPicking(false)}
+        />
       )}
     </div>
   )

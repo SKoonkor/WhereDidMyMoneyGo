@@ -648,13 +648,73 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: 10px;
   margin-bottom: 12px;
 }
+/* Larger prev/next chevrons — easier tap targets on the month strip. */
+.month-arrow {
+  font-size: 24px;
+  line-height: 1;
+  padding: 2px 14px;
+}
+/* The month label doubles as a button opening the month/year picker. */
 .month-label {
   font-weight: 600;
   min-width: 150px;
   text-align: center;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 8px;
+}
+.month-label:hover {
+  background: var(--surface-2);
+}
+/* "Today" jumps back to the current month; dimmed once already there. */
+.today-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Month/year picker (launched from the month label). */
+.my-year {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.my-year-label {
+  font-weight: 700;
+  font-size: 18px;
+  min-width: 90px;
+  text-align: center;
+}
+.my-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.my-month {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px 0;
+  font-size: 15px;
+  cursor: pointer;
+}
+.my-month:hover {
+  filter: brightness(1.08);
+}
+.my-month.is-sel {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 .summary-strip {
   display: flex;
@@ -667,7 +727,13 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 
 .day-group {
-  margin-top: 10px;
+  margin-top: 0;
+  padding-bottom: 4px;
+}
+/* Alternating day bands: shaded groups get a full-height tint spanning from the
+   top rule down to the last transaction, so adjacent days read as distinct blocks. */
+.day-group.is-shaded {
+  background: var(--day-shade);
 }
 /* Day header is bracketed by rules above and below; rows below have none. */
 .day-head {
