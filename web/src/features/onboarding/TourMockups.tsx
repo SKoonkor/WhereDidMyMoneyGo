@@ -9,6 +9,9 @@ const line = 'var(--border)'
 const ink = 'currentColor'
 const accent = 'var(--accent)'
 const muted = 'var(--muted)'
+// Fixed income/expense hues that read on both themes (SVG can't use the amt-* rules).
+const green = '#3fbb74'
+const red = '#e0574b'
 
 // A rounded "screen" backdrop shared by most scenes.
 function Screen() {
@@ -16,9 +19,22 @@ function Screen() {
 }
 
 export function IntroMock() {
+  // Scattered "?"s of varying size around the ฿ mark — a nod to the app's name,
+  // "Where Did My Money Go?".
+  const marks = [
+    { x: 96, y: 40, s: 22, o: 0.9, c: accent },
+    { x: 186, y: 44, s: 13, o: 0.7, c: muted },
+    { x: 196, y: 86, s: 18, o: 0.55, c: accent },
+    { x: 88, y: 96, s: 11, o: 0.8, c: muted },
+    { x: 140, y: 24, s: 12, o: 0.6, c: muted },
+    { x: 74, y: 66, s: 15, o: 0.5, c: accent },
+  ]
   return (
     <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('Welcome')}>
       <Screen />
+      {marks.map((m, i) => (
+        <text key={i} x={m.x} y={m.y} textAnchor="middle" fontSize={m.s} fontWeight="700" fill={m.c} opacity={m.o}>?</text>
+      ))}
       <circle cx="140" cy="70" r="34" fill={accent} opacity="0.15" />
       <circle cx="140" cy="70" r="24" fill="none" stroke={accent} strokeWidth="3" />
       <text x="140" y="78" textAnchor="middle" fontSize="26" fontWeight="700" fill={accent}>฿</text>
@@ -28,20 +44,46 @@ export function IntroMock() {
   )
 }
 
+// A fake transactions screen: an Income / Expense / Net summary over a few sample
+// rows. All amounts and notes are invented so it shows the layout without exposing
+// any real spending. A highlighted ＋ ties it back to "record a transaction".
 export function RecordMock() {
+  const rows = [
+    { cat: 'Groceries', note: 'Market', acct: 'Cash', amt: '−240', c: red },
+    { cat: 'Salary', note: 'Payday', acct: 'Bank', amt: '+40,000', c: green },
+    { cat: 'Transport', note: 'Taxi', acct: 'Card', amt: '−180', c: red },
+  ]
   return (
     <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('Record a transaction')}>
       <Screen />
-      {/* a couple of existing rows */}
-      <rect x="26" y="30" width="150" height="10" rx="5" fill={ink} opacity="0.8" />
-      <rect x="210" y="30" width="44" height="10" rx="5" fill={muted} />
-      <rect x="26" y="52" width="120" height="10" rx="5" fill={ink} opacity="0.55" />
-      <rect x="210" y="52" width="44" height="10" rx="5" fill={muted} />
+      {/* summary card: Income / Expense / Net */}
+      <rect x="16" y="14" width="248" height="40" rx="10" fill="var(--surface)" stroke={line} />
+      {[
+        { cx: 78, label: 'Income', val: '52,232', c: green },
+        { cx: 140, label: 'Expense', val: '51,145', c: red },
+        { cx: 202, label: 'Net', val: '1,087', c: ink },
+      ].map((s) => (
+        <g key={s.label}>
+          <text x={s.cx} y="29" textAnchor="middle" fontSize="7" fill={muted}>{s.label}</text>
+          <text x={s.cx} y="46" textAnchor="middle" fontSize="12" fontWeight="700" fill={s.c}>{s.val}</text>
+        </g>
+      ))}
+      {/* transaction rows */}
+      {rows.map((r, i) => {
+        const y = 64 + i * 30
+        return (
+          <g key={i}>
+            <text x="24" y={y + 16} fontSize="7" fill={muted}>{r.cat}</text>
+            <text x="70" y={y + 12} fontSize="9" fontWeight="700" fill={ink}>{r.note}</text>
+            <text x="70" y={y + 23} fontSize="6" fill={muted}>{r.acct}</text>
+            <text x="256" y={y + 16} textAnchor="end" fontSize="10" fontWeight="700" fill={r.c}>{r.amt}</text>
+            <line x1="16" y1={y + 28} x2="264" y2={y + 28} stroke={line} opacity="0.6" />
+          </g>
+        )
+      })}
       {/* the highlighted + button */}
-      <circle cx="140" cy="120" r="26" fill={accent} />
-      <path d="M140 108v24M128 120h24" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" />
-      <circle cx="140" cy="120" r="34" fill="none" stroke={accent} strokeWidth="2" opacity="0.4" />
-      <circle cx="140" cy="120" r="42" fill="none" stroke={accent} strokeWidth="1.5" opacity="0.2" />
+      <circle cx="234" cy="158" r="16" fill={accent} />
+      <path d="M234 150v16M226 158h16" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   )
 }
@@ -74,12 +116,55 @@ export function TabBarMock() {
   )
 }
 
+// Six tiny "snapshots", one per Apps feature, drawn in local tile coordinates
+// (0..64 × 0..50) so each can be dropped into a tile via a translate.
+const APP_MINIS: React.ReactNode[] = [
+  // 0 · Income & Expense — a two-tone donut
+  <g key="donut">
+    <circle cx="32" cy="24" r="11" fill="none" stroke={green} strokeWidth="6" pathLength={100} strokeDasharray="70 30" transform="rotate(-90 32 24)" />
+    <circle cx="32" cy="24" r="11" fill="none" stroke={red} strokeWidth="6" pathLength={100} strokeDasharray="30 70" strokeDashoffset={-70} transform="rotate(-90 32 24)" />
+  </g>,
+  // 1 · Money Flow — a jagged line over a dashed zero baseline
+  <g key="flow">
+    <line x1="8" y1="30" x2="56" y2="30" stroke={muted} strokeWidth="1" strokeDasharray="3 3" />
+    <polyline points="8,32 16,22 24,27 32,17 40,25 48,15 56,20" fill="none" stroke={accent} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    <path d="M20 16l3-5 3 5z" fill={green} />
+    <path d="M38 12l3-5 3 5z" fill={green} />
+  </g>,
+  // 2 · Budget — three progress bars
+  <g key="budget">
+    {[{ w: 44, c: red }, { w: 22, c: green }, { w: 42, c: green }].map((b, i) => (
+      <g key={i} transform={`translate(10 ${12 + i * 11})`}>
+        <rect x="0" y="0" width="44" height="5" rx="2.5" fill={line} />
+        <rect x="0" y="0" width={b.w} height="5" rx="2.5" fill={b.c} />
+      </g>
+    ))}
+  </g>,
+  // 3 · Retirement — rising projection curves
+  <g key="retire">
+    <path d="M8 40 Q30 33 56 11" fill="none" stroke={green} strokeWidth="2" strokeLinecap="round" />
+    <path d="M8 40 Q32 29 56 16" fill="none" stroke="#e86ea0" strokeWidth="2" strokeLinecap="round" />
+    <path d="M8 41 Q30 38 56 31" fill="none" stroke="#5aa9e6" strokeWidth="1.6" strokeDasharray="3 3" strokeLinecap="round" />
+  </g>,
+  // 4 · Savings — a half-circle gauge
+  <g key="gauge">
+    <path d="M10 34 A22 22 0 0 1 54 34" fill="none" stroke={line} strokeWidth="5" strokeLinecap="round" />
+    <path d="M10 34 A22 22 0 0 1 25.2 13.1" fill="none" stroke="#5aa9e6" strokeWidth="5" strokeLinecap="round" />
+  </g>,
+  // 5 · Income Tax — ascending bracket bars with a %
+  <g key="tax">
+    <rect x="16" y="30" width="8" height="10" rx="1.5" fill={muted} />
+    <rect x="28" y="22" width="8" height="18" rx="1.5" fill={accent} opacity="0.65" />
+    <rect x="40" y="14" width="8" height="26" rx="1.5" fill={accent} />
+    <text x="52" y="16" textAnchor="middle" fontSize="9" fontWeight="700" fill={accent}>%</text>
+  </g>,
+]
+
 export function AppsMock() {
-  const tiles = [0, 1, 2, 3, 4, 5]
   return (
     <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('The apps & tools')}>
       <Screen />
-      {tiles.map((i) => {
+      {APP_MINIS.map((mini, i) => {
         const col = i % 3
         const row = Math.floor(i / 3)
         const x = 30 + col * 78
@@ -87,8 +172,7 @@ export function AppsMock() {
         return (
           <g key={i}>
             <rect x={x} y={y} width="64" height="50" rx="10" fill="var(--surface)" stroke={line} />
-            <circle cx={x + 16} cy={y + 18} r="7" fill={accent} opacity="0.8" />
-            <rect x={x + 10} y={y + 32} width="44" height="6" rx="3" fill={muted} />
+            <g transform={`translate(${x} ${y})`}>{mini}</g>
           </g>
         )
       })}
@@ -141,8 +225,17 @@ export function ImportMock() {
 }
 
 // The developer's photo with a small heart badge — a friendlier close to the tour
-// than a bare graphic. The photo lives in public/ so it's referenced base-relative.
-export function SupportMock() {
+// than a bare graphic. When `showQr` is set the photo is swapped for the Thai QR /
+// PromptPay payment code (toggled from the tour). Both assets live in public/ so
+// they're referenced base-relative.
+export function SupportMock({ showQr = false }: { showQr?: boolean }) {
+  if (showQr) {
+    return (
+      <div className="tour-support-visual" role="img" aria-label={t('Thai QR / PromptPay payment code')}>
+        <img className="tour-qr" src={`${import.meta.env.BASE_URL}qr-payment.jpg`} alt={t('Thai QR / PromptPay payment code')} />
+      </div>
+    )
+  }
   return (
     <div className="tour-support-visual" role="img" aria-label={t('Support the developer')}>
       <span className="tour-avatar-wrap">
@@ -154,6 +247,16 @@ export function SupportMock() {
         </span>
       </span>
     </div>
+  )
+}
+
+// A small QR-code glyph for the "Show QR Code" toggle.
+export function QrIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+      <path d="M3 3h7v7H3V3zm2 2v3h3V5H5zM3 14h7v7H3v-7zm2 2v3h3v-3H5zM14 3h7v7h-7V3zm2 2v3h3V5h-3z" />
+      <path d="M14 14h3v3h-3v-3zm5 0h2v2h-2v-2zm-5 5h2v2h-2v-2zm3 0h4v2h-4v-2zm2-3h2v2h-2v-2z" />
+    </svg>
   )
 }
 

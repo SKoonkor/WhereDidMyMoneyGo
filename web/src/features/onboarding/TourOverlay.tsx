@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { t } from '../../i18n'
 import {
   IntroMock, RecordMock, TabBarMock, AppsMock, SettingsMock, ImportMock, BackupMock, SupportMock,
-  BmcIcon, InstagramIcon, GithubIcon,
+  BmcIcon, InstagramIcon, GithubIcon, QrIcon,
 } from './TourMockups'
 
 type Brand = 'bmc' | 'instagram' | 'github'
@@ -76,11 +76,16 @@ function steps(): Step[] {
 export function TourOverlay({ onClose }: { onClose: () => void }) {
   const all = steps()
   const [i, setI] = useState(0)
+  // Whether the closing step shows the payment QR instead of the photo.
+  const [showQr, setShowQr] = useState(false)
   const last = all.length - 1
   const step = all[i]
 
   const next = () => (i < last ? setI(i + 1) : onClose())
   const back = () => setI((n) => Math.max(0, n - 1))
+
+  // Reset the QR toggle whenever the step changes, so it never lingers.
+  useEffect(() => { setShowQr(false) }, [i])
 
   // Arrow keys + Esc for desktop.
   useEffect(() => {
@@ -99,7 +104,7 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
       <div className="tour-card">
         <button className="tour-skip" onClick={onClose}>{i === last ? t('Close') : t('Skip')}</button>
 
-        <div className="tour-mock" key={i}>{step.mock}</div>
+        <div className="tour-mock" key={i}>{step.links ? <SupportMock showQr={showQr} /> : step.mock}</div>
 
         <div className="tour-text">
           <h2 className="tour-title">{step.title}</h2>
@@ -107,16 +112,29 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
           {step.links && (
             <div className="tour-links">
               {step.links.map((l) => (
-                <a
-                  key={l.href}
-                  className={l.brand === 'bmc' ? 'btn tour-link tour-link-bmc' : `btn ghost tour-link tour-link-${l.brand}`}
-                  href={l.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="tour-link-ico">{BRAND_ICON[l.brand]}</span>
-                  {l.label}
-                </a>
+                <Fragment key={l.href}>
+                  <a
+                    className={l.brand === 'bmc' ? 'btn tour-link tour-link-bmc' : `btn ghost tour-link tour-link-${l.brand}`}
+                    href={l.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="tour-link-ico">{BRAND_ICON[l.brand]}</span>
+                    {l.label}
+                  </a>
+                  {/* Thai QR / PromptPay code, right below Buy me a coffee. */}
+                  {l.brand === 'bmc' && (
+                    <button
+                      type="button"
+                      className="btn tour-link tour-link-qr"
+                      aria-pressed={showQr}
+                      onClick={() => setShowQr((v) => !v)}
+                    >
+                      <span className="tour-link-ico"><QrIcon /></span>
+                      {showQr ? t('Hide QR Code') : t('Show QR Code')}
+                    </button>
+                  )}
+                </Fragment>
               ))}
             </div>
           )}

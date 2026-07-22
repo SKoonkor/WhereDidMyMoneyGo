@@ -533,11 +533,14 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 /* Settings boxed sections (mirrors the Dash CARD_STYLE). */
 .set-card {
   display: block;
+  width: 100%;
+  box-sizing: border-box;
   padding: 16px;
   border-radius: 14px;
   background: var(--surface-2);
   border: 1px solid var(--border-soft);
   margin-bottom: 14px;
+  text-align: left;
 }
 .set-card-title {
   display: block;
@@ -2077,6 +2080,30 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .tour-link-bmc:hover { filter: brightness(0.97); }
 .tour-link-instagram,
 .tour-link-github { flex: 1 1 0; }
+/* Thai QR / PromptPay toggle — a full-width blue button under Buy me a coffee. */
+.tour-link-qr {
+  flex: 1 1 100%;
+  background: #1e73be;
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  font-size: 15px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  box-shadow: 0 4px 16px rgba(30, 115, 190, 0.32);
+}
+.tour-link-qr:hover { filter: brightness(1.05); }
+/* The payment QR shown in place of the photo (kept on white so it always scans). */
+.tour-qr {
+  height: 190px;
+  width: auto;
+  max-width: 90%;
+  border-radius: 12px;
+  background: #fff;
+  padding: 6px;
+  object-fit: contain;
+  display: block;
+}
 
 /* Developer photo + heart badge (support step visual). */
 .tour-support-visual {
