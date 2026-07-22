@@ -531,13 +531,10 @@ function AiSettings() {
           <button type="button" className="btn btn-accent" onClick={runTest} disabled={test === 'testing' || !form.apiKey.trim()}>
             {test === 'testing' ? t('Testing…') : t('Test connection')}
           </button>
-          {/* Offered only after a successful connection, so a configured user can
-              tuck the key/model away. */}
-          {test === 'ok' && (
-            <button type="button" className="btn ghost" onClick={() => setCollapsed(true)}>
-              {t('Collapse settings')}
-            </button>
-          )}
+          {/* Always available so the user can tuck the key/model away whenever. */}
+          <button type="button" className="btn ghost" onClick={() => setCollapsed(true)}>
+            {t('Collapse settings')}
+          </button>
           {test === 'ok' && <span className="amt-income" style={{ fontSize: 14 }}>{t('Connected ✓')}</span>}
           {test === 'err' && <span className="amt-expense" style={{ fontSize: 14 }}>{t('Failed')}: {testMsg}</span>}
         </div>
