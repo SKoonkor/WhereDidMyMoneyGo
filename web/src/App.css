@@ -1954,6 +1954,18 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 /* --- Install guide (rendered inside a Modal sheet) --- */
 .install-guide { display: flex; flex-direction: column; gap: 14px; }
 .ig-intro { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+/* Emphasis callout: in-app browsers (Instagram/Facebook) can't add to home screen. */
+.ig-note {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #f39c12 55%, transparent);
+  background: color-mix(in srgb, #f39c12 15%, var(--surface));
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ig-note strong { font-weight: 700; }
 /* The app name when it appears inside a description — emphasised (italic + bold). */
 .app-name-em { font-style: italic; font-weight: 700; color: var(--ink); }
 .ig-install-now { align-self: flex-start; }

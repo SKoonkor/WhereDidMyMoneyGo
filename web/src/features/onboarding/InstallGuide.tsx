@@ -68,7 +68,7 @@ function stepsFor(platform: Platform): StepDef[] {
   if (platform === 'ios') {
     return [
       { glyph: 'share', text: t('In Safari, tap the Share button at the bottom of the screen.') },
-      { text: t('Scroll down and tap “Add to Home Screen”.') },
+      { text: t('Scroll down (or tap “More”) and tap “Add to Home Screen”.') },
       { text: t('Tap “Add” — the icon appears on your home screen.') },
     ]
   }
@@ -108,6 +108,14 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
         <p className="ig-intro">
           {renderWithApp(t('Add {app} to your home screen to open it like a normal app — full-screen, offline, and one tap away. It stays completely on your device.'))}
         </p>
+
+        {/* In-app browsers (Instagram/Facebook/etc.) hide the add-to-home option —
+            tell mobile users to reopen the link in their real browser first. */}
+        {platform !== 'desktop' && (
+          <p className="ig-note">
+            {t('Did you open this from Instagram, Facebook, or another app? Their built-in browser can’t add to your home screen. Copy this page’s link and open it in your phone’s own browser (Safari or Chrome) first.')}
+          </p>
+        )}
 
         {/* Chromium can install with one tap; offer it up front when available. */}
         {canPrompt && (
