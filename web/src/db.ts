@@ -12,11 +12,13 @@ import {
   DEFAULT_ACCOUNTS,
   DEFAULT_BUDGET,
   DEFAULT_CATEGORIES,
+  DEFAULT_AI,
   DEFAULT_GOALS,
   DEFAULT_NOTIFICATIONS,
   DEFAULT_RECONCILE,
   DEFAULT_RETIREMENT,
   DEFAULT_SETTINGS,
+  type AiCfg,
   type BudgetCfg,
   type Categories,
   type GoalsCfg,
@@ -57,7 +59,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax' | 'retirement' | 'notifications'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai'
   value: unknown
 }
 
@@ -89,6 +91,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('reconcile')) puts.push({ key: 'reconcile', value: DEFAULT_RECONCILE })
   if (!existing.has('tax')) puts.push({ key: 'tax', value: DEFAULT_TAX })
   if (!existing.has('notifications')) puts.push({ key: 'notifications', value: DEFAULT_NOTIFICATIONS })
+  if (!existing.has('ai')) puts.push({ key: 'ai', value: DEFAULT_AI })
   if (puts.length) await db.config.bulkPut(puts)
 }
 
@@ -296,6 +299,13 @@ export async function getNotifications(): Promise<NotificationCfg> {
 }
 export async function saveNotifications(cfg: NotificationCfg): Promise<void> {
   await db.config.put({ key: 'notifications', value: cfg })
+}
+
+export async function getAi(): Promise<AiCfg> {
+  return { ...DEFAULT_AI, ...((await db.config.get('ai'))?.value as AiCfg) }
+}
+export async function saveAi(cfg: AiCfg): Promise<void> {
+  await db.config.put({ key: 'ai', value: cfg })
 }
 
 // Record a balance-adjustment per account whose actual balance differs from the

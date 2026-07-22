@@ -155,3 +155,26 @@ export interface NotificationCfg {
 }
 
 export const DEFAULT_NOTIFICATIONS: NotificationCfg = { enabled: false, time: '20:00' }
+
+// ── AI receipt scanning (bring-your-own-key) ─────────────────────────────────
+// Off by default → manual entry. When on with a key, long-pressing the "+" opens
+// the receipt scanner. The key is stored only on this device and sent only to the
+// chosen provider. Only 'claude' works from the browser today (CORS); openai/gemini
+// are kept in the union for a future proxy but aren't selectable yet (see lib/ai).
+export type AiProvider = 'claude' | 'openai' | 'gemini'
+
+export interface AiCfg {
+  enabled: boolean
+  provider: AiProvider
+  apiKey: string
+  model: string
+  confirmBeforeSave: boolean // ask the user to review extracted details before recording
+}
+
+export const DEFAULT_AI: AiCfg = {
+  enabled: false,
+  provider: 'claude',
+  apiKey: '',
+  model: 'claude-sonnet-5',
+  confirmBeforeSave: true,
+}

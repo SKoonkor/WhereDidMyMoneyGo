@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getNotifications, getSettings, saveNotifications, saveSettings } from '../../db'
+import { getAi, getNotifications, getSettings, saveAi, saveNotifications, saveSettings } from '../../db'
 import { useAccounts } from '../transactions/useConfig'
 import { useLang, useTheme, useCensor } from '../../prefs'
-import { DEFAULT_SETTINGS, type Settings } from '../../data/defaults'
+import { DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
+import { testConnection } from '../../lib/ai/claude'
 import { t } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
 // cards can't clobber each other's fields with a stale full copy.
 async function patchSettings(patch: Partial<Settings>) {
   await saveSettings({ ...(await getSettings()), ...patch })
+}
+
+// Same freshest-merge pattern for the AI config.
+async function patchAi(patch: Partial<AiCfg>) {
+  await saveAi({ ...(await getAi()), ...patch })
 }
 
 // Preferences hub: language, theme, and privacy — all backed by localStorage
@@ -346,6 +352,135 @@ function SavingsPoolSettings() {
   )
 }
 
+// A small Off/On segmented control bound to a boolean.
+function OnOff({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  const opts: Array<{ value: boolean; label: string }> = [
+    { value: false, label: t('Off') },
+    { value: true, label: t('On') },
+  ]
+  return (
+    <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
+      {opts.map((o) => (
+        <button
+          key={String(o.value)}
+          type="button"
+          disabled={disabled}
+          className={o.value === value ? 'seg-btn active' : 'seg-btn'}
+          onClick={() => { if (o.value !== value) onChange(o.value) }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// AI receipt scanning (bring-your-own-key). Draft-based like GeneralSettings:
+// seeded once from the stored config, each change autosaves via patchAi. Only
+// Claude works from the browser today; the key is masked and stored on-device.
+function AiSettings() {
+  const stored = useLiveQuery(() => getAi(), [])
+  const [form, setForm] = useState<AiCfg | null>(null)
+  const [showKey, setShowKey] = useState(false)
+  const [test, setTest] = useState<'idle' | 'testing' | 'ok' | 'err'>('idle')
+  const [testMsg, setTestMsg] = useState('')
+  useEffect(() => { if (!form && stored) setForm(stored) }, [stored, form])
+  if (!form) return null
+
+  function update(patch: Partial<AiCfg>) {
+    setForm({ ...form!, ...patch })
+    void patchAi(patch)
+    setTest('idle') // any edit invalidates a prior test result
+  }
+
+  async function runTest() {
+    setTest('testing'); setTestMsg('')
+    const r = await testConnection(form!)
+    if (r.ok) setTest('ok')
+    else { setTest('err'); setTestMsg(r.error) }
+  }
+
+  const providers: Array<{ value: AiProvider; label: string; ready: boolean }> = [
+    { value: 'claude', label: 'Anthropic Claude', ready: true },
+    { value: 'openai', label: 'OpenAI ChatGPT', ready: false },
+    { value: 'gemini', label: 'Google Gemini', ready: false },
+  ]
+
+  return (
+    <>
+      <h2 className="set-group-title">{t('AI receipt scanning')}</h2>
+      <section className="set-card">
+        <div className="set-field">
+          <label>{t('Scan receipts with AI')}</label>
+          <OnOff value={form.enabled} onChange={(v) => update({ enabled: v })} />
+          <span className="set-hint">{t('Long-press the + button to snap a receipt; a tap still adds manually.')}</span>
+        </div>
+
+        <div className="set-field">
+          <label>{t('Provider')}</label>
+          <select
+            value={form.provider}
+            style={{ maxWidth: 260 }}
+            onChange={(e) => update({ provider: e.target.value as AiProvider })}
+          >
+            {providers.map((p) => (
+              <option key={p.value} value={p.value} disabled={!p.ready}>
+                {p.label}{p.ready ? '' : ` — ${t('needs a proxy, coming later')}`}
+              </option>
+            ))}
+          </select>
+          <span className="set-hint">{t('Only Claude can run directly in the browser today.')}</span>
+        </div>
+
+        <div className="set-field">
+          <label>{t('API key')}</label>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={form.apiKey}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              placeholder="sk-ant-…"
+              style={{ maxWidth: 260, fontFamily: 'monospace' }}
+              onChange={(e) => update({ apiKey: e.target.value })}
+            />
+            <button type="button" className="btn ghost" onClick={() => setShowKey((s) => !s)}>
+              {showKey ? t('Hide') : t('Show')}
+            </button>
+          </div>
+          <span className="set-hint">{t('Your key is stored only on this device and sent only to the provider.')}</span>
+        </div>
+
+        <div className="set-field">
+          <label>{t('Model')}</label>
+          <input
+            value={form.model}
+            style={{ maxWidth: 260, fontFamily: 'monospace' }}
+            onChange={(e) => update({ model: e.target.value })}
+          />
+          <span className="set-hint">{t('The vision model used to read receipts.')}</span>
+        </div>
+
+        <div className="set-field">
+          <label>{t('Review before saving')}</label>
+          <OnOff value={form.confirmBeforeSave} onChange={(v) => update({ confirmBeforeSave: v })} />
+          <span className="set-hint">{t('Check the extracted details before the transaction is recorded.')}</span>
+        </div>
+
+        <div className="row" style={{ gap: 12, marginTop: 4, alignItems: 'center' }}>
+          <button type="button" className="btn btn-accent" onClick={runTest} disabled={test === 'testing' || !form.apiKey.trim()}>
+            {test === 'testing' ? t('Testing…') : t('Test connection')}
+          </button>
+          {test === 'ok' && <span className="amt-income" style={{ fontSize: 14 }}>{t('Connected ✓')}</span>}
+          {test === 'err' && <span className="amt-expense" style={{ fontSize: 14 }}>{t('Failed')}: {testMsg}</span>}
+        </div>
+      </section>
+    </>
+  )
+}
+
 // A tappable navigation card: leading icon, title + description, trailing chevron.
 function ToolLink({ to, icon, title, desc }: { to: string; icon: string; title: string; desc: string }) {
   return (
@@ -368,6 +503,7 @@ export function SettingsPage() {
       <PreferencesSettings />
       <GeneralSettings />
       <SavingsPoolSettings />
+      <AiSettings />
 
       <h2 className="set-group-title">{t('Data & tools')}</h2>
       <ToolLink to="/manage" icon="🛠️" title={t('Manage accounts & categories')} desc={t('Add, rename, reorder, or remove accounts and categories.')} />

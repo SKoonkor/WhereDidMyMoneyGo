@@ -420,6 +420,27 @@ const TH: Record<string, string> = {
   'This browser cannot show notifications.': 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน',
   "Log today's expenses": 'บันทึกค่าใช้จ่ายวันนี้',
   'A quick tap keeps your budget on track.': 'แตะเพียงครั้งเดียวเพื่อให้งบประมาณเป็นปัจจุบัน',
+  'AI receipt scanning': 'สแกนใบเสร็จด้วย AI',
+  'Scan receipts with AI': 'สแกนใบเสร็จด้วย AI',
+  'Long-press the + button to snap a receipt; a tap still adds manually.':
+    'กดค้างที่ปุ่ม + เพื่อถ่ายใบเสร็จ ส่วนการแตะยังคงเพิ่มรายการเองตามปกติ',
+  Provider: 'ผู้ให้บริการ',
+  'needs a proxy, coming later': 'ต้องใช้พร็อกซี เร็ว ๆ นี้',
+  'Only Claude can run directly in the browser today.': 'ปัจจุบันมีเพียง Claude ที่ทำงานในเบราว์เซอร์ได้โดยตรง',
+  'API key': 'คีย์ API',
+  Show: 'แสดง',
+  Hide: 'ซ่อน',
+  'Your key is stored only on this device and sent only to the provider.':
+    'คีย์ของคุณถูกเก็บไว้บนอุปกรณ์นี้เท่านั้น และส่งไปยังผู้ให้บริการเท่านั้น',
+  Model: 'โมเดล',
+  'The vision model used to read receipts.': 'โมเดลที่ใช้อ่านใบเสร็จ',
+  'Review before saving': 'ตรวจสอบก่อนบันทึก',
+  'Check the extracted details before the transaction is recorded.':
+    'ตรวจสอบข้อมูลที่อ่านได้ก่อนบันทึกรายการ',
+  'Test connection': 'ทดสอบการเชื่อมต่อ',
+  'Testing…': 'กำลังทดสอบ…',
+  'Connected ✓': 'เชื่อมต่อแล้ว ✓',
+  Failed: 'ล้มเหลว',
   'Saved ✓': 'บันทึกแล้ว ✓',
   'Transfer (short)': 'โอน',
 }
