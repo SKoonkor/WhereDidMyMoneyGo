@@ -1941,3 +1941,105 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   border-bottom: 1px solid var(--border-soft);
 }
 .tax-bracket-row > span:first-child { font-weight: 600; color: var(--ink); }
+
+/* ============================================================
+   Onboarding: first-run install guide + interactive tour
+   ============================================================ */
+
+/* --- Install guide (rendered inside a Modal sheet) --- */
+.install-guide { display: flex; flex-direction: column; gap: 14px; }
+.ig-intro { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+.ig-install-now { align-self: flex-start; }
+.ig-steps-head {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ig-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.ig-step { display: flex; align-items: flex-start; gap: 12px; }
+.ig-num {
+  flex: 0 0 auto;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.ig-step-text { font-size: 15px; line-height: 1.45; color: var(--ink); }
+.ig-glyph {
+  width: 18px; height: 18px;
+  color: var(--accent);
+  vertical-align: -3px;
+  margin-right: 4px;
+}
+.ig-got-it { align-self: stretch; margin-top: 4px; }
+
+/* --- Tour overlay --- */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.tour-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: tour-in 0.22s ease;
+}
+@keyframes tour-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tour-card { animation: none; } }
+
+.tour-skip {
+  position: absolute;
+  top: 12px; right: 14px;
+  background: none; border: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  z-index: 1;
+}
+.tour-mock {
+  border-radius: 14px;
+  overflow: hidden;
+  color: var(--ink);
+  animation: tour-mock-in 0.28s ease;
+}
+@keyframes tour-mock-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .tour-mock { animation: none; } }
+.tour-svg { display: block; width: 100%; height: auto; }
+
+.tour-text { min-height: 96px; }
+.tour-title { font-size: 19px; font-weight: 700; margin: 0 0 6px; color: var(--ink); }
+.tour-body { font-size: 14.5px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+.tour-dots { display: flex; justify-content: center; gap: 7px; }
+.tour-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: background 0.2s, width 0.2s;
+}
+.tour-dot.active { background: var(--accent); width: 18px; border-radius: 4px; }
+
+.tour-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tour-count { font-size: 12px; color: var(--muted); }
+.tour-nav .btn { min-width: 84px; }

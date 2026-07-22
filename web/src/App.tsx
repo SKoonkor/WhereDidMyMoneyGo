@@ -28,6 +28,7 @@ import { ReconcilePage } from './features/reconcile/ReconcilePage'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
 import { Toast } from './components/Toast'
+import { OnboardingHost } from './features/onboarding/OnboardingHost'
 import { TxnForm } from './features/transactions/TxnForm'
 import './App.css'
 
@@ -210,6 +211,7 @@ export default function App() {
             onClose={() => setToast(null)}
           />
         )}
+        <OnboardingHost />
       </div>
     </HashRouter>
   )

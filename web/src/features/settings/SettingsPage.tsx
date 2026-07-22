@@ -6,6 +6,7 @@ import { useLang, useTheme, useCensor } from '../../prefs'
 import { AI_MODELS, AI_MODELS_URL, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
 import { makeProvider } from '../../lib/ai'
+import { openOnboarding } from '../onboarding/onboarding'
 import { t, tBilingual } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
@@ -448,6 +449,21 @@ function ToolLink({ to, icon, title, desc }: { to: string; icon: string; title: 
   )
 }
 
+// Same card, but it runs an action (re-open the tour / install guide) instead of
+// navigating — used by the "Getting started" group.
+function ToolButton({ icon, title, desc, onClick }: { icon: string; title: string; desc: string; onClick: () => void }) {
+  return (
+    <button type="button" className="set-card set-card-link" onClick={onClick}>
+      <span className="set-link-icon" aria-hidden="true">{icon}</span>
+      <span className="set-link-body">
+        <span className="set-card-title">{title}</span>
+        <span className="set-card-desc">{desc}</span>
+      </span>
+      <span className="set-link-chevron" aria-hidden="true">›</span>
+    </button>
+  )
+}
+
 export function SettingsPage() {
   return (
     <div>
@@ -456,6 +472,10 @@ export function SettingsPage() {
       <PreferencesSettings />
       <GeneralSettings />
       <AiSettings />
+
+      <h2 className="set-group-title">{t('Getting started')}</h2>
+      <ToolButton icon="🧭" title={t('Take the tour')} desc={t('A quick walkthrough of what the app does.')} onClick={() => openOnboarding('tour')} />
+      <ToolButton icon="📲" title={t('Add to home screen')} desc={t('How to install the app on your phone.')} onClick={() => openOnboarding('install')} />
 
       <h2 className="set-group-title">{t('Data & tools')}</h2>
       <ToolLink to="/manage" icon="🛠️" title={t('Manage accounts & categories')} desc={t('Add, rename, reorder, or remove accounts and categories.')} />
