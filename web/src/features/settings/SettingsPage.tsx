@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getSettings, saveSettings } from '../../db'
+import { getNotifications, getSettings, saveNotifications, saveSettings } from '../../db'
 import { useAccounts } from '../transactions/useConfig'
 import { useLang, useTheme, useCensor } from '../../prefs'
 import { DEFAULT_SETTINGS, type Settings } from '../../data/defaults'
+import { notifyCapability, requestNotifyPermission } from '../../lib/notify'
 import { t } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
@@ -35,8 +36,71 @@ function PreferencesSettings() {
           <PrivacyChoice />
           <span className="set-hint">{t('Hide all amounts across the app.')}</span>
         </div>
+        <DailyReminderField />
       </section>
     </>
+  )
+}
+
+// Daily reminder: an Off/On toggle plus a time picker. Enabling first asks for
+// notification permission — if it isn't granted, we keep it off. Delivery is
+// best-effort (see lib/notify.ts); the hint states what this device can do.
+function DailyReminderField() {
+  const cfg = useLiveQuery(() => getNotifications(), [])
+  const [denied, setDenied] = useState(false)
+  if (!cfg) return null
+
+  const capability = notifyCapability()
+  const noteKey =
+    capability === 'unsupported'
+      ? 'This browser cannot show notifications.'
+      : capability === 'blocked' || denied
+        ? 'Notifications are blocked — allow them in your browser settings.'
+        : capability === 'inapp-only'
+          ? 'On this device, reminders only show while the app is open.'
+          : 'Reminders show at this time each day, even when the app is closed.'
+
+  async function setEnabled(on: boolean) {
+    if (on) {
+      const perm = await requestNotifyPermission()
+      if (perm !== 'granted') { setDenied(true); return }
+      setDenied(false)
+    }
+    await saveNotifications({ ...cfg!, enabled: on })
+  }
+
+  const opts: Array<{ value: boolean; label: string }> = [
+    { value: false, label: t('Off') },
+    { value: true, label: t('On') },
+  ]
+
+  return (
+    <div className="set-field">
+      <label>{t('Daily reminder')}</label>
+      <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
+        {opts.map((o) => (
+          <button
+            key={String(o.value)}
+            type="button"
+            disabled={capability === 'unsupported'}
+            className={o.value === cfg.enabled ? 'seg-btn active' : 'seg-btn'}
+            onClick={() => { if (o.value !== cfg.enabled) void setEnabled(o.value) }}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {cfg.enabled && (
+        <input
+          type="time"
+          value={cfg.time}
+          aria-label={t('Reminder time')}
+          style={{ maxWidth: 140, marginTop: 8 }}
+          onChange={(e) => { void saveNotifications({ ...cfg, time: e.target.value || cfg.time }) }}
+        />
+      )}
+      <span className="set-hint">{t(noteKey)}</span>
+    </div>
   )
 }
 

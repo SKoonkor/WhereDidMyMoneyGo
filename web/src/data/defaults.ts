@@ -144,3 +144,14 @@ export const DEFAULT_RETIREMENT: RetirementInputs = {
   showReal: true, includeGoals: false, useMc: false, picked: null,
   volReturn: '15', volInfl: '1', volDeposit: '2',
 }
+
+// ── Daily reminder notifications ─────────────────────────────────────────────
+// Off by default. When on, the app nudges the user to record expenses at `time`
+// (local "HH:MM"). Delivery is best-effort and platform-dependent — see
+// src/lib/notify.ts (Notification Triggers where supported; in-app-only elsewhere).
+export interface NotificationCfg {
+  enabled: boolean
+  time: string // 'HH:MM' (24h, local)
+}
+
+export const DEFAULT_NOTIFICATIONS: NotificationCfg = { enabled: false, time: '20:00' }

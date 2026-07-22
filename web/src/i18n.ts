@@ -407,6 +407,17 @@ const TH: Record<string, string> = {
   Hidden: 'ซ่อน',
   'Light or dark appearance.': 'รูปลักษณ์สว่างหรือมืด',
   'Hide all amounts across the app.': 'ซ่อนจำนวนเงินทั้งหมดในแอป',
+  'Daily reminder': 'เตือนความจำรายวัน',
+  Off: 'ปิด',
+  On: 'เปิด',
+  'Reminder time': 'เวลาเตือน',
+  'Reminders show at this time each day, even when the app is closed.':
+    'การเตือนจะแสดงตามเวลานี้ทุกวัน แม้ปิดแอปอยู่',
+  'On this device, reminders only show while the app is open.':
+    'บนอุปกรณ์นี้ การเตือนจะแสดงเฉพาะขณะเปิดแอปเท่านั้น',
+  'Notifications are blocked — allow them in your browser settings.':
+    'การแจ้งเตือนถูกบล็อก — โปรดอนุญาตในการตั้งค่าเบราว์เซอร์',
+  'This browser cannot show notifications.': 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน',
   'Saved ✓': 'บันทึกแล้ว ✓',
   'Transfer (short)': 'โอน',
 }
