@@ -1,13 +1,14 @@
 import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getBudget } from '../../db'
+import { getBudget, getReconcileState } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
 import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
 import { useCensor } from '../../prefs'
 import { currentMonthKey } from '../transactions/month'
 import { accountBalances } from '../../lib/balances'
 import { netWorth } from '../../lib/analytics/networth'
+import { reconcileReminderDue } from '../../lib/analytics/reconcile'
 import { monthBudgetSummary } from '../../lib/analytics/budget'
 import { useMoneyFlow, FLOW_PLOT_CONFIG } from '../flow/useMoneyFlow'
 import { ThisPeriodBudget } from '../budget/ThisPeriodBudget'
@@ -54,6 +55,11 @@ export function HomePage() {
     return [...accounts, ...extra].map((a) => [a, balances[a] ?? 0] as [string, number])
   }, [accounts, balances])
 
+  // Reconcile nudge (only once the state has loaded, so it doesn't flash).
+  const reconState = useLiveQuery(() => getReconcileState(), [])
+  const reconcileDue = reconState !== undefined
+    && reconcileReminderDue(reconState.lastReconciled ?? null, all.length > 0)
+
   return (
     <div className="home">
       {/* Net worth — masked as ****** in privacy mode (kept crisp, no CSS blur). */}
@@ -63,6 +69,20 @@ export function HomePage() {
           {censor ? '******' : fmt(nw)} <span className="nw-cur">{currency}</span>
         </div>
       </div>
+
+      {/* Reconcile reminder — a warning-orange nudge shown on the 1st of the month
+          or after 30+ days without reconciling (hidden when the ledger is empty). */}
+      {reconcileDue && (
+        <div className="card recon-reminder" role="status">
+          <div className="recon-reminder-text">
+            <strong>{t('Time to reconcile')}</strong>
+            <span className="recon-reminder-sub">{t('Check your account balances match reality.')}</span>
+          </div>
+          <button type="button" className="btn recon-reminder-btn" onClick={() => navigate('/reconcile')}>
+            {t('Reconcile now')}
+          </button>
+        </div>
+      )}
 
       {/* Money flow: running balance + forward forecast (the default plot). */}
       <CollapsibleCard

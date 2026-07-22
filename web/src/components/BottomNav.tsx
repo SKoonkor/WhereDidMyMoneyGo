@@ -39,16 +39,14 @@ function GridIcon() {
     </svg>
   )
 }
-// Settings: a crossed wrench + screwdriver, with a small hard-coded "EN/TH" marker
-// baked in (same regardless of app language) so users know the language switch lives
-// here. The tools sit in the upper area; the marker rides along the bottom edge.
+// Settings: a single wrench with a small hard-coded "EN/TH" marker baked in (same
+// regardless of app language) so users know the language switch lives here. The
+// wrench sits in the upper area; the marker rides along the bottom edge.
 function ToolsIcon() {
   return (
     <svg viewBox="0 0 24 24" {...stroke}>
       {/* Wrench: open-end head + shaft running to lower-right. */}
-      <path d="M14.6 3.6a3.4 3.4 0 00-4.3 4.1l-6 6 2 2 6-6a3.4 3.4 0 004.1-4.3l-2 2-1.8-1.8z" />
-      {/* Screwdriver: handle upper-right, blade to lower-left. */}
-      <path d="M20 4l-1.6 1.6M18.4 5.6l-5.9 5.9 1.5 1.5 5.9-5.9zM12.5 11.5l-1.4 1.4" />
+      <path d="M15.5 3.4a3.6 3.6 0 00-4.6 4.4l-6.3 6.3 2.1 2.1 6.3-6.3a3.6 3.6 0 004.4-4.6l-2.1 2.1-1.9-1.9z" />
       {/* Language marker. <text> needs its own fill since the shared stroke sets fill:none. */}
       <text x="12" y="23" textAnchor="middle" fontSize="6" fontWeight="700" fill="currentColor" stroke="none">EN/TH</text>
     </svg>

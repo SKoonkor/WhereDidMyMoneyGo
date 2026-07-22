@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Txn } from '../../db'
 import {
   trackedBalances, computeAdjustments, hiddenCostByAccount, hiddenCostTotal, isReminderDue,
+  reconcileReminderDue,
 } from './reconcile'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -58,5 +59,22 @@ describe('isReminderDue', () => {
   it('is due at month-end when not yet reconciled this month', () => {
     expect(isReminderDue('2026-06-20', new Date(2026, 6, 31))).toBe(true) // Jul 31, last in Jun
     expect(isReminderDue('2026-07-05', new Date(2026, 6, 31))).toBe(false) // already this month
+  })
+})
+
+describe('reconcileReminderDue (home banner)', () => {
+  it('never shows without transactions', () => {
+    expect(reconcileReminderDue(null, false, new Date(2026, 6, 1))).toBe(false)
+    expect(reconcileReminderDue('2026-01-01', false, new Date(2026, 6, 15))).toBe(false)
+  })
+  it('always shows on the 1st of the month (with transactions)', () => {
+    expect(reconcileReminderDue('2026-06-25', true, new Date(2026, 6, 1))).toBe(true) // 6 days ago but 1st
+  })
+  it('shows after >30 days since the last reconciliation', () => {
+    expect(reconcileReminderDue('2026-06-10', true, new Date(2026, 6, 15))).toBe(true) // 35 days
+    expect(reconcileReminderDue('2026-06-20', true, new Date(2026, 6, 15))).toBe(false) // 25 days, mid-month
+  })
+  it('shows when never reconciled but transactions exist (not the 1st)', () => {
+    expect(reconcileReminderDue(null, true, new Date(2026, 6, 15))).toBe(true)
   })
 })

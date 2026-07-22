@@ -6,7 +6,7 @@ import { useLang, useTheme, useCensor } from '../../prefs'
 import { AI_MODELS, AI_MODELS_URL, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
 import { makeProvider } from '../../lib/ai'
-import { t } from '../../i18n'
+import { t, tBilingual } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
 // cards can't clobber each other's fields with a stale full copy.
@@ -41,7 +41,7 @@ function PreferencesSettings() {
       <h2 className="set-group-title">{t('Preferences')}</h2>
       <section className="set-card">
         <div className="set-field">
-          <label>{t('Language')}</label>
+          <label>{tBilingual('Language')}</label>
           <LanguageChoice />
           <span className="set-hint">{t('Applies across the app right away.')}</span>
         </div>
@@ -467,7 +467,7 @@ function ToolLink({ to, icon, title, desc }: { to: string; icon: string; title: 
 export function SettingsPage() {
   return (
     <div>
-      <h1 className="h1">{t('Settings')}</h1>
+      <h1 className="h1">{tBilingual('Settings')}</h1>
 
       <PreferencesSettings />
       <GeneralSettings />

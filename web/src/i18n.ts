@@ -295,6 +295,9 @@ const TH: Record<string, string> = {
   'Remove from pool': 'นำออกจากพูล',
   'Drag to reorder': 'ลากเพื่อจัดลำดับ',
   Reconcile: 'ปรับยอดบัญชี',
+  'Time to reconcile': 'ถึงเวลาปรับยอดบัญชี',
+  'Check your account balances match reality.': 'ตรวจสอบว่ายอดคงเหลือในบัญชีตรงกับความเป็นจริง',
+  'Reconcile now': 'ปรับยอดตอนนี้',
   'Match tracked balances to reality.': 'ปรับยอดที่บันทึกให้ตรงกับความจริง',
   "Register each account's real balance. The gap is recorded as a hidden cost (untracked amount).": 'บันทึกยอดจริงของแต่ละบัญชี ส่วนต่างจะถูกบันทึกเป็นรายการที่ไม่ได้บันทึก (ยอดที่ไม่ได้ติดตาม)',
   'Enter balances as the app shows them — liabilities like Credit Card are negative. Accounts you leave unchanged record nothing.': 'กรอกยอดตามที่แอปแสดง — หนี้สินเช่นบัตรเครดิตเป็นค่าลบ บัญชีที่ไม่แก้ไขจะไม่บันทึกอะไร',
@@ -514,4 +517,12 @@ export function t(key: string, vars?: Record<string, string | number>): string {
     }
   }
   return s
+}
+
+// Like `t`, but in a non-English language it appends the English term in
+// parentheses (e.g. "ตั้งค่า (Settings)") so key wayfinding labels stay
+// recognisable to users who don't read the translation. No-op in English.
+export function tBilingual(key: string): string {
+  const s = t(key)
+  return getLang() === 'en' ? s : `${s} (${key})`
 }

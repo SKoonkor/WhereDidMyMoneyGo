@@ -235,6 +235,32 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .home > p {
   margin: 0;
 }
+/* Reconcile reminder: a warning-orange banner between Net worth and Money Flow. */
+.recon-reminder {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid color-mix(in srgb, #f39c12 55%, transparent);
+  background: color-mix(in srgb, #f39c12 15%, var(--surface));
+}
+.recon-reminder-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.recon-reminder-text strong { color: #f39c12; }
+.recon-reminder-sub { font-size: 13px; color: var(--muted); }
+/* Extra specificity so it beats the later, generic .btn rule. */
+.recon-reminder .recon-reminder-btn {
+  flex: 0 0 auto;
+  background: #f39c12;
+  border-color: #f39c12;
+  color: #241803;
+  font-weight: 700;
+}
+.recon-reminder .recon-reminder-btn:active { filter: brightness(1.08); }
 .dash-card {
   margin-top: 16px;
 }

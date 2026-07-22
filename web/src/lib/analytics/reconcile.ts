@@ -76,3 +76,20 @@ export function isReminderDue(lastReconciled: string | null, today = new Date())
 }
 
 const atMidnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+
+// Home-screen reconcile nudge. Show only if the ledger has transactions and it's
+// either the 1st of the month (always) or more than 30 days since the last
+// reconciliation (never reconciled counts as overdue).
+export function reconcileReminderDue(
+  lastReconciled: string | null,
+  hasTransactions: boolean,
+  today = new Date(),
+): boolean {
+  if (!hasTransactions) return false
+  if (today.getDate() === 1) return true
+  if (!lastReconciled) return true
+  const last = new Date(lastReconciled + 'T00:00:00')
+  if (Number.isNaN(last.getTime())) return true
+  const days = Math.floor((atMidnight(today) - atMidnight(last)) / 86_400_000)
+  return days > 30
+}
