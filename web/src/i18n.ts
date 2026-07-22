@@ -428,6 +428,7 @@ const TH: Record<string, string> = {
   'needs a proxy, coming later': 'ต้องใช้พร็อกซี เร็ว ๆ นี้',
   'Only Claude can run directly in the browser today.': 'ปัจจุบันมีเพียง Claude ที่ทำงานในเบราว์เซอร์ได้โดยตรง',
   'API key': 'คีย์ API',
+  'Get an API key': 'ขอรับคีย์ API',
   Show: 'แสดง',
   Hide: 'ซ่อน',
   'Your key is stored only on this device and sent only to the provider.':

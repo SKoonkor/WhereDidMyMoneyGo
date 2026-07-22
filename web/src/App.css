@@ -335,6 +335,19 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   stroke-width: 2.4;
 }
 
+/* AI settings: "Get an API key" shortcut. */
+.key-help-link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+.key-help-link:hover {
+  text-decoration: underline;
+}
+
 /* AI receipt capture. */
 .receipt-drop {
   width: 100%;

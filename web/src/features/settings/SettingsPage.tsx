@@ -20,6 +20,13 @@ async function patchAi(patch: Partial<AiCfg>) {
   await saveAi({ ...(await getAi()), ...patch })
 }
 
+// Where each provider issues API keys — used by the "Get an API key" shortcut.
+const PROVIDER_KEY_URL: Record<AiProvider, string> = {
+  claude: 'https://console.anthropic.com/settings/keys',
+  openai: 'https://platform.openai.com/api-keys',
+  gemini: 'https://aistudio.google.com/app/apikey',
+}
+
 // Preferences hub: language, theme, and privacy — all backed by localStorage
 // (prefs.ts), so these mirror the header's quick toggles live.
 function PreferencesSettings() {
@@ -450,6 +457,14 @@ function AiSettings() {
               {showKey ? t('Hide') : t('Show')}
             </button>
           </div>
+          <a
+            className="key-help-link"
+            href={PROVIDER_KEY_URL[form.provider]}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t('Get an API key')} ↗
+          </a>
           <span className="set-hint">{t('Your key is stored only on this device and sent only to the provider.')}</span>
         </div>
 
