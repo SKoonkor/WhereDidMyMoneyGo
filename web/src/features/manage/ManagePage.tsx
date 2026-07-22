@@ -33,8 +33,9 @@ function subPrompt(name: string, used: number): string {
     : t('Delete "{name}"?', { name })
 }
 
-// One editable line: name + usage count, a ⠿ drag handle (hold the row to drag,
-// or grab the handle), and Rename / Delete. Rename cascades to past transactions;
+// One editable line: name + usage count, a ⠿ drag handle (grab it to reorder —
+// the only drag target, so the row body still scrolls), and Rename / Delete.
+// Rename cascades to past transactions;
 // Delete reassigns them (see db.ts) after a confirmation that says where they go.
 function Row({
   name, used, deletePrompt, onRename, onDelete, drag, caret,
@@ -130,7 +131,7 @@ function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (name: str
   )
 }
 
-const DRAG_OPTS = { handle: '.drag-handle', ignore: 'button, input' }
+const DRAG_OPTS = { handle: '.drag-handle', ignore: 'button, input', handleOnly: true }
 
 function AccountList() {
   const accounts = useAccounts()
@@ -219,7 +220,7 @@ export function ManagePage() {
     <div>
       <h1 className="h1">{t('Manage accounts & categories')}</h1>
       <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 12 }}>
-        {t('Hold a row to drag it into order, or grab the ⠿ handle.')}
+        {t('Grab the ⠿ handle to drag a row into order.')}
       </p>
 
       <section className="manage-section">

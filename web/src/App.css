@@ -1061,11 +1061,10 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   border-bottom: 1px solid var(--border-soft);
   flex-wrap: wrap;
 }
-/* Draggable rows own the gesture (hold-to-drag); the Add row stays interactive. */
-.manage-list .manage-row:not(.add):not(.editing) {
-  touch-action: none;
+/* Only the ⠿ handle drags a row, so the row body keeps normal touch behaviour
+   (tap, text-select, and — crucially — vertical scrolling of a long list). */
+.manage-list .manage-row:not(.add):not(.editing) .manage-name {
   user-select: none;
-  cursor: grab;
 }
 .manage-row.dragging {
   position: relative;
@@ -1080,7 +1079,7 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   border-bottom: none;
   margin-top: 4px;
 }
-/* ⠿ drag handle: grab it for an immediate drag (or hold anywhere on the row). */
+/* ⠿ drag handle: grab it for an immediate drag (the only drag target on a row). */
 .drag-handle {
   flex: 0 0 auto;
   color: var(--muted);
@@ -1096,7 +1095,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 20px;
+  line-height: 1;
   padding: 2px 4px;
 }
 .manage-name {

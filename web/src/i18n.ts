@@ -361,7 +361,7 @@ const TH: Record<string, string> = {
   Unknown: 'ไม่ทราบ',
   Expand: 'ขยาย',
   Collapse: 'ย่อ',
-  'Hold a row to drag it into order, or grab the ⠿ handle.': 'กดค้างที่แถวเพื่อลากจัดลำดับ หรือจับที่จุด ⠿',
+  'Grab the ⠿ handle to drag a row into order.': 'จับที่จุด ⠿ เพื่อลากจัดลำดับแถว',
   'The day each budgeting month begins (1–28).': 'วันที่แต่ละเดือนงบประมาณเริ่มต้น (1–28)',
   Import: 'นำเข้า',
   Type: 'ประเภท',
