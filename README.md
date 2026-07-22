@@ -1,4 +1,4 @@
-# Money Tracker
+# Where Did My Money Go?
 
 A single-user, local, file-backed **personal-finance + investing suite** with a web UI.
 It combines day-to-day money tracking (transactions, budgets, goals, reconciliation) with
@@ -16,44 +16,8 @@ ledger (`data/raw/ledger.db`) plus plain `.json` / `.toml` configuration.
 > financial advice. Paper trading is a **simulation** using delayed public quotes — no real
 > orders are ever placed.
 
-## Download & run (no Python needed)
-
-Prefer a double-click? Grab a ready-made build for your OS from the
-[**Releases**](https://github.com/SKoonkor/WhereDidMyMoneyGo/releases) page — **no Python, no
-terminal**. It opens in your browser and keeps running behind a small **tray / menu-bar icon**
-(*Open Money Tracker* / *Quit*); closing the browser tab leaves it running in the tray.
-
-| OS | Download | First launch |
-|---|---|---|
-| **macOS** | `MoneyTracker-macOS.dmg` | Open the DMG, drag **Money Tracker** into **Applications**. First open: right-click the app → **Open** → **Open** (unsigned build, so macOS asks once). |
-| **Windows** | `MoneyTracker-Windows.exe` | Double-click. SmartScreen may warn — click **More info → Run anyway** (unsigned build). |
-| **Linux** | `MoneyTracker-Linux.AppImage` | `chmod +x MoneyTracker-Linux.AppImage`, then double-click or run it. |
-
-> 📖 **New to this? Follow the step-by-step [Download & run guide](docs/download-and-run.md)** —
-> per-OS walkthroughs, where your data is stored, updating, and troubleshooting.
-
-The app serves at <http://127.0.0.1:8050> (it picks another free port automatically if 8050 is
-busy — use the tray's **Open Money Tracker** to get the right link). Your data lives in a per-user
-folder: macOS `~/Library/Application Support/MoneyTracker`, Windows `%APPDATA%\MoneyTracker`,
-Linux `~/.local/share/money-tracker`. Builds are currently **unsigned** (signing/notarization is
-planned), so each OS shows a one-time "unidentified developer" prompt — the steps above (and the
-guide) clear it. Developers can still run from source below.
-
-## Screenshots
-
-<!-- Captured with synthetic sample data in an isolated sandbox — never a real ledger. -->
-
-**Home dashboard** — 30-day money flow, income/expense pies, savings gauge, and budget summary.
-![Home dashboard](docs/img/home.png)
-
-**Paper Trading desk** — order ticket, live positions, an equity curve, and a watchlist on real delayed quotes.
-![Paper trading desk](docs/img/paper.png)
-
-**Money Flow** — running balance across accounts with a forward forecast and uncertainty bands.
-![Money Flow](docs/img/flow.png)
-
-**Budget** — a 50/30/20 model with spending-vs-budget for the current and previous month.
-![Budget](docs/img/budget.png)
+> **On your phone?** This desktop app runs on a computer. There's a separate, installable
+> phone version — see [**On your phone**](#on-your-phone) below.
 
 ## Features
 
@@ -65,7 +29,8 @@ guide) clear it. Developers can still run from source below.
 - **Budget** — a Needs / Wants / Savings budget model with tracking against your spending.
 - **Transactions** — a monthly ledger: add / edit / delete income, expenses (category › subcategory), and transfers. Automatic timestamped backups.
 - **Reconcile Balances** — reconcile tracked account balances against the computed figures and surface hidden cost.
-- **Compound Interest** — a standalone growth calculator with a ±20% rate band.
+- **Income Tax** — estimate Thai personal income tax from your income and deductions (built to extend to other countries).
+- **Retirement Planning** — a compound-growth calculator (with a ±20% rate band) plus a retirement planner: set retirement age, life expectancy, draw-down and a retirement bonus, with a Monte Carlo projection of outcomes.
 
 ### Investing / markets
 - **Investment Simulator** — a historical backtesting "game": buy/sell stocks at a chosen game date.
@@ -79,10 +44,9 @@ guide) clear it. Developers can still run from source below.
 
 ## Requirements
 
-- **Python 3.9 or newer** (developed and tested on 3.14). On 3.9/3.10 the TOML reader
-  `tomli` is installed automatically (it is stdlib `tomllib` from 3.11 on).
-  Note that Python 3.9 reached end-of-life in October 2025, so a newer version is
-  still recommended where you can install one.
+- **Python 3.10 or newer** (developed and tested on 3.14). On Python 3.10 the TOML reader
+  `tomli` is installed automatically (it becomes the stdlib `tomllib` from 3.11 on), so a
+  newer version is recommended where you can install one.
 - The packages in [`requirements.txt`](requirements.txt): pandas, openpyxl, numpy, plotly, dash, statsmodels, yfinance.
 
 > **Don't have a recent Python?** You don't need to change your system Python — grab one just for this app:
@@ -98,7 +62,7 @@ pip install -r requirements.txt
 python run_app.py
 ```
 
-Then open <http://127.0.0.1:8050>.
+Then open <http://127.0.0.1:8050> in your browser. The app is served to **this computer only**.
 
 On **first run** the app bootstraps itself: it creates the `data/` directories and, if you don't
 have a `config/` yet, seeds one from the shipped [`config.example/`](config.example/) templates.
@@ -115,29 +79,26 @@ first — an existing ledger is never overwritten.)
 | Variable | Default | Meaning |
 |---|---|---|
 | `MT_PORT` | `8050` | Port to serve on |
-| `MT_HOST` | `127.0.0.1` | Interface to bind (localhost only by default) |
+| `MT_HOST` | `127.0.0.1` | Interface to bind — this computer only |
 | `MT_DEBUG` | *(off)* | Set to `1`/`true` to enable Dash debug mode |
-| `MT_DATA_DIR` | *(see below)* | Override the config/data folder. Defaults to the project root from source, and the per-user app-data folder in the packaged build. |
+| `MT_DATA_DIR` | *(project root)* | Override the config/data folder |
 
 ```bash
 MT_PORT=9000 python run_app.py
 ```
 
-> The bundled server is Flask's development server. It's fine for local single-user use; if you
-> ever expose it, put it behind a proper WSGI server and keep `MT_DEBUG` off.
+> The bundled server is Flask's development server — fine for local single-user use. Keep
+> `MT_DEBUG` off unless you're developing.
 
-### Building the desktop apps yourself
+## On your phone
 
-The downloadable builds are produced by [`.github/workflows/build.yml`](.github/workflows/build.yml)
-(PyInstaller, one job per OS). To build locally for your current platform:
+Want it on your phone? There's a separate, installable **phone version** — a lightweight web app
+you add to your home screen:
 
-```bash
-pip install -r requirements.txt -r requirements-build.txt
-pyinstaller packaging/moneytracker.spec       # output under dist/
-```
+**<https://skoonkor.github.io/WhereDidMyMoneyGo/>**
 
-The desktop entry point is [`desktop.py`](desktop.py); regenerate the icon with
-`python packaging/make_icon.py`.
+The phone app and this desktop app are independent: each keeps its **own data on its own device**,
+and there is no automatic sync between them.
 
 ## Pages
 
@@ -147,13 +108,19 @@ The desktop entry point is [`desktop.py`](desktop.py); regenerate the icon with
 | Money Flow | `/flow` | Running-balance waterfall; account toggles + date ranges |
 | Income / Expense | `/pie` | Category pies over 30 / 120 / 365 days or custom |
 | Financial Goals | `/goals` | Savings-pool gauge; goals stack on the emergency fund |
-| Compound Interest | `/compound` | Growth calculator with a ±20% band |
 | Budget | `/budget` | Needs / Wants / Savings budget model & tracking |
+| Income Tax | `/income-tax` | Thai personal income-tax estimate from income & deductions |
+| Retirement Planning | `/compound` | Compound-growth calculator + retirement planner (Monte Carlo) |
 | Transactions | `/transactions` (+ `/transactions/add`, `/transactions/edit/<id>`) | Monthly ledger: add / edit / delete income, expense, transfers |
+| Remove Transactions | `/remove` | Bulk-remove transactions |
 | Reconcile Balances | `/reconcile` | Reconcile tracked vs. computed balances |
 | Investment Simulator | `/invest` | Historical backtesting game |
 | Stock Intrinsic Valuation | `/valuation` | DCF & multiples valuation |
 | Paper Trading | `/paper` (accounts) → `/paper/trade` | Live virtual trading on delayed quotes |
+| Import Data | `/import` | Import CSV / Excel from another app or a bank export |
+| Backup & Restore | `/backup` | Download / restore a full backup; browse auto-backups |
+| Manage | `/manage` | Manage accounts & categories |
+| Settings | `/settings` | App settings (name, base currency, formats) |
 
 ## Your data & configuration
 
@@ -242,7 +209,7 @@ correctly). The export mirrors the ledger one-to-one, so it doubles as a plain-t
 money_tracker/
 ├── run_app.py          ← web app entry point (bootstraps data/ + config/ on first run)
 ├── config.example/     ← shipped config templates (copied to config/ on first run)
-├── docs/               ← documentation (valuation formulas, images)
+├── docs/               ← documentation (valuation formulas)
 ├── data/               ← your ledger, backups, caches (git-ignored)
 ├── config/             ← your settings (git-ignored)
 ├── requirements.txt
