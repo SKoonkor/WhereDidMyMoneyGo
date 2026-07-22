@@ -25,6 +25,7 @@ import { IncomeTaxPage } from './features/tax/IncomeTaxPage'
 import { ReconcilePage } from './features/reconcile/ReconcilePage'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
+import { Toast } from './components/Toast'
 import { TxnForm } from './features/transactions/TxnForm'
 import './App.css'
 
@@ -75,9 +76,11 @@ function Header() {
 export default function App() {
   // The ＋ in the bottom bar opens the Add-transaction sheet over any screen.
   const [adding, setAdding] = useState(false)
-  // Holding ＋ opens the AI receipt scanner — but only when scanning is enabled
-  // and a key is set; otherwise a hold just behaves like a tap.
+  // Holding ＋ opens the AI receipt scanner when scanning is enabled and a key is
+  // set; otherwise the hold nudges the user to turn it on (a plain tap always
+  // opens the manual Add sheet either way).
   const [capturing, setCapturing] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const ai = useLiveQuery(() => getAi(), [])
   const aiReady = !!(ai?.enabled && ai.apiKey.trim())
   // Subscribe to the language at the root so a change in Settings re-renders the
@@ -121,7 +124,10 @@ export default function App() {
         </main>
         <BottomNav
           onAdd={() => setAdding(true)}
-          onLongPress={aiReady ? () => setCapturing(true) : undefined}
+          onLongPress={() => {
+            if (aiReady) setCapturing(true)
+            else setToast(t('Turn on AI receipt scanning in Settings to snap receipts.'))
+          }}
         />
         {adding && (
           <Modal title={t('Add transaction')} onClose={() => setAdding(false)}>
@@ -134,6 +140,13 @@ export default function App() {
             // P7 will open the review/save form prefilled with this draft; for now
             // the scan flow just closes the scanner.
             onExtracted={() => setCapturing(false)}
+          />
+        )}
+        {toast && (
+          <Toast
+            message={toast}
+            action={{ label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } }}
+            onClose={() => setToast(null)}
           />
         )}
       </div>

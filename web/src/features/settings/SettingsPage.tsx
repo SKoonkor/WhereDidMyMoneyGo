@@ -423,6 +423,10 @@ function AiSettings() {
           <span className="set-hint">{t('Long-press the + button to snap a receipt; a tap still adds manually.')}</span>
         </div>
 
+        {/* The provider/key/model settings only matter once scanning is on, so we
+            keep them collapsed until then to keep the card tidy. */}
+        {form.enabled && (
+        <>
         <div className="set-field">
           <label>{t('Provider')}</label>
           <select
@@ -491,6 +495,8 @@ function AiSettings() {
           {test === 'ok' && <span className="amt-income" style={{ fontSize: 14 }}>{t('Connected ✓')}</span>}
           {test === 'err' && <span className="amt-expense" style={{ fontSize: 14 }}>{t('Failed')}: {testMsg}</span>}
         </div>
+        </>
+        )}
       </section>
     </>
   )

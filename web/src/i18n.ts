@@ -450,6 +450,8 @@ const TH: Record<string, string> = {
   'Scanning…': 'กำลังสแกน…',
   "Couldn't read the receipt — try a clearer photo.": 'อ่านใบเสร็จไม่ได้ — ลองถ่ายให้ชัดขึ้น',
   'Add your API key in Settings first.': 'โปรดเพิ่มคีย์ API ในการตั้งค่าก่อน',
+  'Turn on AI receipt scanning in Settings to snap receipts.':
+    'เปิดการสแกนใบเสร็จด้วย AI ในการตั้งค่าเพื่อถ่ายใบเสร็จ',
   'Scan failed: {error}': 'สแกนไม่สำเร็จ: {error}',
   'Saved ✓': 'บันทึกแล้ว ✓',
   'Transfer (short)': 'โอน',
