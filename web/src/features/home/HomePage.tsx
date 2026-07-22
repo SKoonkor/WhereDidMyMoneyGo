@@ -62,11 +62,11 @@ export function HomePage() {
 
   return (
     <div className="home">
-      {/* Net worth — masked as ****** in privacy mode (kept crisp, no CSS blur). */}
+      {/* Net worth — masked (bullets + blur) in privacy mode via the .money class. */}
       <div className="card nw-hero">
         <div className="nw-label">{t('Net worth')}</div>
         <div className="nw-value">
-          {censor ? '******' : fmt(nw)} <span className="nw-cur">{currency}</span>
+          <span className="money">{fmt(nw)}</span> <span className="nw-cur">{currency}</span>
         </div>
       </div>
 

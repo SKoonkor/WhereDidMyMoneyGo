@@ -81,14 +81,14 @@ export function FlowPage() {
               <li className="muted">
                 <span className="flow-bal-name">{t('Hidden cost (untracked)')}</span>
                 <span className="flow-bal-amt">
-                  {censor ? '*****' : (flow.hidden >= 0 ? '+' : '') + fmt(flow.hidden)} {currency}
+                  <span className="money">{censor ? '*****' : (flow.hidden >= 0 ? '+' : '') + fmt(flow.hidden)}</span> {currency}
                 </span>
               </li>
             )}
           </ul>
           <div className="flow-bal-net">
             <span>{t('Net worth')}</span>
-            <span>{censor ? '*****' : fmt(flow.netWorth)} {currency}</span>
+            <span><span className="money">{censor ? '*****' : fmt(flow.netWorth)}</span> {currency}</span>
           </div>
         </div>
       )}
@@ -114,7 +114,7 @@ export function FlowPage() {
         <div className="card flow-slider">
           <div className="flow-slider-read">
             {t('Forecast amount')}:{' '}
-            <b>{censor ? '*****' : fmt(sliderAmount)} {currency}</b>{' '}
+            <b><span className="money">{censor ? '*****' : fmt(sliderAmount)}</span> {currency}</b>{' '}
             {t('on')} {fmtDay(sliderDate)}
           </div>
           <input

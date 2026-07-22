@@ -59,10 +59,28 @@ a {
 }
 
 /* Privacy mode: mask money amounts instantly (mirrors the Dash data-censor hook).
-   Any element with class "money" is blurred + non-selectable when censoring. */
+   Any element with class "money" is both replaced with bullets AND blurred, so
+   every amount is hidden consistently (no readable digits, no digit-count hint) —
+   whether the component fed in a real number or its own mask text. */
 :root[data-censor='on'] .money {
-  filter: blur(6px);
+  position: relative;
+  display: inline-block;
+  color: transparent !important;
   user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+:root[data-censor='on'] .money::after {
+  content: '••••••';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  filter: blur(3.5px);
+  letter-spacing: 1px;
+  pointer-events: none;
 }
 
 .card {

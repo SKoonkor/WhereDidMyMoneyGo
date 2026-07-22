@@ -1248,6 +1248,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   margin-top: 4px;
 }
 /* Heads-up banner atop the Add form for a shaky AI receipt read. */
+/* Shown only when a scan read poorly (missing total / low confidence), so it uses
+   a warning-orange tone rather than the app's green accent. */
 .txn-notice {
   margin: 0 0 12px;
   padding: 8px 12px;
@@ -1255,8 +1257,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   font-size: 13px;
   line-height: 1.35;
   color: var(--ink);
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, #f39c12 16%, transparent);
+  border: 1px solid color-mix(in srgb, #f39c12 45%, transparent);
 }
 .set-autosave {
   font-size: 12px;
@@ -2043,3 +2045,10 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .tour-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .tour-count { font-size: 12px; color: var(--muted); }
 .tour-nav .btn { min-width: 84px; }
+
+/* "Balances already correct" — full-width action under the Reconcile summary. */
+.recon-allok-btn { width: 100%; margin-top: 12px; }
+
+/* Support-the-developer links on the tour's closing step. */
+.tour-links { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.tour-link { text-decoration: none; }

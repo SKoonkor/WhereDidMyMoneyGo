@@ -140,6 +140,21 @@ export function ImportMock() {
   )
 }
 
+export function SupportMock() {
+  return (
+    <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('Support the developer')}>
+      <Screen />
+      <circle cx="140" cy="80" r="40" fill={accent} opacity="0.12" />
+      {/* heart */}
+      <path
+        d="M140 100c-18-11-30-22-30-35a15 15 0 0130-6 15 15 0 0130 6c0 13-12 24-30 35z"
+        fill={accent}
+      />
+      <rect x="70" y="140" width="140" height="10" rx="5" fill={ink} opacity="0.55" />
+    </svg>
+  )
+}
+
 export function BackupMock() {
   return (
     <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('Backup')}>

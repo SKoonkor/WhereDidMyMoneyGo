@@ -506,6 +506,17 @@ const TH: Record<string, string> = {
   'Transfer (short)': 'โอน',
 
   // --- Onboarding (install guide + tour) ---
+  'Balances already correct': 'ยอดถูกต้องอยู่แล้ว',
+  'Balances already correct?': 'ยอดถูกต้องอยู่แล้ว?',
+  'This confirms all your account balances already match reality. Today will be saved as your last reconciled date, and the home reminder will clear. Nothing is recorded.': 'ยืนยันว่ายอดเงินในทุกบัญชีตรงกับความเป็นจริงแล้ว ระบบจะบันทึกวันนี้เป็นวันกระทบยอดล่าสุด และการแจ้งเตือนในหน้าแรกจะหายไป โดยไม่มีการบันทึกรายการใด ๆ',
+  'Yes, all correct': 'ใช่ ถูกต้องทั้งหมด',
+  'Marked as reconciled today.': 'บันทึกว่ากระทบยอดวันนี้แล้ว',
+  'Welcome to Where Did My Money GO?': 'ยินดีต้อนรับสู่ Where Did My Money GO?',
+  'A simple way to track what you earn and spend. Everything you record is stored only on this phone — no account, no cloud, nothing ever leaves your device. Here’s a quick tour.': 'วิธีง่าย ๆ ในการบันทึกรายรับรายจ่าย ทุกอย่างที่คุณบันทึกจะถูกเก็บไว้ในโทรศัพท์เครื่องนี้เท่านั้น — ไม่มีบัญชีผู้ใช้ ไม่มีคลาวด์ ไม่มีข้อมูลออกไปจากเครื่องของคุณ มาดูกันคร่าว ๆ',
+  'Support the developer': 'สนับสนุนผู้พัฒนา',
+  'This app is built by one person and is free to use. If it helps you, a follow or a hello means a lot — thank you!': 'แอปนี้พัฒนาโดยคนคนเดียวและใช้งานฟรี ถ้ามันมีประโยชน์กับคุณ การกดติดตามหรือทักทายสักคำก็มีความหมายมาก — ขอบคุณครับ!',
+  'Instagram': 'Instagram',
+  'GitHub': 'GitHub',
   'Welcome to Money Tracker': 'ยินดีต้อนรับสู่ Money Tracker',
   'Track what you earn and spend, all on your own device — nothing leaves your phone. Here’s a quick tour of what’s inside.': 'บันทึกรายรับรายจ่ายทั้งหมดบนอุปกรณ์ของคุณเอง — ไม่มีข้อมูลออกไปจากเครื่อง มาดูกันว่ามีอะไรบ้าง',
   'Record a transaction': 'บันทึกรายการ',

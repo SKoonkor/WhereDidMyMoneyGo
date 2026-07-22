@@ -1,24 +1,26 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { t } from '../../i18n'
 import {
-  IntroMock, RecordMock, TabBarMock, AppsMock, SettingsMock, ImportMock, BackupMock,
+  IntroMock, RecordMock, TabBarMock, AppsMock, SettingsMock, ImportMock, BackupMock, SupportMock,
 } from './TourMockups'
 
-// The six-step (plus a step-0 intro) first-run tour. Each step pairs a built-in
-// SVG mockup with a short EN/TH explanation. Skippable at any time; re-openable
-// from Settings. Purely presentational — it never touches the user's data.
+// The first-run tour: a step-0 intro, six feature steps, and a closing
+// support-the-developer step. Each pairs a built-in SVG mockup with a short EN/TH
+// explanation. Skippable at any time; re-openable from Settings. Purely
+// presentational — it never touches the user's data.
 interface Step {
   mock: ReactNode
   title: string
   body: string
+  links?: Array<{ label: string; href: string }>
 }
 
 function steps(): Step[] {
   return [
     {
       mock: <IntroMock />,
-      title: t('Welcome to Money Tracker'),
-      body: t('Track what you earn and spend, all on your own device — nothing leaves your phone. Here’s a quick tour of what’s inside.'),
+      title: t('Welcome to Where Did My Money GO?'),
+      body: t('A simple way to track what you earn and spend. Everything you record is stored only on this phone — no account, no cloud, nothing ever leaves your device. Here’s a quick tour.'),
     },
     {
       mock: <RecordMock />,
@@ -49,6 +51,15 @@ function steps(): Step[] {
       mock: <BackupMock />,
       title: t('Keep your data safe'),
       body: t('Since everything lives on this device, back it up: Settings → Export & backup saves a file you can restore later or move to a new phone.'),
+    },
+    {
+      mock: <SupportMock />,
+      title: t('Support the developer'),
+      body: t('This app is built by one person and is free to use. If it helps you, a follow or a hello means a lot — thank you!'),
+      links: [
+        { label: t('Instagram'), href: 'https://www.instagram.com/suttikoonkoonkor/' },
+        { label: t('GitHub'), href: 'https://skoonkor.github.io' },
+      ],
     },
   ]
 }
@@ -84,6 +95,15 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
         <div className="tour-text">
           <h2 className="tour-title">{step.title}</h2>
           <p className="tour-body">{step.body}</p>
+          {step.links && (
+            <div className="tour-links">
+              {step.links.map((l) => (
+                <a key={l.href} className="btn ghost tour-link" href={l.href} target="_blank" rel="noopener noreferrer">
+                  {l.label} ↗
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="tour-dots" aria-hidden="true">

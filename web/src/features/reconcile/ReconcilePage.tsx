@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { applyReconciliation, getReconcileState } from '../../db'
+import { applyReconciliation, getReconcileState, saveReconcileState } from '../../db'
 import { Modal } from '../../components/Modal'
 import { useLiveTxns } from '../useLiveTxns'
 import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
@@ -42,6 +42,7 @@ export function ReconcilePage() {
   const [adjust, setAdjust] = useState<Record<string, string>>({})
   const [msg, setMsg] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [okConfirmOpen, setOkConfirmOpen] = useState(false)
 
   const order = Object.keys(tracked)
   // Per row: whether a balance was entered, and its rounded delta (new − tracked).
@@ -74,6 +75,14 @@ export function ReconcilePage() {
     setConfirmOpen(false)
     setAdjust({}) // clear inputs so the same values can't be re-applied by accident
     setMsg(n === 0 ? t('No discrepancies — nothing to record.') : t('Recorded {n} balance adjustment(s).', { n }))
+  }
+
+  // "Everything already matches": stamp today's date so the home reminder clears,
+  // without recording any adjustment. Confirmed first (it's an assertion of truth).
+  async function confirmAllCorrect() {
+    await saveReconcileState({ lastReconciled: new Date().toISOString().slice(0, 10) })
+    setOkConfirmOpen(false)
+    setMsg(t('Marked as reconciled today.'))
   }
 
   return (
@@ -171,6 +180,24 @@ export function ReconcilePage() {
           </span>
         </div>
       </section>
+
+      {/* Nothing to change? Confirm balances are already correct — this clears the
+          home-screen reminder and stamps today as the last reconciled date. */}
+      <button type="button" className="btn recon-allok-btn" onClick={() => setOkConfirmOpen(true)}>
+        {t('Balances already correct')}
+      </button>
+
+      {okConfirmOpen && (
+        <Modal title={t('Balances already correct?')} onClose={() => setOkConfirmOpen(false)}>
+          <p className="muted" style={{ fontSize: 14, margin: '2px 0 16px', lineHeight: 1.45 }}>
+            {t('This confirms all your account balances already match reality. Today will be saved as your last reconciled date, and the home reminder will clear. Nothing is recorded.')}
+          </p>
+          <div className="modal-actions">
+            <button type="button" className="btn ghost" onClick={() => setOkConfirmOpen(false)}>{t('Cancel')}</button>
+            <button type="button" className="btn btn-accent" onClick={confirmAllCorrect}>{t('Yes, all correct')}</button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

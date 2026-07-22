@@ -325,11 +325,11 @@ function AiSettings() {
       <section className="set-card">
         <div className="set-field">
           <label>{t('Scan receipts with AI')}</label>
-          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
             <OnOff value={form.enabled} onChange={(v) => update({ enabled: v })} />
             {/* Once set up and collapsed, re-open the key/model fields from here. */}
             {form.enabled && form.detailsCollapsed && (
-              <button type="button" className="btn ghost" onClick={() => setCollapsed(false)}>
+              <button type="button" className="btn ghost" style={{ marginLeft: 'auto' }} onClick={() => setCollapsed(false)}>
                 {t('Show Model')}
               </button>
             )}
@@ -450,11 +450,11 @@ function ToolLink({ to, icon, title, desc }: { to: string; icon: string; title: 
 }
 
 // Same card, but it runs an action (re-open the tour / install guide) instead of
-// navigating — used by the "Getting started" group.
-function ToolButton({ icon, title, desc, onClick }: { icon: string; title: string; desc: string; onClick: () => void }) {
+// navigating — used by the "Getting started" group. `icon` is optional.
+function ToolButton({ icon, title, desc, onClick }: { icon?: string; title: string; desc: string; onClick: () => void }) {
   return (
     <button type="button" className="set-card set-card-link" onClick={onClick}>
-      <span className="set-link-icon" aria-hidden="true">{icon}</span>
+      {icon && <span className="set-link-icon" aria-hidden="true">{icon}</span>}
       <span className="set-link-body">
         <span className="set-card-title">{title}</span>
         <span className="set-card-desc">{desc}</span>
@@ -474,8 +474,8 @@ export function SettingsPage() {
       <AiSettings />
 
       <h2 className="set-group-title">{t('Getting started')}</h2>
-      <ToolButton icon="🧭" title={t('Take the tour')} desc={t('A quick walkthrough of what the app does.')} onClick={() => openOnboarding('tour')} />
-      <ToolButton icon="📲" title={t('Add to home screen')} desc={t('How to install the app on your phone.')} onClick={() => openOnboarding('install')} />
+      <ToolButton title={t('Take the tour')} desc={t('A quick walkthrough of what the app does.')} onClick={() => openOnboarding('tour')} />
+      <ToolButton title={t('Add to home screen')} desc={t('How to install the app on your phone.')} onClick={() => openOnboarding('install')} />
 
       <h2 className="set-group-title">{t('Data & tools')}</h2>
       <ToolLink to="/manage" icon="🛠️" title={t('Manage accounts & categories')} desc={t('Add, rename, reorder, or remove accounts and categories.')} />

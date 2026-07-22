@@ -50,14 +50,14 @@ function CatColumn({ title, color, groups, censor, currency }: {
           <div key={g.category}>
             <div className="subcat-group">
               <span className="subcat-name">{g.category}</span>
-              <span className="subcat-amt">{money(g.total)} {currency}</span>
+              <span className="subcat-amt"><span className="money">{money(g.total)}</span> {currency}</span>
             </div>
             {!(g.subs.length === 1 && g.subs[0].name === '—') &&
               g.subs.map((s) => (
                 <div key={s.name} className="subcat-row">
                   <span className="subcat-name">{s.name}</span>
                   <span className="subcat-amt">
-                    {money(s.amount)} ({g.total ? Math.round((s.amount / g.total) * 100) : 0}%)
+                    <span className="money">{money(s.amount)}</span> ({g.total ? Math.round((s.amount / g.total) * 100) : 0}%)
                   </span>
                 </div>
               ))}
