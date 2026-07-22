@@ -5,7 +5,7 @@ import { getNotifications, getSettings, saveNotifications, saveSettings } from '
 import { useAccounts } from '../transactions/useConfig'
 import { useLang, useTheme, useCensor } from '../../prefs'
 import { DEFAULT_SETTINGS, type Settings } from '../../data/defaults'
-import { notifyCapability, requestNotifyPermission } from '../../lib/notify'
+import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
 import { t } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
@@ -66,7 +66,16 @@ function DailyReminderField() {
       if (perm !== 'granted') { setDenied(true); return }
       setDenied(false)
     }
-    await saveNotifications({ ...cfg!, enabled: on })
+    const next = { ...cfg!, enabled: on }
+    await saveNotifications(next)
+    if (on) await scheduleReminders(next)
+    else await cancelReminders()
+  }
+
+  async function setTime(time: string) {
+    const next = { ...cfg!, time }
+    await saveNotifications(next)
+    if (next.enabled) await scheduleReminders(next) // re-arm at the new time
   }
 
   const opts: Array<{ value: boolean; label: string }> = [
@@ -96,7 +105,7 @@ function DailyReminderField() {
           value={cfg.time}
           aria-label={t('Reminder time')}
           style={{ maxWidth: 140, marginTop: 8 }}
-          onChange={(e) => { void saveNotifications({ ...cfg, time: e.target.value || cfg.time }) }}
+          onChange={(e) => { void setTime(e.target.value || cfg.time) }}
         />
       )}
       <span className="set-hint">{t(noteKey)}</span>

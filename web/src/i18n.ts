@@ -418,6 +418,8 @@ const TH: Record<string, string> = {
   'Notifications are blocked — allow them in your browser settings.':
     'การแจ้งเตือนถูกบล็อก — โปรดอนุญาตในการตั้งค่าเบราว์เซอร์',
   'This browser cannot show notifications.': 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน',
+  "Log today's expenses": 'บันทึกค่าใช้จ่ายวันนี้',
+  'A quick tap keeps your budget on track.': 'แตะเพียงครั้งเดียวเพื่อให้งบประมาณเป็นปัจจุบัน',
   'Saved ✓': 'บันทึกแล้ว ✓',
   'Transfer (short)': 'โอน',
 }

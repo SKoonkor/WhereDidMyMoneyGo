@@ -3,6 +3,8 @@ import { HashRouter, NavLink, Routes, Route } from 'react-router-dom'
 import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
 import { useAppName } from './features/transactions/useConfig'
+import { getNotifications } from './db'
+import { scheduleReminders } from './lib/notify'
 import { DEFAULT_SETTINGS } from './data/defaults'
 import { HomePage } from './features/home/HomePage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
@@ -74,6 +76,12 @@ export default function App() {
   // Subscribe to the language at the root so a change in Settings re-renders the
   // whole tree immediately (t() is read during render; pages aren't memoized).
   useLang()
+  // Re-arm daily reminders on each app open: Notification Triggers fire once, so
+  // we pre-arm the next few days here (and start the in-app fallback timer where
+  // Triggers aren't supported). No-op when reminders are off / permission absent.
+  useEffect(() => {
+    void getNotifications().then((cfg) => scheduleReminders(cfg))
+  }, [])
   return (
     <HashRouter>
       <div className="app">
