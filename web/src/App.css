@@ -1050,6 +1050,17 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   color: var(--muted);
   margin-top: 4px;
 }
+/* Heads-up banner atop the Add form for a shaky AI receipt read. */
+.txn-notice {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
 .set-autosave {
   font-size: 12px;
   margin-top: 4px;

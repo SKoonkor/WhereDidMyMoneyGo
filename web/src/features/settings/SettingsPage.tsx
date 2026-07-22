@@ -544,6 +544,9 @@ function AiSettings() {
         {test === 'err' && (
           <span className="set-hint">{t('The model may be unavailable for your key — try a current one from “See available models” above.')}</span>
         )}
+        <span className="set-hint" style={{ marginTop: 8 }}>
+          {t('Scans use your own API key, so they count against your provider’s free tier or billing.')}
+        </span>
         </>
         )}
       </section>

@@ -43,11 +43,13 @@ export function TxnForm({
   onClose,
   initialDate,
   prefill,
+  notice,
 }: {
   editing?: Txn | null
   onClose: () => void
   initialDate?: string
   prefill?: TxnPrefill
+  notice?: string // small banner atop the form (e.g. a low-confidence scan warning)
 }) {
   const accounts = useAccounts()
   const categories = useCategories()
@@ -119,6 +121,7 @@ export function TxnForm({
 
   return (
     <form className="txn-form" onSubmit={save}>
+      {notice && <p className="txn-notice" role="status">{notice}</p>}
       <div className="seg">
         {KINDS.map((k) => (
           <button

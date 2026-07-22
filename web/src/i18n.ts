@@ -463,6 +463,15 @@ const TH: Record<string, string> = {
   'Review receipt': 'ตรวจสอบใบเสร็จ',
   'Recorded {amount} to {account} from receipt.': 'บันทึก {amount} เข้าบัญชี {account} จากใบเสร็จแล้ว',
   Undo: 'เลิกทำ',
+  'Scans use your own API key, so they count against your provider’s free tier or billing.':
+    'การสแกนใช้คีย์ API ของคุณเอง จึงนับรวมกับโควตาฟรีหรือค่าบริการของผู้ให้บริการ',
+  'The photo is sent to your AI provider to read it, then you confirm before it’s saved.':
+    'รูปจะถูกส่งไปยังผู้ให้บริการ AI เพื่ออ่าน จากนั้นคุณยืนยันก่อนบันทึก',
+  "Couldn't read the total — please enter it below.": 'อ่านยอดรวมไม่ได้ — โปรดกรอกด้านล่าง',
+  'This was a low-confidence read — please double-check the details.':
+    'ผลการอ่านมีความมั่นใจต่ำ — โปรดตรวจสอบรายละเอียดอีกครั้ง',
+  "Couldn't read everything — please fill in the missing details.":
+    'อ่านได้ไม่ครบ — โปรดกรอกรายละเอียดที่ขาดหาย',
   'Scan failed: {error}': 'สแกนไม่สำเร็จ: {error}',
   'Saved ✓': 'บันทึกแล้ว ✓',
   'Transfer (short)': 'โอน',

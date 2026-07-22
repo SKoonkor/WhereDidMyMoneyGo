@@ -85,6 +85,10 @@ export function AiCapture({
 
       {phase === 'error' && <p className="amt-expense" style={{ marginTop: 8 }}>{error}</p>}
 
+      <p className="set-hint" style={{ marginTop: 10 }}>
+        {t('The photo is sent to your AI provider to read it, then you confirm before it’s saved.')}
+      </p>
+
       <div className="row" style={{ gap: 12, marginTop: 12 }}>
         {preview && (
           <button type="button" className="btn ghost" disabled={phase === 'scanning'} onClick={() => fileRef.current?.click()}>

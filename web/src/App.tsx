@@ -37,6 +37,16 @@ interface ToastState {
   action?: { label: string; onClick: () => void }
 }
 
+// A gentle heads-up for the review form when a scan looks unreliable — a missing
+// total, or a low self-reported confidence. Returns undefined when it read cleanly.
+function scanNotice(draft: ReceiptDraft): string | undefined {
+  if (draft.amount == null) return t("Couldn't read the total — please enter it below.")
+  if (draft.confidence != null && draft.confidence < 0.5) {
+    return t('This was a low-confidence read — please double-check the details.')
+  }
+  return undefined
+}
+
 // Code-split the importer: it pulls in SheetJS (~500 kB), which shouldn't sit in
 // the initial bundle since import is an occasional action.
 const ImportPage = lazy(() =>
@@ -88,8 +98,9 @@ export default function App() {
   // set; otherwise the hold nudges the user to turn it on (a plain tap always
   // opens the manual Add sheet either way).
   const [capturing, setCapturing] = useState(false)
-  // A scanned receipt awaiting review opens a prefilled Add form.
-  const [review, setReview] = useState<TxnPrefill | null>(null)
+  // A scanned receipt awaiting review opens a prefilled Add form (with an optional
+  // note when the read was shaky).
+  const [review, setReview] = useState<{ prefill: TxnPrefill; notice?: string } | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
   const ai = useLiveQuery(() => getAi(), [])
   const aiReady = !!(ai?.enabled && ai.apiKey.trim())
@@ -107,7 +118,7 @@ export default function App() {
       category: draft.category,
     }
     const cfg = await getAi()
-    if (cfg.confirmBeforeSave) { setReview(prefill); return }
+    if (cfg.confirmBeforeSave) { setReview({ prefill, notice: scanNotice(draft) }); return }
 
     // Review off → try to record it straight away.
     const [accounts, cats] = await Promise.all([getAccounts(), getCategories()])
@@ -127,8 +138,8 @@ export default function App() {
       })
       return
     }
-    // Couldn't fully resolve it — let the user finish in the form.
-    setReview(prefill)
+    // Couldn't fully resolve it — fall back to the form so the user finishes it.
+    setReview({ prefill, notice: t("Couldn't read everything — please fill in the missing details.") })
   }
   // Subscribe to the language at the root so a change in Settings re-renders the
   // whole tree immediately (t() is read during render; pages aren't memoized).
@@ -189,7 +200,7 @@ export default function App() {
         )}
         {review && (
           <Modal title={t('Review receipt')} onClose={() => setReview(null)}>
-            <TxnForm prefill={review} onClose={() => setReview(null)} />
+            <TxnForm prefill={review.prefill} notice={review.notice} onClose={() => setReview(null)} />
           </Modal>
         )}
         {toast && (
