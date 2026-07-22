@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getSettings, saveSettings } from '../../db'
 import { useAccounts } from '../transactions/useConfig'
-import { useLang } from '../../prefs'
+import { useLang, useTheme, useCensor } from '../../prefs'
 import { DEFAULT_SETTINGS, type Settings } from '../../data/defaults'
 import { t } from '../../i18n'
 
@@ -13,71 +13,30 @@ async function patchSettings(patch: Partial<Settings>) {
   await saveSettings({ ...(await getSettings()), ...patch })
 }
 
-// General settings (app name, base currency, reset day). Autosaves each change.
-// Seeded once from the stored settings so typing never fights the live query.
-function GeneralSettings() {
-  // No default here: the query is `undefined` until the real stored settings
-  // load, so we seed the form from persisted values (not the fallback defaults).
-  const stored = useLiveQuery(() => getSettings(), [])
-  const [form, setForm] = useState<Settings | null>(null)
-  useEffect(() => { if (!form && stored) setForm(stored) }, [stored, form])
-  if (!form) return null
-
-  function update(patch: Partial<Settings>) {
-    setForm({ ...form!, ...patch })
-    void patchSettings(patch)
-  }
-
+// Preferences hub: language, theme, and privacy — all backed by localStorage
+// (prefs.ts), so these mirror the header's quick toggles live.
+function PreferencesSettings() {
   return (
-    <section className="set-card">
-      <h2 className="set-card-title">{t('General')}</h2>
-
-      <div className="set-field">
-        <label>{t('App name')}</label>
-        <input
-          value={form.appName}
-          onChange={(e) => update({ appName: e.target.value })}
-          onBlur={(e) => { if (!e.target.value.trim()) update({ appName: DEFAULT_SETTINGS.appName }) }}
-        />
-        <span className="set-hint">{t('Shown in the header and on the home screen icon label.')}</span>
-      </div>
-
-      <div className="set-field">
-        <label>{t('Base currency')}</label>
-        <input
-          value={form.baseCurrency}
-          maxLength={5}
-          style={{ maxWidth: 120, textTransform: 'uppercase' }}
-          onChange={(e) => update({ baseCurrency: e.target.value.toUpperCase().replace(/\s/g, '') })}
-          onBlur={(e) => { if (!e.target.value.trim()) update({ baseCurrency: DEFAULT_SETTINGS.baseCurrency }) }}
-        />
-        <span className="set-hint">{t('Stamped on new transactions and shown across the app.')}</span>
-      </div>
-
-      <div className="set-field">
-        <label>{t('Month start day')}</label>
-        <input
-          type="number"
-          min={1}
-          max={28}
-          value={form.resetDay}
-          style={{ maxWidth: 90 }}
-          onChange={(e) => {
-            const n = Math.min(28, Math.max(1, Math.round(Number(e.target.value) || 1)))
-            update({ resetDay: n })
-          }}
-        />
-        <span className="set-hint">{t('The day each budgeting month begins (1–28). Used by Budget.')}</span>
-      </div>
-
-      <div className="set-field">
-        <label>{t('Language')}</label>
-        <LanguageChoice />
-        <span className="set-hint">{t('Applies across the app right away.')}</span>
-      </div>
-
-      <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
-    </section>
+    <>
+      <h2 className="set-group-title">{t('Preferences')}</h2>
+      <section className="set-card">
+        <div className="set-field">
+          <label>{t('Language')}</label>
+          <LanguageChoice />
+          <span className="set-hint">{t('Applies across the app right away.')}</span>
+        </div>
+        <div className="set-field">
+          <label>{t('Theme')}</label>
+          <ThemeChoice />
+          <span className="set-hint">{t('Light or dark appearance.')}</span>
+        </div>
+        <div className="set-field">
+          <label>{t('Privacy')}</label>
+          <PrivacyChoice />
+          <span className="set-hint">{t('Hide all amounts across the app.')}</span>
+        </div>
+      </section>
+    </>
   )
 }
 
@@ -102,6 +61,115 @@ function LanguageChoice() {
         </button>
       ))}
     </div>
+  )
+}
+
+// Light / Dark segmented choice, driven by prefs.useTheme (mirrors the header pill).
+function ThemeChoice() {
+  const [theme, toggle] = useTheme()
+  const opts: Array<{ value: 'light' | 'dark'; label: string }> = [
+    { value: 'light', label: t('Light') },
+    { value: 'dark', label: t('Dark') },
+  ]
+  return (
+    <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
+      {opts.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={o.value === theme ? 'seg-btn active' : 'seg-btn'}
+          onClick={() => { if (o.value !== theme) toggle() }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// Shown / Hidden segmented choice, driven by prefs.useCensor (true = amounts hidden).
+function PrivacyChoice() {
+  const [censor, toggle] = useCensor()
+  const opts: Array<{ value: boolean; label: string }> = [
+    { value: false, label: t('Shown') },
+    { value: true, label: t('Hidden') },
+  ]
+  return (
+    <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
+      {opts.map((o) => (
+        <button
+          key={String(o.value)}
+          type="button"
+          className={o.value === censor ? 'seg-btn active' : 'seg-btn'}
+          onClick={() => { if (o.value !== censor) toggle() }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// General settings (app name, base currency, reset day). Autosaves each change.
+// Seeded once from the stored settings so typing never fights the live query.
+function GeneralSettings() {
+  // No default here: the query is `undefined` until the real stored settings
+  // load, so we seed the form from persisted values (not the fallback defaults).
+  const stored = useLiveQuery(() => getSettings(), [])
+  const [form, setForm] = useState<Settings | null>(null)
+  useEffect(() => { if (!form && stored) setForm(stored) }, [stored, form])
+  if (!form) return null
+
+  function update(patch: Partial<Settings>) {
+    setForm({ ...form!, ...patch })
+    void patchSettings(patch)
+  }
+
+  return (
+    <>
+      <h2 className="set-group-title">{t('General')}</h2>
+      <section className="set-card">
+        <div className="set-field">
+          <label>{t('App name')}</label>
+          <input
+            value={form.appName}
+            onChange={(e) => update({ appName: e.target.value })}
+            onBlur={(e) => { if (!e.target.value.trim()) update({ appName: DEFAULT_SETTINGS.appName }) }}
+          />
+          <span className="set-hint">{t('Shown in the header and on the home screen icon label.')}</span>
+        </div>
+
+        <div className="set-field">
+          <label>{t('Base currency')}</label>
+          <input
+            value={form.baseCurrency}
+            maxLength={5}
+            style={{ maxWidth: 120, textTransform: 'uppercase' }}
+            onChange={(e) => update({ baseCurrency: e.target.value.toUpperCase().replace(/\s/g, '') })}
+            onBlur={(e) => { if (!e.target.value.trim()) update({ baseCurrency: DEFAULT_SETTINGS.baseCurrency }) }}
+          />
+          <span className="set-hint">{t('Stamped on new transactions and shown across the app.')}</span>
+        </div>
+
+        <div className="set-field">
+          <label>{t('Month start day')}</label>
+          <input
+            type="number"
+            min={1}
+            max={28}
+            value={form.resetDay}
+            style={{ maxWidth: 90 }}
+            onChange={(e) => {
+              const n = Math.min(28, Math.max(1, Math.round(Number(e.target.value) || 1)))
+              update({ resetDay: n })
+            }}
+          />
+          <span className="set-hint">{t('The day each budgeting month begins (1–28). Used by Budget.')}</span>
+        </div>
+
+        <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
+      </section>
+    </>
   )
 }
 
@@ -147,11 +215,11 @@ function SavingsPoolSettings() {
   }
 
   return (
-    <section className="set-card">
-      <h2 className="set-card-title">{t('Savings pool')}</h2>
-
-      <div className="set-field">
-        <label>{t('Pool accounts')}</label>
+    <>
+      <h2 className="set-group-title">{t('Savings pool')}</h2>
+      <section className="set-card">
+        <div className="set-field">
+          <label>{t('Pool accounts')}</label>
         <div className="chip-choices">
           {accounts.map((a) => (
             <button
@@ -196,11 +264,26 @@ function SavingsPoolSettings() {
         </span>
       </div>
 
-      <div className="row" style={{ gap: 12, marginTop: 4 }}>
-        <button type="button" className="btn btn-accent" onClick={save}>{t('Save')}</button>
-        {saved && <span className="amt-income" style={{ alignSelf: 'center', fontSize: 14 }}>{t('Saved ✓')}</span>}
-      </div>
-    </section>
+        <div className="row" style={{ gap: 12, marginTop: 4 }}>
+          <button type="button" className="btn btn-accent" onClick={save}>{t('Save')}</button>
+          {saved && <span className="amt-income" style={{ alignSelf: 'center', fontSize: 14 }}>{t('Saved ✓')}</span>}
+        </div>
+      </section>
+    </>
+  )
+}
+
+// A tappable navigation card: leading icon, title + description, trailing chevron.
+function ToolLink({ to, icon, title, desc }: { to: string; icon: string; title: string; desc: string }) {
+  return (
+    <Link to={to} className="set-card set-card-link">
+      <span className="set-link-icon" aria-hidden="true">{icon}</span>
+      <span className="set-link-body">
+        <span className="set-card-title">{title}</span>
+        <span className="set-card-desc">{desc}</span>
+      </span>
+      <span className="set-link-chevron" aria-hidden="true">›</span>
+    </Link>
   )
 }
 
@@ -209,21 +292,14 @@ export function SettingsPage() {
     <div>
       <h1 className="h1">{t('Settings')}</h1>
 
+      <PreferencesSettings />
       <GeneralSettings />
       <SavingsPoolSettings />
 
-      <Link to="/manage" className="set-card set-card-link">
-        <span className="set-card-title">{t('Manage accounts & categories')}</span>
-        <span className="set-card-desc">{t('Add, rename, reorder, or remove accounts and categories.')}</span>
-      </Link>
-      <Link to="/import" className="set-card set-card-link">
-        <span className="set-card-title">{t('Import')}</span>
-        <span className="set-card-desc">{t('Bring in a CSV or Excel export from another money app.')}</span>
-      </Link>
-      <Link to="/backup" className="set-card set-card-link">
-        <span className="set-card-title">{t('Export & backup')}</span>
-        <span className="set-card-desc">{t('Export a spreadsheet, or back up and restore all your data.')}</span>
-      </Link>
+      <h2 className="set-group-title">{t('Data & tools')}</h2>
+      <ToolLink to="/manage" icon="🛠️" title={t('Manage accounts & categories')} desc={t('Add, rename, reorder, or remove accounts and categories.')} />
+      <ToolLink to="/import" icon="📥" title={t('Import')} desc={t('Bring in a CSV or Excel export from another money app.')} />
+      <ToolLink to="/backup" icon="💾" title={t('Export & backup')} desc={t('Export a spreadsheet, or back up and restore all your data.')} />
 
       <p className="muted" style={{ marginTop: 4 }}>
         {t('Your data is stored on this device only.')}
