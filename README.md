@@ -1,5 +1,18 @@
 # Where Did My Money Go?
 
+> ## 📱 Want it on your phone?
+>
+> Install the **phone version** right from your browser — no download, no Python, no setup.
+>
+> ### → **[Open the phone app](https://skoonkor.github.io/WhereDidMyMoneyGo/)**
+>
+> Add it to your home screen and you're set. It keeps its own data on your phone.
+
+---
+
+**The rest of this page is about the desktop app** — a Python web app you run on your own
+computer. (The two apps are independent and don't sync with each other.)
+
 A single-user, local, file-backed **personal-finance + investing suite** with a web UI.
 It combines day-to-day money tracking (transactions, budgets, goals, reconciliation) with
 market tooling (a historical investment simulator, an intrinsic-value calculator, and a live
@@ -15,9 +28,6 @@ ledger (`data/raw/ledger.db`) plus plain `.json` / `.toml` configuration.
 > **Disclaimer.** This is a personal-finance tool for tracking and learning. Nothing here is
 > financial advice. Paper trading is a **simulation** using delayed public quotes — no real
 > orders are ever placed.
-
-> **On your phone?** This desktop app runs on a computer. There's a separate, installable
-> phone version — see [**On your phone**](#on-your-phone) below.
 
 ## Features
 
@@ -89,16 +99,6 @@ MT_PORT=9000 python run_app.py
 
 > The bundled server is Flask's development server — fine for local single-user use. Keep
 > `MT_DEBUG` off unless you're developing.
-
-## On your phone
-
-Want it on your phone? There's a separate, installable **phone version** — a lightweight web app
-you add to your home screen:
-
-**<https://skoonkor.github.io/WhereDidMyMoneyGo/>**
-
-The phone app and this desktop app are independent: each keeps its **own data on its own device**,
-and there is no automatic sync between them.
 
 ## Pages
 
