@@ -63,7 +63,7 @@ export function IncomeTaxPage() {
   return (
     <div>
       <h1 className="h1">{t('Income Tax')}</h1>
-      <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 12 }}>
         {t('Estimate your personal income tax for a year. Model: {country}.', { country: t(spec.country) })}
       </p>
 

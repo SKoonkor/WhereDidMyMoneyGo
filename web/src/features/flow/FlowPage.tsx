@@ -57,7 +57,7 @@ export function FlowPage() {
   return (
     <div>
       <h1 className="h1">{t('Money Flow')}</h1>
-      <p className="muted" style={{ marginTop: -4, marginBottom: 14 }}>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 14 }}>
         {t('Running balance across your accounts, with a forward forecast.')}
       </p>
 

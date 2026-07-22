@@ -470,6 +470,15 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   gap: 12px;
   margin-top: 8px;
 }
+/* Section heading above each Apps group (Personal Finance / Calculators). */
+.apps-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 22px 0 0;
+}
 .app-tile {
   display: flex;
   flex-direction: column;
@@ -549,6 +558,11 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 .muted {
   color: var(--muted);
+}
+/* Page subtitle under an .h1 title — smaller than body copy. */
+.page-desc {
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 /* Simple form row used by the demo transactions feature. */

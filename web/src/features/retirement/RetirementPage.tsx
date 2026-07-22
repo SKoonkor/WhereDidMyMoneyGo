@@ -192,7 +192,7 @@ export function RetirementPage() {
   return (
     <div>
       <h1 className="h1">{t('Retirement Planning')}</h1>
-      <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 12 }}>
         {t('Project a full retirement plan: save, retire, then draw down against inflating expenses.')}
       </p>
 

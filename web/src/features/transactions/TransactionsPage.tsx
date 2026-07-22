@@ -11,7 +11,7 @@ import { Modal } from '../../components/Modal'
 import type { Txn } from '../../db'
 import { t } from '../../i18n'
 
-const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function isTransfer(x: Txn) {
   return x.type === 'Transfer-Out' || x.type === 'Transfer-In'
@@ -20,7 +20,8 @@ function isTransfer(x: Txn) {
 function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
   const transfer = isTransfer(x)
   const cls = x.type === 'Income' ? 'income' : transfer ? 'transfer' : 'expense'
-  const sign = x.type === 'Income' ? '+' : transfer ? '' : '−'
+  // No leading sign on expenses — the red colour already reads as an outflow.
+  const sign = x.type === 'Income' ? '+' : ''
 
   // Left column: category over subcategory (transfers show the "Transfer" tag).
   // Middle column: the note leads (falling back to the category), with the

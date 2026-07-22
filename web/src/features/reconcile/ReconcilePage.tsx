@@ -63,7 +63,7 @@ export function ReconcilePage() {
   return (
     <div>
       <h1 className="h1">{t('Reconcile')}</h1>
-      <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 12 }}>
         {t("Register each account's real balance. The gap is recorded as a hidden cost (untracked amount).")}
       </p>
 

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getAi, getNotifications, getSettings, saveAi, saveNotifications, saveSettings } from '../../db'
-import { useAccounts } from '../transactions/useConfig'
 import { useLang, useTheme, useCensor } from '../../prefs'
 import { AI_MODELS, AI_MODELS_URL, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
@@ -266,106 +265,6 @@ function GeneralSettings() {
   )
 }
 
-// Savings pool: which accounts count toward the pool, plus the Emergency Fund
-// base (monthlyRequired × targetMonths). Drives the Financial Goals gauge.
-// Unlike General, this card is draft-based with an explicit Save button so the
-// numeric fields can be cleared and retyped freely (they clamp only on Save).
-function SavingsPoolSettings() {
-  const accounts = useAccounts()
-  const stored = useLiveQuery(() => getSettings(), [])
-  const [pool, setPool] = useState<string[] | null>(null)
-  const [monthly, setMonthly] = useState('')
-  const [months, setMonths] = useState('')
-  const [saved, setSaved] = useState(false)
-
-  // Seed the draft once from the stored settings.
-  useEffect(() => {
-    if (pool === null && stored) {
-      setPool(stored.savingsAccounts)
-      setMonthly(String(stored.monthlyRequired))
-      setMonths(String(stored.targetMonths))
-    }
-  }, [stored, pool])
-  if (pool === null) return null
-
-  const inPool = new Set(pool)
-  const toggle = (name: string) => {
-    setSaved(false)
-    setPool((p) => (p!.includes(name) ? p!.filter((a) => a !== name) : [...p!, name]))
-  }
-
-  const monthlyNum = Math.max(0, Number(monthly) || 0)
-  const monthsNum = Math.min(24, Math.max(1, Math.round(Number(months) || 1)))
-  const currency = stored?.baseCurrency ?? DEFAULT_SETTINGS.baseCurrency
-  const efTarget = monthlyNum * monthsNum
-
-  async function save() {
-    await patchSettings({ savingsAccounts: pool!, monthlyRequired: monthlyNum, targetMonths: monthsNum })
-    // Reflect the clamped values back into the fields.
-    setMonthly(String(monthlyNum))
-    setMonths(String(monthsNum))
-    setSaved(true)
-  }
-
-  return (
-    <>
-      <h2 className="set-group-title">{t('Savings pool')}</h2>
-      <section className="set-card">
-        <div className="set-field">
-          <label>{t('Pool accounts')}</label>
-        <div className="chip-choices">
-          {accounts.map((a) => (
-            <button
-              key={a}
-              type="button"
-              className={inPool.has(a) ? 'choice-chip on' : 'choice-chip'}
-              aria-pressed={inPool.has(a)}
-              onClick={() => toggle(a)}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
-        <span className="set-hint">{t('Balances of these accounts make up your savings pool.')}</span>
-      </div>
-
-      <div className="set-field">
-        <label>{t('Monthly required expenses')}</label>
-        <input
-          type="number"
-          inputMode="decimal"
-          value={monthly}
-          style={{ maxWidth: 160 }}
-          onChange={(e) => { setMonthly(e.target.value); setSaved(false) }}
-        />
-        <span className="set-hint">{t('Your baseline monthly spending — used to size the Emergency Fund.')}</span>
-      </div>
-
-      <div className="set-field">
-        <label>{t('Target months')}</label>
-        <input
-          type="number"
-          inputMode="numeric"
-          value={months}
-          style={{ maxWidth: 90 }}
-          onChange={(e) => { setMonths(e.target.value); setSaved(false) }}
-        />
-        <span className="set-hint">
-          {t('Months of expenses to keep. Emergency Fund target = {amount}.', {
-            amount: `${efTarget.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${currency}`,
-          })}
-        </span>
-      </div>
-
-        <div className="row" style={{ gap: 12, marginTop: 4 }}>
-          <button type="button" className="btn btn-accent" onClick={save}>{t('Save')}</button>
-          {saved && <span className="amt-income" style={{ alignSelf: 'center', fontSize: 14 }}>{t('Saved ✓')}</span>}
-        </div>
-      </section>
-    </>
-  )
-}
-
 // A small Off/On segmented control bound to a boolean.
 function OnOff({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   const opts: Array<{ value: boolean; label: string }> = [
@@ -572,7 +471,6 @@ export function SettingsPage() {
 
       <PreferencesSettings />
       <GeneralSettings />
-      <SavingsPoolSettings />
       <AiSettings />
 
       <h2 className="set-group-title">{t('Data & tools')}</h2>

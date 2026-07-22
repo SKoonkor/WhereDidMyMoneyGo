@@ -65,7 +65,7 @@ export function BudgetPage() {
   return (
     <div>
       <h1 className="h1">{t('Budget')}</h1>
-      <p className="muted" style={{ marginTop: -4, marginBottom: 14 }}>{t('Plan your spending with the 50/30/20 rule.')}</p>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 14 }}>{t('Plan your spending with the 50/30/20 rule.')}</p>
 
       {/* ── Budget settings (collapsible: Income & split + Category buckets) ── */}
       <BudgetSettings cfg={cfg} save={save} expense={categories.expense} />

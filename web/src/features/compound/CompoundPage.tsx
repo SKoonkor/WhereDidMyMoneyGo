@@ -75,7 +75,7 @@ export function CompoundPage() {
   return (
     <div>
       <h1 className="h1">{t('Compound Interest')}</h1>
-      <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 12 }}>
         {t('See how regular deposits grow over time. A learning tool — it does not use your tracked data.')}
       </p>
 
