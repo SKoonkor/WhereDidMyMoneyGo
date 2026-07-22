@@ -49,7 +49,8 @@ export function buildGoalGauge(opts: GaugeOpts) {
       height: title ? 340 : 300,
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      margin: { t: title ? 96 : 60, b: 44, l: 26, r: 26 },
+      // Wider side margins so the axis end labels (e.g. "60k") aren't clipped.
+      margin: { t: title ? 96 : 60, b: 44, l: 42, r: 42 },
       font: { color: ink },
       annotations: [{ text: footer, x: 0.5, y: -0.04, xref: 'paper', yref: 'paper', showarrow: false, font: { size: 13, color: ink } }],
     } as Dict,

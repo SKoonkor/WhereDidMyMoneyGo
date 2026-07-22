@@ -186,7 +186,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
       ...transparent,
       hovermode: 'closest',
       dragmode: 'pan',
-      margin: { t: PLOT_MT, b: PLOT_MB, l: censor ? 16 : 56, r: 16 },
+      margin: { t: PLOT_MT, b: PLOT_MB, l: censor ? 10 : 44, r: 8 },
       font: { color: ui.muted, size: 11 },
       showlegend: false,
       shapes,

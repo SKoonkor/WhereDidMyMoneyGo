@@ -238,6 +238,41 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .dash-card {
   margin-top: 16px;
 }
+/* Plot-bearing card: trim the side padding so the chart uses more width, but keep
+   the title lined up with the other box headers. */
+.plot-card {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.plot-card > .dash-title {
+  padding-left: 8px;
+}
+/* Hold-to-collapse dashboard boxes. The whole card is the press target, so block
+   text selection; scrolling still works (the gesture cancels on movement). */
+.collapsible {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.collapse-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.is-collapsed {
+  cursor: pointer;
+}
+/* A collapsed box is just its header — drop the title's bottom margin so it sits
+   as a tidy single-line bar. */
+.is-collapsed > .collapse-head {
+  margin-bottom: 0;
+}
+.collapse-caret {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  transform: translateY(-1px);
+}
 .dash-title {
   font-size: 12px;
   color: var(--muted);

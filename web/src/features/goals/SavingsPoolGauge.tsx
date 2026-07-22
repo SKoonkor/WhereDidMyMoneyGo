@@ -21,7 +21,9 @@ const MONTHS_CAP = 6
 // Financial Goals page. Self-contained (loads goals config + settings), so both
 // GoalsPage and the Home dashboard render it the same way. Returns null until the
 // goals config loads.
-export function SavingsPoolGauge() {
+// `bare` renders just the gauge plot (no card/title) so a CollapsibleCard can own
+// the box on Home; GoalsPage uses the default self-contained card.
+export function SavingsPoolGauge({ bare = false }: { bare?: boolean } = {}) {
   const all = useLiveTxns()
   const settings = useSettings()
   const cfg = useLiveQuery(() => getGoals(), [])
@@ -70,10 +72,13 @@ export function SavingsPoolGauge() {
 
   if (!fig) return null
 
+  const plot = <Plot data={fig.data} layout={fig.layout} ariaLabel={t('Savings Pool')} style={{ width: '100%' }} />
+  if (bare) return plot
+
   return (
     <section className="card goals-gauge-card">
       <div className="dash-title">{t('Savings Pool')}</div>
-      <Plot data={fig.data} layout={fig.layout} ariaLabel={t('Savings Pool')} style={{ width: '100%' }} />
+      {plot}
     </section>
   )
 }

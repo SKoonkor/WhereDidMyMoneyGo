@@ -86,6 +86,7 @@ const TH: Record<string, string> = {
   '{start} – {end} · income {income} ({mode})': '{start} – {end} · รายรับ {income} ({mode})',
   'THIS PERIOD : {start} - {end}  |  Income : {income} ({mode})':
     'สำหรับงวดนี้ : {start} - {end}  |  รายรับ : {income} ({mode})',
+  '{start} - {end}  |  Income : {income} ({mode})': '{start} - {end}  |  รายรับ : {income} ({mode})',
   '{n} months rolling average': 'เฉลี่ยย้อนหลัง {n} เดือน',
   'Account balances': 'ยอดคงเหลือแต่ละบัญชี',
   fixed: 'คงที่',

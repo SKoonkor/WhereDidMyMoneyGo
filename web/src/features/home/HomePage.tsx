@@ -12,6 +12,7 @@ import { useMoneyFlow, FLOW_PLOT_CONFIG } from '../flow/useMoneyFlow'
 import { ThisPeriodBudget } from '../budget/ThisPeriodBudget'
 import { SavingsPoolGauge } from '../goals/SavingsPoolGauge'
 import { Plot } from '../../components/Plot'
+import { CollapsibleCard } from '../../components/CollapsibleCard'
 import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -53,32 +54,31 @@ export function HomePage() {
       </div>
 
       {/* Money flow: running balance + forward forecast (the default plot). */}
-      <div className="card dash-card">
-        <div className="dash-title">{t('Money Flow')}</div>
+      <CollapsibleCard id="flow" title={t('Money Flow')} className="dash-card plot-card">
         <Plot data={fig.data} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
-      </div>
+      </CollapsibleCard>
 
       {/* Budget — this period's 50/30/20 bars. */}
       {budgetSummary && (
-        <section className="card budget-card">
-          <div className="dash-title">{t('Budget')}</div>
-          <ThisPeriodBudget summary={budgetSummary} censor={censor} />
-        </section>
+        <CollapsibleCard id="budget" title={t('Budget')} className="budget-card">
+          <ThisPeriodBudget summary={budgetSummary} censor={censor} hidePeriodLabel />
+        </CollapsibleCard>
       )}
 
       {/* Savings pool gauge (Emergency Fund + ticked goals). */}
-      <SavingsPoolGauge />
+      <CollapsibleCard id="pool" title={t('Savings Pool')} className="goals-gauge-card">
+        <SavingsPoolGauge bare />
+      </CollapsibleCard>
 
       {/* Per-account balances. */}
-      <div className="card dash-card">
-        <div className="dash-title">{t('Account balances')}</div>
+      <CollapsibleCard id="accounts" title={t('Account balances')} className="dash-card">
         {acctRows.map(([name, bal]) => (
           <div key={name} className="acct-row">
             <span>{name}</span>
             <span className="money">{fmt(bal)}</span>
           </div>
         ))}
-      </div>
+      </CollapsibleCard>
 
       <p className="muted">{t('Your data is stored on this device only.')}</p>
     </div>

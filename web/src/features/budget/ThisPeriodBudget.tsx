@@ -22,19 +22,24 @@ const BUCKET_ORDER: Bucket[] = [NEEDS, WANTS, SAVINGS]
 // The "This period" 50/30/20 summary (income line + Needs/Wants/Savings bars).
 // Presentational — the caller supplies the summary (BudgetPage varies the month;
 // Home passes the current month). Pure CSS bars, no Plotly.
-export function ThisPeriodBudget({ summary, censor }: { summary: BudgetSummary; censor: boolean }) {
+// `hidePeriodLabel` drops the leading "THIS PERIOD :" — used on Home, where the
+// box already has a "BUDGET" header, so the label would be redundant.
+export function ThisPeriodBudget({ summary, censor, hidePeriodLabel }: { summary: BudgetSummary; censor: boolean; hidePeriodLabel?: boolean }) {
   const modeText = summary.mode === 'rolling'
     ? t('{n} months rolling average', { n: summary.rollingMonths })
     : t('fixed')
+  const vars = {
+    start: dayLabel(summary.start),
+    end: dayLabel(summary.end, true),
+    income: censor ? '•••' : fmt(summary.income),
+    mode: modeText,
+  }
   return (
     <>
       <p className="muted budget-period" style={{ fontSize: 13, margin: '0 0 8px' }}>
-        {t('THIS PERIOD : {start} - {end}  |  Income : {income} ({mode})', {
-          start: dayLabel(summary.start),
-          end: dayLabel(summary.end, true),
-          income: censor ? '•••' : fmt(summary.income),
-          mode: modeText,
-        })}
+        {hidePeriodLabel
+          ? t('{start} - {end}  |  Income : {income} ({mode})', vars)
+          : t('THIS PERIOD : {start} - {end}  |  Income : {income} ({mode})', vars)}
       </p>
       {BUCKET_ORDER.map((name) => {
         const b = summary.buckets[name]
