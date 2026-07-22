@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getAi, getNotifications, getSettings, saveAi, saveNotifications, saveSettings } from '../../db'
 import { useAccounts } from '../transactions/useConfig'
 import { useLang, useTheme, useCensor } from '../../prefs'
-import { AI_MODELS, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
+import { AI_MODELS, AI_MODELS_URL, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
 import { makeProvider } from '../../lib/ai'
 import { t } from '../../i18n'
@@ -407,6 +407,14 @@ function AiSettings() {
     setTest('idle') // any edit invalidates a prior test result
   }
 
+  // Collapse/expand the detail fields. Kept separate from update() so it doesn't
+  // clear the last test result — a user who just connected can collapse and later
+  // re-expand with the Test still showing as passed.
+  function setCollapsed(detailsCollapsed: boolean) {
+    setForm({ ...form!, detailsCollapsed })
+    void patchAi({ detailsCollapsed })
+  }
+
   async function runTest() {
     setTest('testing'); setTestMsg('')
     const r = await makeProvider(form!).testConnection()
@@ -433,13 +441,22 @@ function AiSettings() {
       <section className="set-card">
         <div className="set-field">
           <label>{t('Scan receipts with AI')}</label>
-          <OnOff value={form.enabled} onChange={(v) => update({ enabled: v })} />
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <OnOff value={form.enabled} onChange={(v) => update({ enabled: v })} />
+            {/* Once set up and collapsed, re-open the key/model fields from here. */}
+            {form.enabled && form.detailsCollapsed && (
+              <button type="button" className="btn ghost" onClick={() => setCollapsed(false)}>
+                {t('Show Model')}
+              </button>
+            )}
+          </div>
           <span className="set-hint">{t('Long-press the + button to snap a receipt; a tap still adds manually.')}</span>
         </div>
 
         {/* The provider/key/model settings only matter once scanning is on, so we
-            keep them collapsed until then to keep the card tidy. */}
-        {form.enabled && (
+            keep them hidden until then — and let the user collapse them again after
+            a successful connection to keep the card tidy. */}
+        {form.enabled && !form.detailsCollapsed && (
         <>
         <div className="set-field">
           <label>{t('Provider')}</label>
@@ -493,7 +510,15 @@ function AiSettings() {
             style={{ maxWidth: 260, fontFamily: 'monospace' }}
             onChange={(e) => update({ model: e.target.value })}
           />
-          <span className="set-hint">{t('The vision model used to read receipts.')}</span>
+          <a
+            className="key-help-link"
+            href={AI_MODELS_URL[form.provider]}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t('See available models')} ↗
+          </a>
+          <span className="set-hint">{t('Model names change often. If Test connection fails, open the list and use a current one.')}</span>
         </div>
 
         <div className="set-field">
@@ -502,13 +527,23 @@ function AiSettings() {
           <span className="set-hint">{t('Check the extracted details before the transaction is recorded.')}</span>
         </div>
 
-        <div className="row" style={{ gap: 12, marginTop: 4, alignItems: 'center' }}>
+        <div className="row" style={{ gap: 12, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-accent" onClick={runTest} disabled={test === 'testing' || !form.apiKey.trim()}>
             {test === 'testing' ? t('Testing…') : t('Test connection')}
           </button>
+          {/* Offered only after a successful connection, so a configured user can
+              tuck the key/model away. */}
+          {test === 'ok' && (
+            <button type="button" className="btn ghost" onClick={() => setCollapsed(true)}>
+              {t('Collapse settings')}
+            </button>
+          )}
           {test === 'ok' && <span className="amt-income" style={{ fontSize: 14 }}>{t('Connected ✓')}</span>}
           {test === 'err' && <span className="amt-expense" style={{ fontSize: 14 }}>{t('Failed')}: {testMsg}</span>}
         </div>
+        {test === 'err' && (
+          <span className="set-hint">{t('The model may be unavailable for your key — try a current one from “See available models” above.')}</span>
+        )}
         </>
         )}
       </section>

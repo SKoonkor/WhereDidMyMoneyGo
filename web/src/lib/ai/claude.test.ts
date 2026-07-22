@@ -3,7 +3,7 @@ import { extractReceipt, testConnection } from './claude'
 import type { AiCfg } from '../../data/defaults'
 import type { ExtractContext, ReceiptImage } from './types'
 
-const CFG: AiCfg = { enabled: true, provider: 'claude', apiKey: 'sk-ant-test', model: 'claude-sonnet-5', confirmBeforeSave: true }
+const CFG: AiCfg = { enabled: true, provider: 'claude', apiKey: 'sk-ant-test', model: 'claude-sonnet-5', confirmBeforeSave: true, detailsCollapsed: false }
 const CTX: ExtractContext = { categories: ['Food', 'Bills', 'Other'], defaultCurrency: 'THB', today: '2026-07-22' }
 const IMG: ReceiptImage = { base64: 'data:image/jpeg;base64,QUJD', mime: 'image/jpeg' }
 

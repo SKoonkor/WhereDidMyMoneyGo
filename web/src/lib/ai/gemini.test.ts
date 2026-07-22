@@ -3,7 +3,7 @@ import { extractReceipt, testConnection } from './gemini'
 import type { AiCfg } from '../../data/defaults'
 import type { ExtractContext, ReceiptImage } from './types'
 
-const CFG: AiCfg = { enabled: true, provider: 'gemini', apiKey: 'AIzaTEST', model: 'gemini-2.5-flash', confirmBeforeSave: true }
+const CFG: AiCfg = { enabled: true, provider: 'gemini', apiKey: 'AIzaTEST', model: 'gemini-3.5-flash', confirmBeforeSave: true, detailsCollapsed: false }
 const CTX: ExtractContext = { categories: ['Food', 'Bills', 'Other'], defaultCurrency: 'THB', today: '2026-07-22' }
 const IMG: ReceiptImage = { base64: 'data:image/jpeg;base64,QUJD', mime: 'image/jpeg' }
 
@@ -77,7 +77,7 @@ describe('gemini extractReceipt', () => {
     vi.stubGlobal('fetch', fetchMock)
     await extractReceipt(CFG, IMG, CTX)
     const [url, opts] = fetchMock.mock.calls[0]
-    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent')
+    expect(url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent')
     expect(opts.headers['x-goog-api-key']).toBe('AIzaTEST')
     const body = JSON.parse(opts.body)
     const parts = body.contents[0].parts

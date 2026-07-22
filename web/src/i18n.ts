@@ -437,6 +437,12 @@ const TH: Record<string, string> = {
     'คีย์ของคุณถูกเก็บไว้บนอุปกรณ์นี้เท่านั้น และส่งไปยังผู้ให้บริการเท่านั้น',
   Model: 'โมเดล',
   'The vision model used to read receipts.': 'โมเดลที่ใช้อ่านใบเสร็จ',
+  'See available models': 'ดูโมเดลที่ใช้ได้',
+  'Model names change often. If Test connection fails, open the list and use a current one.':
+    'ชื่อโมเดลเปลี่ยนบ่อย หากทดสอบการเชื่อมต่อไม่สำเร็จ ให้เปิดรายการแล้วเลือกโมเดลที่ใช้ได้ปัจจุบัน',
+  'The model may be unavailable for your key — try a current one from “See available models” above.':
+    'โมเดลอาจใช้ไม่ได้กับคีย์ของคุณ — ลองเลือกโมเดลปัจจุบันจาก “ดูโมเดลที่ใช้ได้” ด้านบน',
+  'Show Model': 'แสดงโมเดล',
   'Review before saving': 'ตรวจสอบก่อนบันทึก',
   'Check the extracted details before the transaction is recorded.':
     'ตรวจสอบข้อมูลที่อ่านได้ก่อนบันทึกรายการ',

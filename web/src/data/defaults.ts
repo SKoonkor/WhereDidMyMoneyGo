@@ -169,14 +169,25 @@ export interface AiCfg {
   apiKey: string
   model: string
   confirmBeforeSave: boolean // ask the user to review extracted details before recording
+  detailsCollapsed: boolean // hide the key/model/etc. once set up (UI-only; toggled in Settings)
 }
 
 // Default vision model per provider. Used to seed the model field and to reset it
 // when the user switches providers (a Claude model id is meaningless to Gemini).
+// Model names change often — the Settings model field is free-text, and a
+// "See available models" link points at each provider's live model list.
 export const AI_MODELS: Record<AiProvider, string> = {
   claude: 'claude-sonnet-5',
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3.5-flash',
   openai: 'gpt-4o',
+}
+
+// Each provider's official, always-current model list (no server needed — the
+// user reads it themselves and types the name in).
+export const AI_MODELS_URL: Record<AiProvider, string> = {
+  claude: 'https://docs.anthropic.com/en/docs/about-claude/models',
+  gemini: 'https://ai.google.dev/gemini-api/docs/models',
+  openai: 'https://platform.openai.com/docs/models',
 }
 
 export const DEFAULT_AI: AiCfg = {
@@ -185,4 +196,5 @@ export const DEFAULT_AI: AiCfg = {
   apiKey: '',
   model: AI_MODELS.claude,
   confirmBeforeSave: true,
+  detailsCollapsed: false,
 }
