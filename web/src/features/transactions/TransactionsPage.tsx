@@ -20,8 +20,7 @@ function isTransfer(x: Txn) {
 function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
   const transfer = isTransfer(x)
   const cls = x.type === 'Income' ? 'income' : transfer ? 'transfer' : 'expense'
-  // No leading sign on expenses — the red colour already reads as an outflow.
-  const sign = x.type === 'Income' ? '+' : ''
+  // No leading +/− sign — the green/red colour already carries the direction.
 
   // Left column: category over subcategory (transfers show the "Transfer" tag).
   // Middle column: the note leads (falling back to the category), with the
@@ -46,7 +45,7 @@ function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
         <span className="txn-primary">{main}</span>
         {detail && <span className="txn-sub">{detail}</span>}
       </span>
-      <span className={`amt money ${cls}`}>{sign}{fmt(x.amount)}</span>
+      <span className={`amt money ${cls}`}>{fmt(x.amount)}</span>
     </li>
   )
 }

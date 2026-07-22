@@ -1544,7 +1544,7 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   flex: 1;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  font-size: 14px;
+  font-size: 13px;
 }
 .recon-head .recon-acct { font-weight: 400; }
 .recon-input {

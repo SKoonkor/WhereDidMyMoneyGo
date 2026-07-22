@@ -76,10 +76,9 @@ export function ReconcilePage() {
           <span className="recon-acct">{t('Account')}</span>
           <span className="recon-num">{t('Tracked')}</span>
           <span className="recon-num">{t('Adjust')}</span>
-          <span className="recon-num">{t('Discrepancy')}</span>
         </div>
 
-        {order.map((a, i) => (
+        {order.map((a) => (
           <div key={a} className="recon-row">
             <span className="recon-acct">{a}</span>
             <span className="recon-num muted"><span className="money">{money2(tracked[a])}</span></span>
@@ -93,16 +92,8 @@ export function ReconcilePage() {
                 onChange={(e) => setAdjust((p) => ({ ...p, [a]: e.target.value }))}
               />
             </span>
-            <span className={`recon-num ${rows[i].entered ? toneClass(rows[i].delta) : 'muted'}`}>
-              {rows[i].entered ? <span className="money">{signed2(rows[i].delta)}</span> : '—'}
-            </span>
           </div>
         ))}
-
-        <div className="recon-total">
-          <span>{t('Total discrepancy to record')}</span>
-          <span className={toneClass(totalDiff)}><span className="money">{signed2(totalDiff)}</span></span>
-        </div>
 
         <div className="recon-actions">
           <button type="button" className="btn" onClick={requestApply}>{t('Apply reconciliation')}</button>
