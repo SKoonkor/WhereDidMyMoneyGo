@@ -13,6 +13,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // injectManifest: our own src/sw.ts (adds notificationclick + keeps the
+      // Plotly runtime cache). skipWaiting/clientsClaim in the SW keep the old
+      // autoUpdate behaviour.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
@@ -38,25 +44,16 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         // Precache the app shell so it opens offline once installed. Plotly
         // (~4.6 MB, lazy-loaded only on dashboards) is excluded from the
-        // precache to keep installs lean and instead runtime-cached on first
-        // use, so charts still work offline after they've been viewed once.
+        // precache to keep installs lean and is instead runtime-cached on first
+        // use (see the CacheFirst route in src/sw.ts), so charts still work
+        // offline after they've been viewed once.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         globIgnores: ['**/plotly*.js'],
-        runtimeCaching: [
-          {
-            urlPattern: /\/assets\/plotly.*\.js$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'plotly-lib',
-              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 90 },
-            },
-          },
-        ],
       },
-      devOptions: { enabled: true },
+      devOptions: { enabled: true, type: 'module' },
     }),
   ],
   test: {
