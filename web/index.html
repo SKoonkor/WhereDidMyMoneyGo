@@ -3,10 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-    <!-- viewport-fit=cover handles notched phones (matches the Dash app). -->
+    <!-- viewport-fit=cover handles notched phones (matches the Dash app).
+         interactive-widget=resizes-content shrinks the viewport when the on-screen
+         keyboard opens, so bottom-sheet modals ride above it instead of being covered. -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="theme-color" content="#1abc9c" />
     <meta name="description" content="Personal finance tracker — your data stays on your device." />

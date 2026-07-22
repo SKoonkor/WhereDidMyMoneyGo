@@ -778,7 +778,12 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 /* Modal (bottom sheet on phones). */
 .modal-backdrop {
   position: fixed;
-  inset: 0;
+  /* Not `inset: 0`: the height is set inline from visualViewport (see Modal.tsx)
+     so the sheet stays above the on-screen keyboard, which needs `bottom` free. */
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;
@@ -790,7 +795,9 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   background: var(--surface);
   width: 100%;
   max-width: 560px;
-  max-height: 92vh;
+  /* Cap to the backdrop (100%) so a keyboard-shrunk viewport scrolls the sheet
+     internally rather than clipping its top. */
+  max-height: min(92vh, 100%);
   overflow-y: auto;
   border-radius: 16px 16px 0 0;
   padding: 16px clamp(14px, 4vw, 22px);
