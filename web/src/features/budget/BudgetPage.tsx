@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getBudget, saveBudget, type Txn } from '../../db'
+import { getBudget, getSettings, saveBudget, saveSettings, type Txn } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
 import { useCategories, useBaseCurrency } from '../transactions/useConfig'
 import { useTheme, useCensor } from '../../prefs'
@@ -219,12 +219,45 @@ function BudgetSettings({ cfg, save, expense }: {
         <div className="budget-settings-inner">
           <IncomeSplitCard cfg={cfg} save={save} />
           <BucketBoard cfg={cfg} expense={expense} save={save} />
+          <MonthStartField />
           <button type="button" className="btn budget-settings-collapse" onClick={() => setOpen(false)}>
             {t('Collapse settings')}
           </button>
         </div>
       </div>
     </section>
+  )
+}
+
+// Month start day (budget period boundary) — lives in Settings but is edited here
+// since only Budget uses it. Commits on blur, clamped to 1–28.
+function MonthStartField() {
+  const stored = useLiveQuery(() => getSettings(), [])
+  const [val, setVal] = useState('')
+  const [seeded, setSeeded] = useState(false)
+  useEffect(() => {
+    if (!seeded && stored) { setVal(String(stored.resetDay)); setSeeded(true) }
+  }, [stored, seeded])
+  if (!stored) return null
+  const commit = () => {
+    const n = Math.min(28, Math.max(1, Math.round(Number(val) || 1)))
+    setVal(String(n))
+    void saveSettings({ ...stored, resetDay: n })
+  }
+  return (
+    <div className="budget-subsection set-field">
+      <label>{t('Month start day')}</label>
+      <input
+        type="number"
+        min={1}
+        max={28}
+        value={val}
+        style={{ maxWidth: 90 }}
+        onChange={(e) => setVal(e.target.value)}
+        onBlur={commit}
+      />
+      <span className="set-hint">{t('The day each budgeting month begins (1–28).')}</span>
+    </div>
   )
 }
 

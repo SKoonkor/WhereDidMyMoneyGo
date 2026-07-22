@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent, type PointerEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getGoals, getSettings, saveGoals, saveSettings } from '../../db'
 import { useAccounts, useSettings } from '../transactions/useConfig'
 import { EMERGENCY_FUND, type GoalsCfg, type Settings } from '../../data/defaults'
 import { goalFactor } from '../../lib/analytics/goals'
+import { useDragReorder } from '../../lib/useDragReorder'
 import { SavingsPoolGauge } from './SavingsPoolGauge'
 import { Modal } from '../../components/Modal'
 import { t } from '../../i18n'
@@ -190,137 +191,39 @@ function removeGoal(cfg: GoalsCfg, name: string, save: (p: Partial<GoalsCfg>) =>
   save({ goals, factors, selected: cfg.selected.filter((g) => g !== name) })
 }
 
-// Hold this long on a row body before it becomes draggable (the ⠿ handle drags
-// immediately). Movement beyond MOVE_CANCEL_PX during the wait aborts the hold,
-// so a quick tap or flick never reorders by accident.
-const HOLD_MS = 350
-const MOVE_CANCEL_PX = 12
-
 // Draggable list of user goals (the Emergency Fund base is pinned above and not
 // part of this list). Dragging a row reorders the goal priority; the new key
-// order is persisted on drop. Pointer events cover both touch and mouse.
+// order is persisted on drop via the shared hold-to-drag reorder mechanic.
 function GoalList({ cfg, save, currency }: { cfg: GoalsCfg; save: (p: Partial<GoalsCfg>) => void; currency: string }) {
   const keys = Object.keys(cfg.goals)
-  const keySig = keys.join(' ')
-  const [order, setOrder] = useState<string[]>(keys)
-  const [dragging, setDragging] = useState<string | null>(null)
-  const [dragDy, setDragDy] = useState(0) // live translateY so the dragged row tracks the finger
   const [confirmDel, setConfirmDel] = useState<string | null>(null) // goal pending delete
-  const rowRefs = useRef(new Map<string, HTMLDivElement>())
-  // Grab origin captured on pointer-down: pointer Y, the row's start index, and its
-  // height (to offset for the row's slot shifting as the list reorders under it).
-  const dragRef = useRef<{ startPointerY: number; startIndex: number; rowH: number } | null>(null)
-  // Pending hold (row body pressed, drag not yet armed): the timer + press origin.
-  const holdTimer = useRef<number | null>(null)
-  const holdInfo = useRef<{ name: string; pointerId: number; info: { startPointerY: number; startIndex: number; rowH: number } } | null>(null)
-  const holdOrigin = useRef({ x: 0, y: 0 })
-  // Capture the pointer on the (stable) list container, not the row handle:
-  // reordering moves the dragged row in the DOM, which releases capture held on
-  // the row itself and would drop the final pointerup (losing the save).
-  const listRef = useRef<HTMLDivElement>(null)
-
-  // Resync when goals are added/removed elsewhere, preserving the current order.
-  useEffect(() => {
-    setOrder((prev) => {
-      const kept = prev.filter((k) => keys.includes(k))
-      const next = [...kept, ...keys.filter((k) => !kept.includes(k))]
-      return next.length === prev.length && next.every((k, i) => k === prev[i]) ? prev : next
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keySig])
-
-  // Drop any pending hold timer if the component unmounts mid-press.
-  useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current) }, [])
-
   const selectedSet = new Set(cfg.selected)
 
-  const cancelHold = () => {
-    if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null }
-    holdInfo.current = null
-  }
-  const beginDrag = (name: string, info: { startPointerY: number; startIndex: number; rowH: number }, pointerId: number) => {
-    dragRef.current = info
-    setDragging(name)
-    setDragDy(0)
-    listRef.current?.setPointerCapture(pointerId)
-  }
-
-  const onMove = (e: PointerEvent) => {
-    // Still waiting on a hold: real movement means the user is scrolling/flicking,
-    // not holding — abort so the row doesn't get dragged by accident.
-    if (holdInfo.current && !dragging) {
-      const dx = e.clientX - holdOrigin.current.x
-      const dy = e.clientY - holdOrigin.current.y
-      if (dx * dx + dy * dy > MOVE_CANCEL_PX * MOVE_CANCEL_PX) cancelHold()
-      return
-    }
-    if (!dragging || !dragRef.current) return
-    const without = order.filter((k) => k !== dragging)
-    let idx = without.length
-    for (let i = 0; i < without.length; i++) {
-      const el = rowRefs.current.get(without[i])
-      if (!el) continue
-      const r = el.getBoundingClientRect()
-      if (e.clientY < r.top + r.height / 2) { idx = i; break }
-    }
-    const next = [...without.slice(0, idx), dragging, ...without.slice(idx)]
-    if (next.some((k, i) => k !== order[i])) setOrder(next)
-    // Keep the row under the finger: raw pointer delta minus how far its slot moved.
-    const { startPointerY, startIndex, rowH } = dragRef.current
-    setDragDy((e.clientY - startPointerY) - (idx - startIndex) * rowH)
-  }
-  const onUp = () => {
-    cancelHold()
-    if (dragging) {
+  const drag = useDragReorder(
+    keys,
+    (order) => {
       const goals: Record<string, number> = {}
       for (const k of order) if (k in cfg.goals) goals[k] = cfg.goals[k]
       save({ goals }) // persist the reordered priority
-    }
-    setDragging(null)
-    setDragDy(0)
-    dragRef.current = null
-  }
+    },
+    { handle: '.goal-drag', ignore: '.goal-check, .goal-del' },
+  )
 
   if (keys.length === 0) return <p className="muted" style={{ fontSize: 13 }}>{t('No goals yet.')}</p>
 
-  // Render from the live goal keys only: after a delete, `order` still holds the
-  // removed name for one render (the resync effect runs next), so filtering here
-  // avoids reading cfg.goals[removed] === undefined and crashing.
-  const liveOrder = order.filter((k) => k in cfg.goals)
-
   return (
     <>
-    <div className="goal-list" ref={listRef} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-      {liveOrder.map((name) => {
+    <div className="goal-list" {...drag.listProps}>
+      {drag.order.map((name) => {
         const on = selectedSet.has(name)
         const factor = goalFactor(name, cfg.factors)
         return (
           <div
             key={name}
-            ref={(el) => { if (el) rowRefs.current.set(name, el); else rowRefs.current.delete(name) }}
-            className={`goal-row${on ? ' selected' : ''}${dragging === name ? ' dragging' : ''}`}
-            style={dragging === name ? { transform: `translateY(${dragDy}px)` } : undefined}
-            onPointerDown={(e) => {
-              const el = e.target as HTMLElement
-              // The tick box and × own their taps; never start a drag from them.
-              if (el.closest('.goal-check, .goal-del')) return
-              const info = { startPointerY: e.clientY, startIndex: order.indexOf(name), rowH: e.currentTarget.offsetHeight }
-              if (el.closest('.goal-drag')) {
-                // The ⠿ handle drags on contact (tap-and-drag).
-                beginDrag(name, info, e.pointerId)
-              } else {
-                // Elsewhere on the row: arm a drag only after a deliberate hold.
-                cancelHold() // clear any stale timer/hold before starting a fresh one
-                holdOrigin.current = { x: e.clientX, y: e.clientY }
-                holdInfo.current = { name, pointerId: e.pointerId, info }
-                holdTimer.current = window.setTimeout(() => {
-                  const h = holdInfo.current
-                  holdTimer.current = null
-                  holdInfo.current = null
-                  if (h) beginDrag(h.name, h.info, h.pointerId)
-                }, HOLD_MS)
-              }
-            }}
+            ref={drag.itemRef(name)}
+            className={`goal-row${on ? ' selected' : ''}${drag.dragging === name ? ' dragging' : ''}`}
+            style={drag.itemStyle(name)}
+            onPointerDown={drag.onItemPointerDown(name)}
           >
             <span className="goal-drag" aria-hidden="true">⠿</span>
             <button

@@ -243,22 +243,6 @@ function GeneralSettings() {
           <span className="set-hint">{t('Stamped on new transactions and shown across the app.')}</span>
         </div>
 
-        <div className="set-field">
-          <label>{t('Month start day')}</label>
-          <input
-            type="number"
-            min={1}
-            max={28}
-            value={form.resetDay}
-            style={{ maxWidth: 90 }}
-            onChange={(e) => {
-              const n = Math.min(28, Math.max(1, Math.round(Number(e.target.value) || 1)))
-              update({ resetDay: n })
-            }}
-          />
-          <span className="set-hint">{t('The day each budgeting month begins (1–28). Used by Budget.')}</span>
-        </div>
-
         <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
       </section>
     </>

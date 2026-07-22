@@ -9,12 +9,19 @@ import { TxnForm } from './TxnForm'
 import { MonthYearPicker } from './MonthYearPicker'
 import { Modal } from '../../components/Modal'
 import type { Txn } from '../../db'
+import { UNKNOWN_NAME } from '../../data/defaults'
 import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function isTransfer(x: Txn) {
   return x.type === 'Transfer-Out' || x.type === 'Transfer-In'
+}
+
+// A category/account left dangling by a deletion of "Other" — flagged so the user
+// reassigns it. Rendered as "⚠ Unknown" in warning-orange.
+function isUnknown(s: string) {
+  return s === UNKNOWN_NAME
 }
 
 function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
@@ -38,12 +45,18 @@ function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
   return (
     <li className="txn-item" onClick={onTap}>
       <span className="txn-cat">
-        <span className="txn-cat-main">{transfer ? t('Transfer') : x.category}</span>
+        <span className={`txn-cat-main${!transfer && isUnknown(x.category) ? ' txn-unknown' : ''}`}>
+          {transfer ? t('Transfer') : isUnknown(x.category) ? `⚠ ${t('Unknown')}` : x.category}
+        </span>
         {!transfer && x.subcategory && <span className="txn-cat-sub">{x.subcategory}</span>}
       </span>
       <span className="txn-main">
-        <span className="txn-primary">{main}</span>
-        {detail && <span className="txn-sub">{detail}</span>}
+        <span className={`txn-primary${main === x.category && isUnknown(main) ? ' txn-unknown' : ''}`}>{main}</span>
+        {detail && (
+          <span className={`txn-sub${isUnknown(detail) ? ' txn-unknown' : ''}`}>
+            {isUnknown(detail) ? `⚠ ${t('Unknown')}` : detail}
+          </span>
+        )}
       </span>
       <span className={`amt money ${cls}`}>{fmt(x.amount)}</span>
     </li>

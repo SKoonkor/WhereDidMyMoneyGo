@@ -668,6 +668,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+/* Dangling "Unknown" category/account from a deletion — needs reassigning. */
+.txn-unknown { color: #f39c12; font-weight: 600; }
 .txn-item .amt {
   flex: 0 0 auto;
   text-align: right;
@@ -1059,35 +1061,47 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   border-bottom: 1px solid var(--border-soft);
   flex-wrap: wrap;
 }
+/* Draggable rows own the gesture (hold-to-drag); the Add row stays interactive. */
+.manage-list .manage-row:not(.add):not(.editing) {
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.manage-row.dragging {
+  position: relative;
+  z-index: 2;
+  background: var(--surface-2);
+  border-radius: 8px;
+  border-bottom-color: transparent;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  cursor: grabbing;
+}
 .manage-row.add {
   border-bottom: none;
   margin-top: 4px;
 }
-.manage-reorder {
-  display: flex;
-  flex-direction: column;
-  line-height: 0.7;
+/* ⠿ drag handle: grab it for an immediate drag (or hold anywhere on the row). */
+.drag-handle {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  padding: 0 2px;
+  touch-action: none;
 }
-.manage-reorder button {
+.manage-caret-btn {
+  flex: 0 0 auto;
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 10px;
-  padding: 1px 4px;
-}
-.manage-reorder button:disabled {
-  opacity: 0.25;
-  cursor: default;
+  font-size: 13px;
+  padding: 2px 4px;
 }
 .manage-name {
   flex: 1;
   min-width: 90px;
-}
-.manage-caret {
-  display: inline-block;
-  width: 1em;
-  color: var(--muted);
 }
 .manage-used {
   color: var(--muted);

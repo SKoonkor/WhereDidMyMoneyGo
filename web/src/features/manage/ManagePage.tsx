@@ -7,26 +7,45 @@ import {
   addCategory, renameCategory, deleteCategory, reorderCategories,
   addSubcategory, renameSubcategory, deleteSubcategory,
 } from '../../db'
+import { OTHER_NAME } from '../../data/defaults'
 import { useAccounts, useCategories } from '../transactions/useConfig'
+import { useDragReorder } from '../../lib/useDragReorder'
 import { t } from '../../i18n'
 
-// One editable line: shows the name, a usage count, reorder arrows, and
-// Rename / Delete. Rename edits inline; delete is blocked while the item is in
-// use (mirrors manage.py, which rewrites past transactions on rename and only
-// allows deleting something no transaction references).
+// Drag props handed from a list to each of its rows.
+interface DragProps {
+  ref: (el: HTMLDivElement | null) => void
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
+  style: React.CSSProperties | undefined
+  dragging: boolean
+}
+
+// Confirmation text for a delete, spelling out where affected transactions go.
+function acctOrCatPrompt(name: string, used: number): string {
+  if (used <= 0) return t('Delete "{name}"?', { name })
+  return name === OTHER_NAME
+    ? t('Delete "{name}"? {n} transaction(s) will become "Unknown" until you reassign them.', { name, n: used })
+    : t('Delete "{name}"? {n} transaction(s) will move to "Other".', { name, n: used })
+}
+function subPrompt(name: string, used: number): string {
+  return used > 0
+    ? t('Delete "{name}"? {n} transaction(s) will keep the main category.', { name, n: used })
+    : t('Delete "{name}"?', { name })
+}
+
+// One editable line: name + usage count, a ⠿ drag handle (hold the row to drag,
+// or grab the handle), and Rename / Delete. Rename cascades to past transactions;
+// Delete reassigns them (see db.ts) after a confirmation that says where they go.
 function Row({
-  name, used, canUp, canDown, onRename, onDelete, onUp, onDown, onToggle, expanded,
+  name, used, deletePrompt, onRename, onDelete, drag, caret,
 }: {
   name: string
   used: number
-  canUp: boolean
-  canDown: boolean
+  deletePrompt: string
   onRename: (next: string) => Promise<boolean>
   onDelete: () => void | Promise<void>
-  onUp: () => void
-  onDown: () => void
-  onToggle?: () => void
-  expanded?: boolean
+  drag: DragProps
+  caret?: { expanded: boolean; onToggle: () => void }
 }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(name)
@@ -37,13 +56,8 @@ function Row({
     if (ok) setEditing(false)
     else setErr(t('That name already exists.'))
   }
-
   function del() {
-    if (used > 0) {
-      setErr(t('In use by {n} transaction(s) — reassign those first.', { n: used }))
-      return
-    }
-    if (confirm(t('Delete "{name}"?', { name }))) onDelete()
+    if (confirm(deletePrompt)) onDelete()
   }
 
   if (editing) {
@@ -65,13 +79,24 @@ function Row({
   }
 
   return (
-    <div className="manage-row">
-      <div className="manage-reorder">
-        <button type="button" aria-label={t('Move up')} disabled={!canUp} onClick={onUp}>▲</button>
-        <button type="button" aria-label={t('Move down')} disabled={!canDown} onClick={onDown}>▼</button>
-      </div>
-      <span className="manage-name" onClick={onToggle} style={onToggle ? { cursor: 'pointer' } : undefined}>
-        {onToggle && <span className="manage-caret">{expanded ? '▾' : '▸'}</span>}
+    <div
+      className={`manage-row${drag.dragging ? ' dragging' : ''}`}
+      ref={drag.ref}
+      style={drag.style}
+      onPointerDown={drag.onPointerDown}
+    >
+      <span className="drag-handle" aria-hidden="true">⠿</span>
+      {caret && (
+        <button
+          type="button"
+          className="manage-caret-btn"
+          aria-label={caret.expanded ? t('Collapse') : t('Expand')}
+          onClick={caret.onToggle}
+        >
+          {caret.expanded ? '▾' : '▸'}
+        </button>
+      )}
+      <span className="manage-name">
         {name}
         {used > 0 && <span className="manage-used"> · {t('{n} used', { n: used })}</span>}
       </span>
@@ -79,7 +104,6 @@ function Row({
         {t('Rename')}
       </button>
       <button type="button" className="btn sm danger" onClick={del}>{t('Delete')}</button>
-      {err && <span className="manage-err">{err}</span>}
     </div>
   )
 }
@@ -106,11 +130,55 @@ function AddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (name: str
   )
 }
 
-function move<T>(arr: T[], i: number, delta: number): T[] {
-  const next = [...arr]
-  const [item] = next.splice(i, 1)
-  next.splice(i + delta, 0, item)
-  return next
+const DRAG_OPTS = { handle: '.drag-handle', ignore: 'button, input' }
+
+function AccountList() {
+  const accounts = useAccounts()
+  const acctUse = useLiveQuery(() => accountUsage(), [], {} as Record<string, number>) ?? {}
+  const drag = useDragReorder(accounts, (order) => void reorderAccounts(order), DRAG_OPTS)
+  return (
+    <div className="manage-list" {...drag.listProps}>
+      {drag.order.map((a) => (
+        <Row
+          key={a}
+          name={a}
+          used={acctUse[a] ?? 0}
+          deletePrompt={acctOrCatPrompt(a, acctUse[a] ?? 0)}
+          onRename={(next) => renameAccount(a, next)}
+          onDelete={() => deleteAccount(a)}
+          drag={{ ref: drag.itemRef(a), onPointerDown: drag.onItemPointerDown(a), style: drag.itemStyle(a), dragging: drag.dragging === a }}
+        />
+      ))}
+      <AddRow placeholder={t('New account')} onAdd={addAccount} />
+    </div>
+  )
+}
+
+function CategoryList({ kind }: { kind: 'income' | 'expense' }) {
+  const categories = useCategories()
+  const catUse = useLiveQuery(() => categoryUsage(kind), [kind], {} as Record<string, number>) ?? {}
+  const [openCat, setOpenCat] = useState<string | null>(null)
+  const names = Object.keys(categories[kind])
+  const drag = useDragReorder(names, (order) => void reorderCategories(kind, order), DRAG_OPTS)
+  return (
+    <div className="manage-list" {...drag.listProps}>
+      {drag.order.map((c) => (
+        <div key={c}>
+          <Row
+            name={c}
+            used={catUse[c] ?? 0}
+            deletePrompt={acctOrCatPrompt(c, catUse[c] ?? 0)}
+            onRename={(next) => renameCategory(kind, c, next)}
+            onDelete={() => deleteCategory(kind, c)}
+            drag={{ ref: drag.itemRef(c), onPointerDown: drag.onItemPointerDown(c), style: drag.itemStyle(c), dragging: drag.dragging === c }}
+            caret={kind === 'expense' ? { expanded: openCat === c, onToggle: () => setOpenCat(openCat === c ? null : c) } : undefined}
+          />
+          {kind === 'expense' && openCat === c && <SubList category={c} />}
+        </div>
+      ))}
+      <AddRow placeholder={t('New category')} onAdd={(n) => addCategory(kind, n)} />
+    </div>
+  )
 }
 
 // Persist a reordered subcategory list without touching other categories.
@@ -120,24 +188,23 @@ async function saveSubOrder(category: string, order: string[]) {
   await saveCategories(cats)
 }
 
-// Subcategory list under one expense category.
+// Subcategory list under one expense category (also drag-reorderable).
 function SubList({ category }: { category: string }) {
   const categories = useCategories()
   const subs = categories.expense[category] ?? []
   const usage = useLiveQuery(() => subcategoryUsage(category), [category], {} as Record<string, number>) ?? {}
+  const drag = useDragReorder(subs, (order) => void saveSubOrder(category, order), DRAG_OPTS)
   return (
-    <div className="manage-list sub">
-      {subs.map((s, i) => (
+    <div className="manage-list sub" {...drag.listProps}>
+      {drag.order.map((s) => (
         <Row
           key={s}
           name={s}
           used={usage[s] ?? 0}
-          canUp={i > 0}
-          canDown={i < subs.length - 1}
-          onUp={() => saveSubOrder(category, move(subs, i, -1))}
-          onDown={() => saveSubOrder(category, move(subs, i, 1))}
+          deletePrompt={subPrompt(s, usage[s] ?? 0)}
           onRename={(next) => renameSubcategory(category, s, next)}
           onDelete={() => deleteSubcategory(category, s)}
+          drag={{ ref: drag.itemRef(s), onPointerDown: drag.onItemPointerDown(s), style: drag.itemStyle(s), dragging: drag.dragging === s }}
         />
       ))}
       <AddRow placeholder={t('New subcategory')} onAdd={(n) => addSubcategory(category, n)} />
@@ -146,37 +213,18 @@ function SubList({ category }: { category: string }) {
 }
 
 export function ManagePage() {
-  const accounts = useAccounts()
-  const categories = useCategories()
-  const acctUse = useLiveQuery(() => accountUsage(), [], {} as Record<string, number>) ?? {}
   const [kind, setKind] = useState<'income' | 'expense'>('expense')
-  const catUse = useLiveQuery(() => categoryUsage(kind), [kind], {} as Record<string, number>) ?? {}
-  const [openCat, setOpenCat] = useState<string | null>(null)
-
-  const catNames = Object.keys(categories[kind])
 
   return (
     <div>
       <h1 className="h1">{t('Manage accounts & categories')}</h1>
+      <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 12 }}>
+        {t('Hold a row to drag it into order, or grab the ⠿ handle.')}
+      </p>
 
       <section className="manage-section">
         <h2 className="manage-h2">{t('Accounts')}</h2>
-        <div className="manage-list">
-          {accounts.map((a, i) => (
-            <Row
-              key={a}
-              name={a}
-              used={acctUse[a] ?? 0}
-              canUp={i > 0}
-              canDown={i < accounts.length - 1}
-              onUp={() => reorderAccounts(move(accounts, i, -1))}
-              onDown={() => reorderAccounts(move(accounts, i, 1))}
-              onRename={(next) => renameAccount(a, next)}
-              onDelete={() => deleteAccount(a)}
-            />
-          ))}
-          <AddRow placeholder={t('New account')} onAdd={addAccount} />
-        </div>
+        <AccountList />
       </section>
 
       <section className="manage-section">
@@ -187,32 +235,13 @@ export function ManagePage() {
               key={k}
               type="button"
               className={k === kind ? 'seg-btn active' : 'seg-btn'}
-              onClick={() => { setKind(k); setOpenCat(null) }}
+              onClick={() => setKind(k)}
             >
               {t(k === 'income' ? 'Income' : 'Expense')}
             </button>
           ))}
         </div>
-        <div className="manage-list">
-          {catNames.map((c, i) => (
-            <div key={c}>
-              <Row
-                name={c}
-                used={catUse[c] ?? 0}
-                canUp={i > 0}
-                canDown={i < catNames.length - 1}
-                onUp={() => reorderCategories(kind, move(catNames, i, -1))}
-                onDown={() => reorderCategories(kind, move(catNames, i, 1))}
-                onRename={(next) => renameCategory(kind, c, next)}
-                onDelete={() => deleteCategory(kind, c)}
-                onToggle={kind === 'expense' ? () => setOpenCat(openCat === c ? null : c) : undefined}
-                expanded={openCat === c}
-              />
-              {kind === 'expense' && openCat === c && <SubList category={c} />}
-            </div>
-          ))}
-          <AddRow placeholder={t('New category')} onAdd={(n) => addCategory(kind, n)} />
-        </div>
+        <CategoryList kind={kind} />
       </section>
     </div>
   )

@@ -18,6 +18,8 @@ import {
   DEFAULT_RECONCILE,
   DEFAULT_RETIREMENT,
   DEFAULT_SETTINGS,
+  OTHER_NAME,
+  UNKNOWN_NAME,
   type AiCfg,
   type BudgetCfg,
   type Categories,
@@ -181,8 +183,20 @@ export async function renameAccount(oldName: string, newName: string): Promise<b
   return true
 }
 
+// Delete an account and reassign its transactions: a normal account funnels into
+// "Other" (created if missing); deleting "Other" funnels into "Unknown". Covers
+// both a leg's own `account` and a transfer counterpart stored in `category`.
 export async function deleteAccount(name: string): Promise<void> {
-  await saveAccounts((await getAccounts()).filter((a) => a !== name))
+  const dest = name === OTHER_NAME ? UNKNOWN_NAME : OTHER_NAME
+  const accounts = (await getAccounts()).filter((a) => a !== name)
+  if (dest === OTHER_NAME && !accounts.includes(OTHER_NAME)) accounts.push(OTHER_NAME)
+  await saveAccounts(accounts)
+  await db.transaction('rw', db.transactions, async () => {
+    await db.transactions.where('account').equals(name).modify({ account: dest })
+    await db.transactions
+      .filter((r) => (r.type === 'Transfer-In' || r.type === 'Transfer-Out') && r.category === name)
+      .modify({ category: dest })
+  })
 }
 
 export async function reorderAccounts(order: string[]): Promise<void> {
@@ -211,10 +225,19 @@ export async function renameCategory(
   return true
 }
 
+// Delete a category and reassign its transactions: a normal category funnels into
+// "Other" (created if missing); deleting "Other" funnels into "Unknown". The old
+// subcategory is dropped (it belonged to the deleted category).
 export async function deleteCategory(kind: 'income' | 'expense', name: string): Promise<void> {
+  const type: TxnType = kind === 'income' ? 'Income' : 'Expense'
+  const dest = name === OTHER_NAME ? UNKNOWN_NAME : OTHER_NAME
   const cats = await getCategories()
   delete cats[kind][name]
+  if (dest === OTHER_NAME && !(OTHER_NAME in cats[kind])) cats[kind] = { ...cats[kind], [OTHER_NAME]: [] }
   await saveCategories(cats)
+  await db.transactions
+    .filter((r) => r.type === type && r.category === name)
+    .modify((r) => { r.category = dest; delete r.subcategory })
 }
 
 export async function reorderCategories(kind: 'income' | 'expense', order: string[]): Promise<void> {
@@ -243,6 +266,8 @@ export async function renameSubcategory(
   return true
 }
 
+// Delete a subcategory. Affected transactions keep their main category — only the
+// subcategory tag is dropped.
 export async function deleteSubcategory(category: string, name: string): Promise<void> {
   const cats = await getCategories()
   const subs = cats.expense[category]
@@ -250,6 +275,9 @@ export async function deleteSubcategory(category: string, name: string): Promise
     cats.expense = { ...cats.expense, [category]: subs.filter((s) => s !== name) }
     await saveCategories(cats)
   }
+  await db.transactions
+    .filter((r) => r.type === 'Expense' && r.category === category && r.subcategory === name)
+    .modify((r) => { delete r.subcategory })
 }
 
 export async function getSettings(): Promise<Settings> {

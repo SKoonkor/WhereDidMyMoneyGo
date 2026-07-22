@@ -12,6 +12,13 @@ export const DEFAULT_ACCOUNTS: string[] = [
   'Savings',
 ]
 
+// Deletion sentinels. Deleting an account/category funnels its transactions into
+// OTHER (a normal, selectable catch-all, created on demand). Deleting OTHER itself
+// funnels into UNKNOWN — a name that is NOT offered in the Add form; such rows stay
+// flagged in the list until the user reassigns them.
+export const OTHER_NAME = 'Other'
+export const UNKNOWN_NAME = 'Unknown'
+
 // Income categories have no subcategories by design; expense categories may.
 export interface Categories {
   income: Record<string, string[]>
