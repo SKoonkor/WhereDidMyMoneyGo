@@ -92,7 +92,9 @@ async function getRegistration(): Promise<ServiceWorkerRegistration | null> {
 // Close every reminder notification — both already-shown and still-scheduled
 // (Triggers). `includeTriggered` isn't in the typings yet.
 async function clearScheduled(reg: ServiceWorkerRegistration): Promise<void> {
-  const getNotifications = reg.getNotifications as (
+  // Bind to `reg` — calling the extracted method unbound throws "Illegal
+  // invocation". `includeTriggered` isn't in the DOM typings yet.
+  const getNotifications = reg.getNotifications.bind(reg) as (
     opts?: { tag?: string; includeTriggered?: boolean },
   ) => Promise<Notification[]>
   const notes = await getNotifications({ includeTriggered: true })

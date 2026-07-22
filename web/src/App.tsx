@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { HashRouter, NavLink, Routes, Route } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
 import { useAppName } from './features/transactions/useConfig'
-import { getNotifications } from './db'
+import { getAi, getNotifications } from './db'
 import { scheduleReminders } from './lib/notify'
+import { AiCapture } from './features/ai/AiCapture'
 import { DEFAULT_SETTINGS } from './data/defaults'
 import { HomePage } from './features/home/HomePage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
@@ -73,6 +75,11 @@ function Header() {
 export default function App() {
   // The ＋ in the bottom bar opens the Add-transaction sheet over any screen.
   const [adding, setAdding] = useState(false)
+  // Holding ＋ opens the AI receipt scanner — but only when scanning is enabled
+  // and a key is set; otherwise a hold just behaves like a tap.
+  const [capturing, setCapturing] = useState(false)
+  const ai = useLiveQuery(() => getAi(), [])
+  const aiReady = !!(ai?.enabled && ai.apiKey.trim())
   // Subscribe to the language at the root so a change in Settings re-renders the
   // whole tree immediately (t() is read during render; pages aren't memoized).
   useLang()
@@ -112,11 +119,22 @@ export default function App() {
             />
           </Routes>
         </main>
-        <BottomNav onAdd={() => setAdding(true)} />
+        <BottomNav
+          onAdd={() => setAdding(true)}
+          onLongPress={aiReady ? () => setCapturing(true) : undefined}
+        />
         {adding && (
           <Modal title={t('Add transaction')} onClose={() => setAdding(false)}>
             <TxnForm onClose={() => setAdding(false)} />
           </Modal>
+        )}
+        {capturing && (
+          <AiCapture
+            onClose={() => setCapturing(false)}
+            // P7 will open the review/save form prefilled with this draft; for now
+            // the scan flow just closes the scanner.
+            onExtracted={() => setCapturing(false)}
+          />
         )}
       </div>
     </HashRouter>

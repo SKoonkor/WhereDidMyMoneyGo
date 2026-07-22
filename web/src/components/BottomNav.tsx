@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useHold } from '../lib/useHold'
 import { t } from '../i18n'
 
 // Bottom tab bar: Home · Transactions · ＋Add · Apps · Settings. The center ＋ is
@@ -57,7 +58,11 @@ function ToolsIcon() {
 const tab = ({ isActive }: { isActive: boolean }) =>
   isActive ? 'bottom-nav-item active' : 'bottom-nav-item'
 
-export function BottomNav({ onAdd }: { onAdd: () => void }) {
+// `onLongPress` (when provided — i.e. AI scanning is on and a key is set) fires on
+// a hold of the ＋; a tap always opens the manual Add sheet. When it's absent, a
+// hold falls back to a tap, so nothing changes for users without AI configured.
+export function BottomNav({ onAdd, onLongPress }: { onAdd: () => void; onLongPress?: () => void }) {
+  const { pressing, ...hold } = useHold(onLongPress ?? onAdd, onAdd)
   return (
     <nav className="bottom-nav">
       <NavLink to="/" end className={tab}>
@@ -68,7 +73,12 @@ export function BottomNav({ onAdd }: { onAdd: () => void }) {
         <ListIcon />
         <span>{t('Transactions')}</span>
       </NavLink>
-      <button type="button" className="bottom-nav-add" onClick={onAdd} aria-label={t('Add transaction')}>
+      <button
+        type="button"
+        className={pressing ? 'bottom-nav-add pressing' : 'bottom-nav-add'}
+        aria-label={t('Add transaction')}
+        {...hold}
+      >
         <svg viewBox="0 0 24 24" {...stroke}><path d="M12 5v14M5 12h14" /></svg>
       </button>
       <NavLink to="/apps" className={tab}>
