@@ -140,17 +140,48 @@ export function ImportMock() {
   )
 }
 
+// The developer's photo with a small heart badge — a friendlier close to the tour
+// than a bare graphic. The photo lives in public/ so it's referenced base-relative.
 export function SupportMock() {
   return (
-    <svg viewBox={VB} className="tour-svg" role="img" aria-label={t('Support the developer')}>
-      <Screen />
-      <circle cx="140" cy="80" r="40" fill={accent} opacity="0.12" />
-      {/* heart */}
-      <path
-        d="M140 100c-18-11-30-22-30-35a15 15 0 0130-6 15 15 0 0130 6c0 13-12 24-30 35z"
-        fill={accent}
-      />
-      <rect x="70" y="140" width="140" height="10" rx="5" fill={ink} opacity="0.55" />
+    <div className="tour-support-visual" role="img" aria-label={t('Support the developer')}>
+      <span className="tour-avatar-wrap">
+        <img className="tour-avatar" src={`${import.meta.env.BASE_URL}profile.jpg`} alt="" />
+        <span className="tour-avatar-heart" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 21c-6-4-9-7.5-9-12a5 5 0 019-3 5 5 0 019 3c0 4.5-3 8-9 12z" fill={accent} />
+          </svg>
+        </span>
+      </span>
+    </div>
+  )
+}
+
+// --- Brand logos for the support links (currentColor so they theme + invert) ---
+export function BmcIcon() {
+  // Simplified "Buy Me a Coffee" cup + steam.
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 9h13v4a5 5 0 01-5 5H9a5 5 0 01-5-5V9z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M17 10h1.8a2.7 2.7 0 010 5.4H16.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M4.5 21h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 3.2c-.6.9-.6 1.7 0 2.6M11.5 3.2c-.6.9-.6 1.7 0 2.6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+export function InstagramIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.4" cy="6.6" r="1.15" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+export function GithubIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M12 .5C5.37.5 0 5.87 0 12.5c0 5.3 3.44 9.8 8.2 11.39.6.11.82-.26.82-.58 0-.29-.01-1.05-.02-2.06-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.81 1.3 3.5.99.11-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.12-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.5 11.5 0 016 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.24 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.62-5.49 5.92.43.37.81 1.1.81 2.22 0 1.61-.01 2.9-.01 3.29 0 .32.22.7.83.58C20.56 22.29 24 17.8 24 12.5 24 5.87 18.63.5 12 .5z" />
     </svg>
   )
 }

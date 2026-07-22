@@ -66,7 +66,7 @@ function Header() {
     <header className="app-header">
       <NavLink to="/" className="brand">
         {brand}
-        <span className="dot">.</span>
+        <span className="dot">?</span>
       </NavLink>
       <div className="header-tools">
         {/* Sliding pill + masked eye — ported from the Dash app; the visuals swap

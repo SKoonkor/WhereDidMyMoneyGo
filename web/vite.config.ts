@@ -22,8 +22,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Where Did My Money Go',
-        short_name: 'MoneyGo',
+        name: 'Where Did My Money Go?',
+        short_name: 'MoneyGoSpace',
         description:
           'Personal finance tracker — budgets, goals, retirement, and more. '
           + 'Your data stays on your device.',

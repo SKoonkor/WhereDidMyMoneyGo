@@ -1951,6 +1951,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 /* --- Install guide (rendered inside a Modal sheet) --- */
 .install-guide { display: flex; flex-direction: column; gap: 14px; }
 .ig-intro { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 0; }
+/* The app name when it appears inside a description — emphasised (italic + bold). */
+.app-name-em { font-style: italic; font-weight: 700; color: var(--ink); }
 .ig-install-now { align-self: flex-start; }
 .ig-steps-head {
   font-size: 13px;
@@ -2049,6 +2051,64 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 /* "Balances already correct" — full-width action under the Reconcile summary. */
 .recon-allok-btn { width: 100%; margin-top: 12px; }
 
-/* Support-the-developer links on the tour's closing step. */
+/* Support-the-developer links on the tour's closing step. Buy Me a Coffee is the
+   headline action (full-width, brand yellow); Instagram + GitHub share a row. */
 .tour-links { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-.tour-link { text-decoration: none; }
+.tour-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.tour-link-ico { display: inline-flex; }
+.tour-link-ico svg { width: 18px; height: 18px; display: block; }
+.tour-link-bmc {
+  flex: 1 1 100%;
+  background: #ffdd00;
+  color: #17120b;
+  border: none;
+  font-weight: 700;
+  font-size: 15px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  box-shadow: 0 4px 16px rgba(255, 221, 0, 0.32);
+}
+.tour-link-bmc:hover { filter: brightness(0.97); }
+.tour-link-instagram,
+.tour-link-github { flex: 1 1 0; }
+
+/* Developer photo + heart badge (support step visual). */
+.tour-support-visual {
+  height: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+}
+.tour-avatar-wrap { position: relative; display: inline-block; }
+.tour-avatar {
+  width: 156px;
+  height: 156px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--accent);
+  display: block;
+}
+.tour-avatar-heart {
+  position: absolute;
+  right: 2px;
+  bottom: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.tour-avatar-heart svg { width: 22px; height: 22px; display: block; }
+
+/* Language switch inside the install guide (top of the sheet). */
+.ig-lang { align-self: flex-start; max-width: 200px; }

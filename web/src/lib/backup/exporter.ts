@@ -1,4 +1,4 @@
-// Export the ledger in the neutral "Money Tracker export" shape (exporter.py
+// Export the ledger in the neutral "Where Did My Money Go? export" shape (exporter.py
 // EXPORT_COLUMNS) — a faithful, re-importable copy. CSV is generated directly
 // (no SheetJS needed); the Excel path lazy-imports xlsx only when used, so the
 // heavy dependency never sits in a page's static graph.

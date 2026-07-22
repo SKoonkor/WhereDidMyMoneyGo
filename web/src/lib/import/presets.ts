@@ -21,7 +21,7 @@ export interface Profile {
   options: { date_order: DateOrder; decimal: Decimal }
 }
 
-// The neutral export layout (exporter.py EXPORT_COLUMNS) — a Money Tracker
+// The neutral export layout (exporter.py EXPORT_COLUMNS) — a Where Did My Money Go?
 // export re-imports one-to-one.
 export const EXPORT_COLUMNS = [
   'Id', 'Date', 'Type', 'Account', 'Category', 'Subcategory',
@@ -59,7 +59,7 @@ interface Preset {
 
 export const PRESETS: Preset[] = [
   {
-    name: 'Money Tracker export',
+    name: 'Where Did My Money Go? export',
     fingerprint: EXPORT_COLUMNS,
     columns: cols({
       Date: 'Date', Type: 'Type', Amount: 'Amount', Account: 'Account',

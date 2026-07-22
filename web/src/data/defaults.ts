@@ -19,6 +19,10 @@ export const DEFAULT_ACCOUNTS: string[] = [
 export const OTHER_NAME = 'Other'
 export const UNKNOWN_NAME = 'Unknown'
 
+// The app's display name, used in prose that refers to the app by name (kept the
+// same in every language — it's the product name, not a translated phrase).
+export const APP_NAME = 'Where Did My Money Go?'
+
 // Income categories have no subcategories by design; expense categories may.
 export interface Categories {
   income: Record<string, string[]>

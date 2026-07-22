@@ -60,7 +60,7 @@ export function parseBackup(text: string): Backup {
     typeof b.categories !== 'object' || b.categories == null ||
     !('income' in b.categories) || !('expense' in b.categories)
   ) {
-    throw new Error("This doesn't look like a Money Tracker backup file.")
+    throw new Error("This doesn't look like a Where Did My Money Go? backup file.")
   }
   return b as Backup
 }

@@ -79,14 +79,14 @@ export function AiCapture({
         : (
             <button type="button" className="receipt-drop" onClick={() => fileRef.current?.click()}>
               <span className="receipt-drop-icon" aria-hidden="true">📷</span>
-              <span>{t('Take or choose a photo of the receipt')}</span>
+              <span>{t('Take a photo of the receipt')}</span>
             </button>
           )}
 
       {phase === 'error' && <p className="amt-expense" style={{ marginTop: 8 }}>{error}</p>}
 
       <p className="set-hint" style={{ marginTop: 10 }}>
-        {t('The photo is sent to your AI provider to read it, then you confirm before it’s saved.')}
+        {t('The photo is sent to your AI provider to read it, then you confirm before it’s saved. The app itself never reads or stores the image on your phone.')}
       </p>
 
       <div className="row" style={{ gap: 12, marginTop: 12 }}>

@@ -99,6 +99,6 @@ describe('backup / restore', () => {
 
   it('rejects a non-backup file', () => {
     expect(() => parseBackup('not json')).toThrow(/valid JSON/)
-    expect(() => parseBackup('{"app":"something-else"}')).toThrow(/Money Tracker backup/)
+    expect(() => parseBackup('{"app":"something-else"}')).toThrow(/Where Did My Money Go\? backup/)
   })
 })

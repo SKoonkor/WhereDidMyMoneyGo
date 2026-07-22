@@ -2,7 +2,15 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { t } from '../../i18n'
 import {
   IntroMock, RecordMock, TabBarMock, AppsMock, SettingsMock, ImportMock, BackupMock, SupportMock,
+  BmcIcon, InstagramIcon, GithubIcon,
 } from './TourMockups'
+
+type Brand = 'bmc' | 'instagram' | 'github'
+const BRAND_ICON: Record<Brand, ReactNode> = {
+  bmc: <BmcIcon />,
+  instagram: <InstagramIcon />,
+  github: <GithubIcon />,
+}
 
 // The first-run tour: a step-0 intro, six feature steps, and a closing
 // support-the-developer step. Each pairs a built-in SVG mockup with a short EN/TH
@@ -12,14 +20,14 @@ interface Step {
   mock: ReactNode
   title: string
   body: string
-  links?: Array<{ label: string; href: string }>
+  links?: Array<{ label: string; href: string; brand: Brand }>
 }
 
 function steps(): Step[] {
   return [
     {
       mock: <IntroMock />,
-      title: t('Welcome to Where Did My Money GO?'),
+      title: t('Welcome to Where Did My Money Go?'),
       body: t('A simple way to track what you earn and spend. Everything you record is stored only on this phone — no account, no cloud, nothing ever leaves your device. Here’s a quick tour.'),
     },
     {
@@ -55,10 +63,11 @@ function steps(): Step[] {
     {
       mock: <SupportMock />,
       title: t('Support the developer'),
-      body: t('This app is built by one person and is free to use. If it helps you, a follow or a hello means a lot — thank you!'),
+      body: t('This app is built by one person and is free to use. If it helps you, a coffee, a follow, or a hello means a lot — thank you!'),
       links: [
-        { label: t('Instagram'), href: 'https://www.instagram.com/suttikoonkoonkor/' },
-        { label: t('GitHub'), href: 'https://skoonkor.github.io' },
+        { label: t('Buy me a coffee'), href: 'https://buymeacoffee.com/skoonkor', brand: 'bmc' },
+        { label: t('Instagram'), href: 'https://www.instagram.com/suttikoonkoonkor/', brand: 'instagram' },
+        { label: t('GitHub'), href: 'https://skoonkor.github.io', brand: 'github' },
       ],
     },
   ]
@@ -98,8 +107,15 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
           {step.links && (
             <div className="tour-links">
               {step.links.map((l) => (
-                <a key={l.href} className="btn ghost tour-link" href={l.href} target="_blank" rel="noopener noreferrer">
-                  {l.label} ↗
+                <a
+                  key={l.href}
+                  className={l.brand === 'bmc' ? 'btn tour-link tour-link-bmc' : `btn ghost tour-link tour-link-${l.brand}`}
+                  href={l.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="tour-link-ico">{BRAND_ICON[l.brand]}</span>
+                  {l.label}
                 </a>
               ))}
             </div>

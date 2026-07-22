@@ -1,9 +1,46 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Modal } from '../../components/Modal'
+import { useLang } from '../../prefs'
+import { APP_NAME } from '../../data/defaults'
 import { t } from '../../i18n'
 import {
   canPromptInstall, detectPlatform, onInstallAvailability, promptInstall, type Platform,
 } from './onboarding'
+
+// Render a translated string that contains an `{app}` slot, emphasising the app
+// name (italic + bold) wherever it appears in the prose.
+function renderWithApp(template: string) {
+  return template.split('{app}').map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && <em className="app-name-em">{APP_NAME}</em>}
+      {part}
+    </Fragment>
+  ))
+}
+
+// EN/TH switch shown inside the guide — a first-time visitor may land here before
+// finding Settings, and their phone's default language may differ from the app's.
+function LangToggle() {
+  const [lang, toggle] = useLang()
+  const opts: Array<{ value: 'en' | 'th'; label: string }> = [
+    { value: 'en', label: 'English' },
+    { value: 'th', label: 'ไทย' },
+  ]
+  return (
+    <div className="seg ig-lang" style={{ marginBottom: 0 }}>
+      {opts.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={o.value === lang ? 'seg-btn active' : 'seg-btn'}
+          onClick={() => { if (o.value !== lang) toggle() }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 // The iOS Share glyph (square with an up-arrow) and Android overflow menu (⋮),
 // drawn inline so the steps show the exact control the user is looking for.
@@ -67,8 +104,9 @@ export function InstallGuide({ onClose }: { onClose: () => void }) {
   return (
     <Modal title={t('Add to your home screen')} onClose={onClose}>
       <div className="install-guide">
+        <LangToggle />
         <p className="ig-intro">
-          {t('Add Money Tracker to your home screen to open it like a normal app — full-screen, offline, and one tap away. It stays completely on your device.')}
+          {renderWithApp(t('Add {app} to your home screen to open it like a normal app — full-screen, offline, and one tap away. It stays completely on your device.'))}
         </p>
 
         {/* Chromium can install with one tap; offer it up front when available. */}
