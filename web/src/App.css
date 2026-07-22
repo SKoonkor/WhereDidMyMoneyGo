@@ -1034,15 +1034,40 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 
 /* Manage accounts & categories. */
-.manage-section {
-  margin-bottom: 28px;
+/* Collapsible Accounts / Categories boxes (tap the header to fold/unfold). */
+.manage-box {
+  margin-bottom: 14px;
 }
-.manage-h2 {
+.manage-box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.manage-box-title {
   font-size: 15px;
-  color: var(--muted);
-  margin: 0 0 8px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.manage-box-count { color: var(--muted); font-weight: 400; }
+.manage-box-caret { color: var(--muted); font-size: 18px; line-height: 1; }
+/* Smooth height via grid-rows (same technique as the Budget settings box). */
+.manage-box-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.manage-box-body.open { grid-template-rows: 1fr; }
+.manage-box-inner { overflow: hidden; min-height: 0; }
+.manage-box-body.open .manage-box-inner { padding-top: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .manage-box-body { transition: none; }
 }
 .manage-list {
   display: flex;

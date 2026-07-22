@@ -213,8 +213,36 @@ function SubList({ category }: { category: string }) {
   )
 }
 
+// A collapsible box that folds its contents down to just a tappable header.
+// Collapsed by default so the (potentially long) Accounts / Categories lists
+// don't fill the page on load — the user opens the one they want to edit.
+function CollapseBox({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className="card manage-box">
+      <button
+        type="button"
+        className="manage-box-head"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="manage-box-title">
+          {title}
+          {count != null && <span className="manage-box-count"> · {count}</span>}
+        </span>
+        <span className="manage-box-caret">{open ? '⌃' : '⌄'}</span>
+      </button>
+      <div className={open ? 'manage-box-body open' : 'manage-box-body'}>
+        <div className="manage-box-inner">{children}</div>
+      </div>
+    </section>
+  )
+}
+
 export function ManagePage() {
   const [kind, setKind] = useState<'income' | 'expense'>('expense')
+  const accounts = useAccounts()
+  const categories = useCategories()
 
   return (
     <div>
@@ -223,13 +251,11 @@ export function ManagePage() {
         {t('Grab the ⠿ handle to drag a row into order.')}
       </p>
 
-      <section className="manage-section">
-        <h2 className="manage-h2">{t('Accounts')}</h2>
+      <CollapseBox title={t('Accounts')} count={accounts.length}>
         <AccountList />
-      </section>
+      </CollapseBox>
 
-      <section className="manage-section">
-        <h2 className="manage-h2">{t('Categories')}</h2>
+      <CollapseBox title={t('Categories')} count={Object.keys(categories[kind]).length}>
         <div className="seg">
           {(['expense', 'income'] as const).map((k) => (
             <button
@@ -243,7 +269,7 @@ export function ManagePage() {
           ))}
         </div>
         <CategoryList kind={kind} />
-      </section>
+      </CollapseBox>
     </div>
   )
 }
