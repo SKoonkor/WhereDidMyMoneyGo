@@ -20,6 +20,9 @@ export interface GaugeOpts {
 export function buildGoalGauge(opts: GaugeOpts) {
   const { balance, currency, censor, ink, bands, title, subtitle, footer } = opts
   const pooledTarget = Math.max(opts.pooledTarget, 1)
+  // The box supplies its own "SAVINGS POOL" header now, so `title` is usually ''.
+  // Drop the heading line (and reclaim its top margin) when it's empty.
+  const heading = title ? `${title}<br>` : ''
 
   return {
     data: [
@@ -29,7 +32,7 @@ export function buildGoalGauge(opts: GaugeOpts) {
         value: balance,
         delta: { reference: pooledTarget, valueformat: ',.0f' },
         number: { suffix: ` ${currency}`, valueformat: ',.0f' },
-        title: { text: `${title}<br><span style="font-size:0.8em;opacity:0.7">${subtitle}</span>` },
+        title: { text: `${heading}<span style="font-size:0.8em;opacity:0.7">${subtitle}</span>` },
         gauge: {
           axis: { range: [0, pooledTarget], visible: !censor },
           bar: { color: SAVING_COLOR },
@@ -43,10 +46,10 @@ export function buildGoalGauge(opts: GaugeOpts) {
       },
     ] as Dict[],
     layout: {
-      height: 340,
+      height: title ? 340 : 300,
       paper_bgcolor: 'rgba(0,0,0,0)',
       plot_bgcolor: 'rgba(0,0,0,0)',
-      margin: { t: 96, b: 44, l: 26, r: 26 },
+      margin: { t: title ? 96 : 60, b: 44, l: 26, r: 26 },
       font: { color: ink },
       annotations: [{ text: footer, x: 0.5, y: -0.04, xref: 'paper', yref: 'paper', showarrow: false, font: { size: 13, color: ink } }],
     } as Dict,

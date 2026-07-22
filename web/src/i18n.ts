@@ -84,6 +84,10 @@ const TH: Record<string, string> = {
   'Plan your spending with the 50/30/20 rule.': 'วางแผนการใช้จ่ายด้วยกฎ 50/30/20',
   'This period': 'สำหรับเดือนนี้',
   '{start} – {end} · income {income} ({mode})': '{start} – {end} · รายรับ {income} ({mode})',
+  'THIS PERIOD : {start} - {end}  |  Income : {income} ({mode})':
+    'สำหรับงวดนี้ : {start} - {end}  |  รายรับ : {income} ({mode})',
+  '{n} months rolling average': 'เฉลี่ยย้อนหลัง {n} เดือน',
+  'Account balances': 'ยอดคงเหลือแต่ละบัญชี',
   fixed: 'คงที่',
   'rolling average': 'เฉลี่ย',
   Needs: 'จำเป็น',

@@ -8,10 +8,13 @@ const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 
 function money(n: number, censor: boolean): string {
   return censor ? '•••' : fmt(n)
 }
-// "01 Jul" from an ISO date.
-function dayLabel(isoDate: string): string {
+// "01 Jul" (no year) or "01 Aug 2026" (with year) from an ISO date. Composed
+// day-first explicitly so the order holds regardless of the device locale.
+function dayLabel(isoDate: string, withYear = false): string {
   const [y, m, d] = isoDate.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
+  const mon = new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short' })
+  const day = String(d).padStart(2, '0')
+  return withYear ? `${day} ${mon} ${y}` : `${day} ${mon}`
 }
 
 const BUCKET_ORDER: Bucket[] = [NEEDS, WANTS, SAVINGS]
@@ -20,15 +23,17 @@ const BUCKET_ORDER: Bucket[] = [NEEDS, WANTS, SAVINGS]
 // Presentational — the caller supplies the summary (BudgetPage varies the month;
 // Home passes the current month). Pure CSS bars, no Plotly.
 export function ThisPeriodBudget({ summary, censor }: { summary: BudgetSummary; censor: boolean }) {
+  const modeText = summary.mode === 'rolling'
+    ? t('{n} months rolling average', { n: summary.rollingMonths })
+    : t('fixed')
   return (
     <>
-      <div className="dash-title">{t('This period')}</div>
-      <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-        {t('{start} – {end} · income {income} ({mode})', {
+      <p className="muted budget-period" style={{ fontSize: 13, margin: '0 0 8px' }}>
+        {t('THIS PERIOD : {start} - {end}  |  Income : {income} ({mode})', {
           start: dayLabel(summary.start),
-          end: dayLabel(summary.end),
+          end: dayLabel(summary.end, true),
           income: censor ? '•••' : fmt(summary.income),
-          mode: t(summary.mode === 'rolling' ? 'rolling average' : 'fixed'),
+          mode: modeText,
         })}
       </p>
       {BUCKET_ORDER.map((name) => {

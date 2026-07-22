@@ -118,7 +118,7 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 
 .app-main {
   flex: 1;
-  padding: 20px clamp(12px, 4vw, 28px);
+  padding: 10px clamp(6px, 2vw, 14px);
   /* Clear the fixed bottom tab bar (~64px) + the iPhone home indicator. */
   padding-bottom: calc(84px + env(safe-area-inset-bottom));
   max-width: 900px;
@@ -224,7 +224,17 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .subcat-row .subcat-name { padding-left: 14px; color: var(--ink); }
 .subcat-amt { font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 
-/* Home dashboard. */
+/* Home dashboard. One flex column owns all vertical spacing so every box is the
+   same distance apart; per-card margins are zeroed inside it. */
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.home > .card,
+.home > p {
+  margin: 0;
+}
 .dash-card {
   margin-top: 16px;
 }
@@ -235,17 +245,17 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.nw-hero {
-  margin-top: 12px;
-}
 .nw-label {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .nw-value {
   font-size: 34px;
   font-weight: 700;
   margin-top: 2px;
+  text-align: center;
 }
 .nw-cur {
   font-size: 16px;
@@ -1278,7 +1288,7 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 
 /* ── Financial Goals + Savings Pool ────────────────────────────────────────── */
-.goals-gauge-card { margin-bottom: 16px; padding: 4px 8px; }
+.goals-gauge-card { margin-bottom: 16px; padding: 16px 16px 6px; }
 
 .goal-row {
   display: flex;

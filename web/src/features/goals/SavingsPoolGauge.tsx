@@ -61,7 +61,7 @@ export function SavingsPoolGauge() {
       censor,
       ink: cssVar('--ink', '#e6e9ee'),
       bands: gaugeBands(theme === 'dark'),
-      title: t('Savings Pool'),
+      title: '', // the box header below shows "SAVINGS POOL" now
       subtitle: subtitle + targetLine,
       footer,
     })
@@ -72,6 +72,7 @@ export function SavingsPoolGauge() {
 
   return (
     <section className="card goals-gauge-card">
+      <div className="dash-title">{t('Savings Pool')}</div>
       <Plot data={fig.data} layout={fig.layout} ariaLabel={t('Savings Pool')} style={{ width: '100%' }} />
     </section>
   )

@@ -207,6 +207,7 @@ export interface BucketSummary {
 export interface BudgetSummary {
   income: number
   mode: 'fixed' | 'rolling'
+  rollingMonths: number // window size when mode is 'rolling' (for the "N months rolling average" label)
   start: string
   end: string
   buckets: Record<Bucket, BucketSummary>
@@ -227,6 +228,7 @@ export function budgetSummary(txns: Txn[], cfg: BudgetCfg, resetDay = 1, today =
   return {
     income,
     mode: cfg.mode,
+    rollingMonths: Math.max(1, Math.trunc(cfg.rollingMonths)),
     start,
     end,
     buckets: {
@@ -253,7 +255,7 @@ export function monthBudgetSummary(txns: Txn[], cfg: BudgetCfg, month: string, t
   const savT = (income * (pct.Savings ?? 0)) / 100
   const savActual = income - spent.Needs - spent.Wants
   return {
-    income, mode: cfg.mode, start, end,
+    income, mode: cfg.mode, rollingMonths: Math.max(1, Math.trunc(cfg.rollingMonths)), start, end,
     buckets: {
       Needs: { target: needsT, spent: spent.Needs, remaining: needsT - spent.Needs },
       Wants: { target: wantsT, spent: spent.Wants, remaining: wantsT - spent.Wants },

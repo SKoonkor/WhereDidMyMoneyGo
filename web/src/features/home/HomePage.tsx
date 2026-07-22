@@ -43,7 +43,7 @@ export function HomePage() {
   }, [accounts, balances])
 
   return (
-    <div>
+    <div className="home">
       {/* Net worth — masked as ****** in privacy mode (kept crisp, no CSS blur). */}
       <div className="card nw-hero">
         <div className="nw-label">{t('Net worth')}</div>
@@ -61,6 +61,7 @@ export function HomePage() {
       {/* Budget — this period's 50/30/20 bars. */}
       {budgetSummary && (
         <section className="card budget-card">
+          <div className="dash-title">{t('Budget')}</div>
           <ThisPeriodBudget summary={budgetSummary} censor={censor} />
         </section>
       )}
@@ -70,7 +71,7 @@ export function HomePage() {
 
       {/* Per-account balances. */}
       <div className="card dash-card">
-        <div className="dash-title">{t('Accounts')}</div>
+        <div className="dash-title">{t('Account balances')}</div>
         {acctRows.map(([name, bal]) => (
           <div key={name} className="acct-row">
             <span>{name}</span>
@@ -79,7 +80,7 @@ export function HomePage() {
         ))}
       </div>
 
-      <p className="muted" style={{ marginTop: 16 }}>{t('Your data is stored on this device only.')}</p>
+      <p className="muted">{t('Your data is stored on this device only.')}</p>
     </div>
   )
 }
