@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMoneyFlow, FLOW_PLOT_CONFIG } from './useMoneyFlow'
 import { Plot } from '../../components/Plot'
+import { useTheme } from '../../prefs'
 import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
@@ -21,6 +22,7 @@ const HORIZONS: Array<{ label: string; days: number }> = [
 export function FlowPage() {
   const [horizon, setHorizon] = useState(30)
   const [sliderIdx, setSliderIdx] = useState(0)
+  const [theme] = useTheme()
 
   const { fig, fc, flow, currency, censor } = useMoneyFlow(horizon, 60)
 
@@ -44,6 +46,29 @@ export function FlowPage() {
   const sliderAmount = fc ? fc.median[dayOffset] : 0
   const finalDate = fc ? fc.dates[fc.dates.length - 1] : ''
 
+  // A blue dot on the forecast line at the slider's date/amount — it moves with
+  // the slider to show where the projected net worth lands. Ringed in the card
+  // colour so it reads cleanly on the dashed forecast line in either theme. Built
+  // here (not in the memoized figure) so only this light marker updates on scrub.
+  const ringColor = useMemo(
+    () => getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#273140',
+    [theme],
+  )
+  const plotData = useMemo(() => {
+    if (!fc || stops.length <= 1 || !sliderDate) return fig.data
+    const dot = {
+      type: 'scatter',
+      mode: 'markers',
+      x: [sliderDate],
+      y: [sliderAmount],
+      marker: { color: '#3498db', size: 12, line: { color: ringColor, width: 2.5 } },
+      hoverinfo: 'skip',
+      showlegend: false,
+      cliponaxis: false,
+    }
+    return [...fig.data, dot]
+  }, [fig.data, fc, stops.length, sliderDate, sliderAmount, ringColor])
+
   // Let the user tap anywhere on the track and drag from there — native range
   // inputs on touch only drag from the thumb, so drive the value from the
   // pointer position directly (with pointer capture for a continuous drag).
@@ -63,7 +88,7 @@ export function FlowPage() {
 
       {/* Plot first, then the forecast controls below it. */}
       <div className="card" style={{ padding: 8 }}>
-        <Plot data={fig.data} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
+        <Plot data={plotData} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
       </div>
 
       {/* Latest balances live in their own box below the plot. */}
