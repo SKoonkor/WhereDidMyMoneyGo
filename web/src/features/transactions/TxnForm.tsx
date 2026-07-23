@@ -87,21 +87,34 @@ export function TxnForm({
     }
   }, [kind, catNames, category])
 
+  // Required-field validation. `attempted` flips on the first Save press, so the
+  // red outlines appear only after the user tries to save; they then clear live as
+  // each field is corrected. Note is optional (blank → "-" in the list).
+  const [attempted, setAttempted] = useState(false)
+  const amountNum = parseFloat(amount)
+  const errors = {
+    date: !period,
+    amount: !(amountNum > 0),
+    account: kind !== 'Transfer' && !account,
+    category: kind !== 'Transfer' && !category,
+    from: kind === 'Transfer' && !from,
+    to: kind === 'Transfer' && (!to || to === from),
+  }
+  const invalid = (k: keyof typeof errors) => attempted && errors[k]
+
   async function save(e: React.FormEvent) {
     e.preventDefault()
-    const value = parseFloat(amount)
-    if (!value || value <= 0) return
+    setAttempted(true)
+    if (Object.values(errors).some(Boolean)) return // highlight the offending fields
 
     if (kind === 'Transfer') {
-      if (!from || !to || from === to) return
-      const tr = { period, amount: value, from, to, note: note || undefined }
+      const tr = { period, amount: amountNum, from, to, note: note || undefined }
       if (editing?.transferId) await updateTransfer(editing.transferId, tr)
       else await addTransfer(tr)
     } else {
-      if (!account || !category) return // require an explicit pick
       const type: TxnType = kind // Income | Expense map 1:1
       const row = {
-        period, account, amount: value, type,
+        period, account, amount: amountNum, type,
         category,
         subcategory: kind === 'Expense' ? subcategory || undefined : undefined,
         note: note || undefined,
@@ -139,39 +152,40 @@ export function TxnForm({
       </div>
 
       <div className="row">
-        <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
+        <div className={`field${invalid('date') ? ' is-invalid' : ''}`} style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Date')}</label>
           {/* Blur on pick so the native calendar closes and applies immediately. */}
           <input
             type="date"
             value={period}
+            aria-invalid={invalid('date') || undefined}
             onChange={(e) => { setPeriod(e.target.value); e.target.blur() }}
           />
         </div>
-        <div className="field" style={{ flex: '1 1 0', minWidth: 0 }}>
+        <div className={`field${invalid('amount') ? ' is-invalid' : ''}`} style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Amount')} ({currency})</label>
-          <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
+          <input inputMode="decimal" value={amount} aria-invalid={invalid('amount') || undefined} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
         </div>
       </div>
 
       {kind === 'Transfer' ? (
         <>
-          <div className="field pick-field">
+          <div className={`field pick-field${invalid('from') ? ' is-invalid' : ''}`}>
             <label>{t('From')}</label>
             <ChipPicker value={from} options={accounts} onChange={setFrom} onAddNew={addAccount} title={t('From')} placeholder={t('Select account')} />
           </div>
-          <div className="field pick-field">
+          <div className={`field pick-field${invalid('to') ? ' is-invalid' : ''}`}>
             <label>{t('To')}</label>
             <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} title={t('To')} placeholder={t('Select account')} />
           </div>
         </>
       ) : (
         <>
-          <div className="field pick-field">
+          <div className={`field pick-field${invalid('account') ? ' is-invalid' : ''}`}>
             <label>{t('Account')}</label>
             <ChipPicker value={account} options={accounts} onChange={setAccount} onAddNew={addAccount} title={t('Account')} placeholder={t('Select account')} />
           </div>
-          <div className="field pick-field">
+          <div className={`field pick-field${invalid('category') ? ' is-invalid' : ''}`}>
             <label>{t('Category')}</label>
             <CategoryPicker
               kind={kind}

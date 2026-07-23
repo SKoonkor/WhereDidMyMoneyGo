@@ -696,6 +696,19 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   -webkit-appearance: none;
 }
 
+/* Required-field validation: after a failed Save press, invalid required fields
+   (date, amount, account/from, category/to) grow a red outline that eases in and
+   clears live once fixed. Note is optional, so it's never flagged. */
+.txn-form .field input,
+.txn-form .pick-summary {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.txn-form .field.is-invalid input,
+.txn-form .field.is-invalid .pick-summary {
+  border-color: var(--expense);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent);
+}
+
 .txn-list {
   list-style: none;
   padding: 0;
