@@ -57,6 +57,16 @@ describe('month utils', () => {
     expect(groupByDay(rows).map(([d]) => d)).toEqual(['2026-07-05', '2026-07-01'])
   })
 
+  it('within a day, newest-added (higher id) sorts first', () => {
+    const rows = [
+      T({ id: 5, period: '2026-07-10' }),
+      T({ id: 9, period: '2026-07-10' }),
+      T({ id: 7, period: '2026-07-10' }),
+    ]
+    const [[, dayRows]] = groupByDay(rows)
+    expect(dayRows.map((r) => r.id)).toEqual([9, 7, 5])
+  })
+
   it('filterByRange includes both endpoints', () => {
     const rows = [
       T({ id: 1, period: '2026-07-01' }),

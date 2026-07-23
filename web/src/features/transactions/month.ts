@@ -64,13 +64,16 @@ export function collapseTransfers(txns: Txn[]): Txn[] {
   return txns.filter((t) => !(t.type === 'Transfer-In' && t.transferId && outLinks.has(t.transferId)))
 }
 
-// Group rows by day (date desc), each group already sorted newest-first.
+// Group rows by day (date desc). Within a day, newest-added first: `id` is an
+// auto-increment key, so a higher id is the more recently added row and sorts on
+// top of the earlier transactions of that same day.
 export function groupByDay(txns: Txn[]): [string, Txn[]][] {
   const byDay = new Map<string, Txn[]>()
   for (const t of txns) {
     const day = t.period.slice(0, 10)
     ;(byDay.get(day) ?? byDay.set(day, []).get(day)!).push(t)
   }
+  for (const rows of byDay.values()) rows.sort((a, b) => b.id - a.id)
   return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
 }
 
