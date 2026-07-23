@@ -34,6 +34,18 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.3.0',
+    date: '23-07-2026',
+    changes: [
+      { kind: 'fixed', text: 'Newest transaction now appears at the top of its day.' },
+      { kind: 'improved', text: 'Add/Edit transaction highlights any missing required field in red.' },
+      { kind: 'new', text: 'Confirm before saving an unusual date — in the future, or more than 10 days ago.' },
+      { kind: 'improved', text: 'Day totals now match the size of the transaction amounts.' },
+      { kind: 'new', text: 'Money Flow forecast marks the slider’s projected point with a dot on the chart.' },
+      { kind: 'improved', text: 'Money Flow notes that the forecast is illustrative, not a guarantee.' },
+    ],
+  },
+  {
     version: '0.2.0',
     date: '23-07-2026',
     changes: [
