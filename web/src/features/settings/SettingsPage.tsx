@@ -7,6 +7,8 @@ import { AI_MODELS, AI_MODELS_URL, DEFAULT_SETTINGS, type AiCfg, type AiProvider
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
 import { makeProvider } from '../../lib/ai'
 import { openOnboarding } from '../onboarding/onboarding'
+import { Modal } from '../../components/Modal'
+import { CHANGELOG, CHANGE_LABEL } from '../../data/changelog'
 import { t, tBilingual } from '../../i18n'
 
 // Merge a patch onto the freshest stored settings, so independent settings
@@ -464,6 +466,41 @@ function ToolButton({ icon, title, desc, onClick }: { icon?: string; title: stri
   )
 }
 
+// A plain text link at the very bottom of Settings that opens the app's release
+// notes in a modal. Newest version on top, marked "(this version)".
+function VersionHistory() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" className="set-version-link" onClick={() => setOpen(true)}>
+        {t('Version history')}
+      </button>
+      {open && (
+        <Modal title={t('Version history')} onClose={() => setOpen(false)}>
+          <ol className="ver-list">
+            {CHANGELOG.map((rel, i) => (
+              <li key={rel.version} className="ver-item">
+                <div className="ver-head">
+                  <span className="ver-num">{rel.version}</span>
+                  {i === 0 && <span className="ver-current">{t('(this version)')}</span>}
+                </div>
+                <ul className="ver-changes">
+                  {rel.changes.map((c, j) => (
+                    <li key={j} className="ver-change">
+                      <span className={`ver-tag ver-tag-${c.kind}`}>{t(CHANGE_LABEL[c.kind])}</span>
+                      <span className="ver-change-text">{t(c.text)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ol>
+        </Modal>
+      )}
+    </>
+  )
+}
+
 export function SettingsPage() {
   return (
     <div>
@@ -485,6 +522,8 @@ export function SettingsPage() {
       <p className="muted" style={{ marginTop: 4 }}>
         {t('Your data is stored on this device only.')}
       </p>
+
+      <VersionHistory />
     </div>
   )
 }
