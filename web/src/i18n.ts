@@ -82,6 +82,7 @@ const TH: Record<string, string> = {
   'Latest balances': 'ยอดคงเหลือปัจจุบัน',
   'Balance after': 'ยอดคงเหลือหลังรายการ',
   'Hidden cost (untracked)': 'รายการที่ไม่ได้บันทึก',
+  'The forecast is not a guarantee of future wealth. It only shows what your balance could look like if your past spending and income habits continued.': 'การคาดการณ์นี้ไม่ได้รับประกันความมั่งคั่งในอนาคต เป็นเพียงภาพจำลองว่ายอดเงินของคุณอาจเป็นอย่างไรหากพฤติกรรมการใช้จ่ายและรายรับที่ผ่านมายังคงเป็นเช่นเดิม',
   'Add a few more weeks of history to see a forecast.': 'เพิ่มข้อมูลย้อนหลังอีกสองสามสัปดาห์เพื่อดูการพยากรณ์',
   '30 d': '30 วัน',
   '90 d': '90 วัน',

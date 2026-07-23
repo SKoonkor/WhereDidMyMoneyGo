@@ -1107,6 +1107,14 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   font-size: 12px;
   margin-top: -2px;
 }
+/* Honest note that the forecast is illustrative, not a promise. */
+.flow-disclaimer {
+  margin: 4px 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  font-style: italic;
+}
 
 /* Small button variant + destructive tint (used by Manage). */
 .btn.sm {

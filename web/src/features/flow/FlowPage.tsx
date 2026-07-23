@@ -176,6 +176,12 @@ export function FlowPage() {
           {t('Add a few more weeks of history to see a forecast.')}
         </p>
       )}
+
+      {fc && (
+        <p className="flow-disclaimer">
+          {t('The forecast is not a guarantee of future wealth. It only shows what your balance could look like if your past spending and income habits continued.')}
+        </p>
+      )}
     </div>
   )
 }
