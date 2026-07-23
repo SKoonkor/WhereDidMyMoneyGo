@@ -467,28 +467,30 @@ function ToolButton({ icon, title, desc, onClick }: { icon?: string; title: stri
 }
 
 // A plain text link at the very bottom of Settings that opens the app's release
-// notes in a modal. Newest version on top, marked "(this version)".
+// notes in a modal. Newest version on top, marked "(this version)". English-only
+// by design — the log is kept short and untranslated.
 function VersionHistory() {
   const [open, setOpen] = useState(false)
   return (
     <>
       <button type="button" className="set-version-link" onClick={() => setOpen(true)}>
-        {t('Version history')}
+        Version history
       </button>
       {open && (
-        <Modal title={t('Version history')} onClose={() => setOpen(false)}>
+        <Modal title="Version history" onClose={() => setOpen(false)}>
           <ol className="ver-list">
             {CHANGELOG.map((rel, i) => (
               <li key={rel.version} className="ver-item">
                 <div className="ver-head">
                   <span className="ver-num">{rel.version}</span>
-                  {i === 0 && <span className="ver-current">{t('(this version)')}</span>}
+                  {i === 0 && <span className="ver-current">(this version)</span>}
+                  <span className="ver-date">{rel.date}</span>
                 </div>
                 <ul className="ver-changes">
                   {rel.changes.map((c, j) => (
                     <li key={j} className="ver-change">
-                      <span className={`ver-tag ver-tag-${c.kind}`}>{t(CHANGE_LABEL[c.kind])}</span>
-                      <span className="ver-change-text">{t(c.text)}</span>
+                      <span className={`ver-tag ver-tag-${c.kind}`}>{CHANGE_LABEL[c.kind]}</span>
+                      <span className="ver-change-text">{c.text}</span>
                     </li>
                   ))}
                 </ul>
