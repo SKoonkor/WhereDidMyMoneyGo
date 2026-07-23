@@ -895,7 +895,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .day-totals {
   display: flex;
   gap: 12px;
-  font-size: 13px;
+  /* No font-size override: the day's Income/Expense totals inherit the base size,
+     so they read at the same scale as the per-transaction amounts in the rows. */
 }
 .day-totals .income { color: var(--income); }
 .day-totals .expense { color: var(--expense); }
