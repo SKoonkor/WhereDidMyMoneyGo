@@ -341,6 +341,13 @@ const TH: Record<string, string> = {
   'Target months': 'จำนวนเดือนเป้าหมาย',
   'Months of expenses to keep. Emergency Fund target = {amount}.': 'จำนวนเดือนของค่าใช้จ่ายที่ต้องการเก็บ เป้าหมายเงินออมฉุกเฉิน = {amount}',
   'Your data is stored on this device only.': 'ข้อมูลของคุณถูกเก็บไว้ในอุปกรณ์นี้เท่านั้น',
+  // --- Unusual-date confirmation ---
+  'Check the date': 'ตรวจสอบวันที่',
+  'This date is in the future ({date}). Do you want to save it anyway?': 'วันที่นี้เป็นวันในอนาคต ({date}) ต้องการบันทึกต่อไหม?',
+  'This date is more than 10 days ago ({date}). Do you want to save it anyway?': 'วันที่นี้ผ่านมาแล้วมากกว่า 10 วัน ({date}) ต้องการบันทึกต่อไหม?',
+  'Go back': 'ย้อนกลับ',
+  'Save anyway': 'บันทึกต่อไป',
+  'Ignore this warning for 30 minutes': 'ปิดการเตือนนี้เป็นเวลา 30 นาที',
   Accounts: 'บัญชี',
   Categories: 'หมวดหมู่',
   Rename: 'เปลี่ยนชื่อ',

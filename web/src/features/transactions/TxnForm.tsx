@@ -6,6 +6,8 @@ import {
 import { useAccounts, useCategories, useBaseCurrency } from './useConfig'
 import { ChipPicker } from './ChipPicker'
 import { CategoryPicker } from './CategoryPicker'
+import { Modal } from '../../components/Modal'
+import { dateStatus, isOldDateWarningSnoozed, snoozeOldDateWarning, type DateStatus } from './dateWarn'
 import { t, getLang } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
@@ -102,11 +104,13 @@ export function TxnForm({
   }
   const invalid = (k: keyof typeof errors) => attempted && errors[k]
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault()
-    setAttempted(true)
-    if (Object.values(errors).some(Boolean)) return // highlight the offending fields
+  // Unusual-date safeguard: which confirmation (if any) is currently blocking the
+  // save — 'future' or 'old'. Null means no confirmation is showing.
+  const [dateWarn, setDateWarn] = useState<DateStatus | null>(null)
 
+  // Write the row(s) and close. Called once validation (and any date confirmation)
+  // has passed.
+  async function commit() {
     if (kind === 'Transfer') {
       const tr = { period, amount: amountNum, from, to, note: note || undefined }
       if (editing?.transferId) await updateTransfer(editing.transferId, tr)
@@ -125,6 +129,22 @@ export function TxnForm({
     onClose()
   }
 
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    setAttempted(true)
+    if (Object.values(errors).some(Boolean)) return // highlight the offending fields
+
+    // Skip the date check when editing without touching the (legitimately old) date.
+    const dateUnchanged = editing && period === editing.period.slice(0, 10)
+    const status = dateUnchanged ? 'ok' : dateStatus(period, today())
+    // Future dates always confirm; past-date warnings can be snoozed for 30 min.
+    if (status === 'future' || (status === 'old' && !isOldDateWarningSnoozed())) {
+      setDateWarn(status)
+      return
+    }
+    await commit()
+  }
+
   async function remove() {
     if (editing && confirm(t('Delete this transaction?'))) {
       await deleteTxn(editing.id)
@@ -133,6 +153,7 @@ export function TxnForm({
   }
 
   return (
+    <>
     <form className="txn-form" onSubmit={save}>
       {notice && <p className="txn-notice" role="status">{notice}</p>}
       <div className="seg">
@@ -224,5 +245,33 @@ export function TxnForm({
         </div>
       </div>
     </form>
+
+    {/* Unusual-date confirmation. Future dates always ask; a past date beyond 10
+        days asks too, but offers a 30-minute snooze for back-entering old records. */}
+    {dateWarn && (
+      <Modal title={t('Check the date')} onClose={() => setDateWarn(null)}>
+        <p className="txn-warn-msg">
+          {dateWarn === 'future'
+            ? t('This date is in the future ({date}). Do you want to save it anyway?', { date: period })
+            : t('This date is more than 10 days ago ({date}). Do you want to save it anyway?', { date: period })}
+        </p>
+        <div className="row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+          <button type="button" className="btn" onClick={() => setDateWarn(null)}>{t('Go back')}</button>
+          <button type="button" className="btn btn-accent" onClick={() => { setDateWarn(null); void commit() }}>
+            {t('Save anyway')}
+          </button>
+        </div>
+        {dateWarn === 'old' && (
+          <button
+            type="button"
+            className="txn-warn-ignore"
+            onClick={() => { snoozeOldDateWarning(); setDateWarn(null); void commit() }}
+          >
+            {t('Ignore this warning for 30 minutes')}
+          </button>
+        )}
+      </Modal>
+    )}
+    </>
   )
 }

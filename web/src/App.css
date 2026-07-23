@@ -1343,6 +1343,22 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   background: color-mix(in srgb, #f39c12 16%, transparent);
   border: 1px solid color-mix(in srgb, #f39c12 45%, transparent);
 }
+/* Unusual-date confirmation dialog. */
+.txn-warn-msg { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.txn-warn-ignore {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 6px 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.txn-warn-ignore:hover { color: var(--ink); }
 .set-autosave {
   font-size: 12px;
   margin-top: 4px;
