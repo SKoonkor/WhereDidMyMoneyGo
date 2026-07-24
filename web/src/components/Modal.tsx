@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 // A lightweight bottom-sheet-style modal. Closes on backdrop click or Esc.
 export function Modal({
@@ -40,7 +41,14 @@ export function Modal({
     }
   }, [])
 
-  return (
+  // Portal to <body>: the inline `transform` set above makes this backdrop a new
+  // containing block for `position: fixed` descendants (CSS spec). A picker like
+  // ChipPicker/CategoryPicker opens its own Modal *inside* the Add/Edit transaction
+  // form's Modal — without the portal, that nested modal would be fixed relative to
+  // this transformed ancestor instead of the real viewport, so it wouldn't track the
+  // keyboard and could end up hidden behind it. Rendering every modal as a sibling of
+  // its parent at the document root keeps each one independently viewport-fixed.
+  return createPortal(
     <div className="modal-backdrop" ref={backdropRef} onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
         <div className="modal-head">
@@ -49,6 +57,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
