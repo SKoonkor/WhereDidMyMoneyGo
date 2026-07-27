@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts, getBudget, getGoals, getTax, saveBudget, saveGoals, saveTax } from '../../db'
+import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts, getBudget, getGoals, getTax, getHomeLayout, saveBudget, saveGoals, saveTax, saveHomeLayout } from '../../db'
 import { toExportRecords, toCsv } from './exporter'
 import { makeBackup, parseBackup, restoreBackup } from './backup'
 
@@ -69,7 +69,7 @@ describe('backup / restore', () => {
     await saveTax({ country: 'Thailand', allowances: { spouse: true, children: 2 }, incomeSelections: ['Salary'], taxSelections: ['Bills'] })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(3)
+    expect(backup.version).toBe(4)
     expect(backup.budget?.mode).toBe('rolling')
     expect(backup.goals?.selected).toEqual(['Car'])
     expect(backup.tax?.allowances.children).toBe(2)
@@ -95,6 +95,47 @@ describe('backup / restore', () => {
     await restoreBackup(parseBackup(JSON.stringify(v1)))
     // The v1 file had no goals key → the existing goals config is left intact.
     expect((await getGoals()).goals.Trip).toBe(50000)
+  })
+
+  it('round-trips the Home layout (v4)', async () => {
+    await saveHomeLayout({
+      version: 1,
+      items: [
+        { uid: 'smallrow', widget: 'smallrow', slots: ['mini-pie', null, 'mini-inout'] },
+        { uid: 'flow', widget: 'flow', collapsed: true },
+      ],
+    })
+    const backup = await makeBackup()
+    expect(backup.home?.items.map((i) => i.widget)).toEqual(['smallrow', 'flow'])
+
+    await db.transactions.clear()
+    await db.config.clear()
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+
+    const restored = await getHomeLayout()
+    expect(restored.items.map((i) => i.uid)).toEqual(['smallrow', 'flow'])
+    expect(restored.items[0].slots).toEqual(['mini-pie', null, 'mini-inout'])
+    expect(restored.items[1].collapsed).toBe(true)
+  })
+
+  it('normalizes a Home layout naming widgets this build cannot render', async () => {
+    const backup = await makeBackup()
+    const tampered = {
+      ...backup,
+      home: { version: 1, items: [{ uid: 'x', widget: 'from-the-future' }, { uid: 'flow', widget: 'flow' }] },
+    }
+    await restoreBackup(parseBackup(JSON.stringify(tampered)))
+    expect((await getHomeLayout()).items.map((i) => i.widget)).toEqual(['flow'])
+  })
+
+  it('leaves the current Home layout alone when restoring a pre-v4 file', async () => {
+    await saveHomeLayout({ version: 1, items: [{ uid: 'accounts', widget: 'accounts' }] })
+    const v3 = {
+      app: 'where-did-my-money-go', version: 3, exportedAt: new Date().toISOString(),
+      transactions: [], accounts: ['Cash'], categories: { income: {}, expense: {} },
+    }
+    await restoreBackup(parseBackup(JSON.stringify(v3)))
+    expect((await getHomeLayout()).items.map((i) => i.widget)).toEqual(['accounts'])
   })
 
   it('rejects a non-backup file', () => {

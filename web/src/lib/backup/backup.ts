@@ -3,16 +3,18 @@
 // confirm in the UI). Nothing here talks to a server.
 import {
   db, listTxns, getAccounts, getCategories, getSettings, getBudget, getGoals, getReconcileState, getTax,
-  saveAccounts, saveCategories, saveSettings, saveBudget, saveGoals, saveReconcileState, saveTax, type Txn,
+  getHomeLayout, saveAccounts, saveCategories, saveSettings, saveBudget, saveGoals, saveReconcileState,
+  saveTax, saveHomeLayout, type Txn,
 } from '../../db'
 import type { BudgetCfg, Categories, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
 import type { TaxCfg } from '../analytics/income_tax'
+import { normalizeLayout, type HomeLayout } from '../homeLayout'
 
 const APP_TAG = 'where-did-my-money-go'
 // v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals +
-// reconcile config; v3 adds tax config. Older files still restore (the new keys
-// are optional and left as-is when absent).
-const BACKUP_VERSION = 3
+// reconcile config; v3 adds tax config; v4 adds the Home screen layout. Older
+// files still restore (the new keys are optional and left as-is when absent).
+const BACKUP_VERSION = 4
 
 export interface Backup {
   app: typeof APP_TAG
@@ -26,6 +28,7 @@ export interface Backup {
   goals?: GoalsCfg
   reconcile?: ReconcileState
   tax?: TaxCfg
+  home?: HomeLayout
 }
 
 export async function makeBackup(): Promise<Backup> {
@@ -41,6 +44,7 @@ export async function makeBackup(): Promise<Backup> {
     goals: await getGoals(),
     reconcile: await getReconcileState(),
     tax: await getTax(),
+    home: await getHomeLayout(),
   }
 }
 
@@ -83,6 +87,9 @@ export async function restoreBackup(b: Backup): Promise<RestoreResult> {
     if (b.goals) await saveGoals(b.goals)
     if (b.reconcile) await saveReconcileState(b.reconcile)
     if (b.tax) await saveTax(b.tax)
+    // Normalized on the way in — a backup file is untrusted input, and one
+    // written by a newer build may name widgets this version can't render.
+    if (b.home) await saveHomeLayout(normalizeLayout(b.home))
   })
   return { transactions: b.transactions.length, accounts: b.accounts.length }
 }

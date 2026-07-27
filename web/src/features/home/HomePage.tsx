@@ -1,142 +1,159 @@
-import { useMemo, useRef, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getBudget, getReconcileState } from '../../db'
+import { getHomeLayout, getReconcileState, saveHomeLayout } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
-import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
-import { useCensor } from '../../prefs'
-import { currentMonthKey } from '../transactions/month'
-import { accountBalances } from '../../lib/balances'
-import { netWorth } from '../../lib/analytics/networth'
 import { reconcileReminderDue } from '../../lib/analytics/reconcile'
-import { monthBudgetSummary } from '../../lib/analytics/budget'
-import { useMoneyFlow, FLOW_PLOT_CONFIG } from '../flow/useMoneyFlow'
-import { ThisPeriodBudget } from '../budget/ThisPeriodBudget'
-import { SavingsPoolGauge } from '../goals/SavingsPoolGauge'
-import { Plot } from '../../components/Plot'
-import { CollapsibleCard } from '../../components/CollapsibleCard'
-import { Modal } from '../../components/Modal'
+import { useDragReorder } from '../../lib/useDragReorder'
+import {
+  addLarge, availableLarge, removeItem, reorderItems, setCollapsed, setSlot,
+  type HomeItem, type HomeLayout, type LargeWidgetId, type SmallWidgetId,
+} from '../../lib/homeLayout'
+import { LARGE } from './registry'
+import { WidgetFrame } from './WidgetFrame'
+import { WidgetActionSheet } from './WidgetActionSheet'
+import { WidgetPicker } from './WidgetPicker'
 import { t } from '../../i18n'
 
-const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+type Picking =
+  | { kind: 'large' }
+  | { kind: 'small'; uid: string; slot: number }
+
+const DRAG_OPTS = {
+  handle: '.home-drag',
+  ignore: '.home-remove, .small-slot-btn',
+  handleOnly: true,
+  // Home boxes range from a ~90px hero to a ~320px gauge, so the ghost offset
+  // has to be measured rather than derived from one row height.
+  variableHeight: true,
+}
 
 export function HomePage() {
   const all = useLiveTxns()
-  const accounts = useAccounts()
-  const currency = useBaseCurrency()
-  const [censor] = useCensor()
   const navigate = useNavigate()
-  // Double-tapping a box asks whether to open that section's full page.
-  const [navPrompt, setNavPrompt] = useState<{ label: string; to: string } | null>(null)
-  // A double-tap on a touchscreen fires a delayed "ghost" click ~300 ms later.
-  // That stray click would land on the just-opened dialog and dismiss it, so we
-  // ignore any dialog interaction until this window passes.
-  const promptOpenedAt = useRef(0)
-  const openPrompt = (p: { label: string; to: string }) => { promptOpenedAt.current = Date.now(); setNavPrompt(p) }
-  const promptSettling = () => Date.now() - promptOpenedAt.current < 400
+  const layout = useLiveQuery(() => getHomeLayout(), [])
+  const [editing, setEditing] = useState(false)
+  const [sheet, setSheet] = useState<HomeItem | null>(null)
+  const [picking, setPicking] = useState<Picking | null>(null)
 
-  const nw = useMemo(() => netWorth(all), [all])
-  const balances = useMemo(() => accountBalances(all), [all])
+  const items = useMemo(() => layout?.items ?? [], [layout])
+  const uids = useMemo(() => items.map((i) => i.uid), [items])
+  const byUid = useMemo(() => new Map(items.map((i) => [i.uid, i])), [items])
 
-  // Default money-flow figure (2 months history + 1 month forecast).
-  const { fig } = useMoneyFlow()
-
-  // Current-month budget summary for the "This period" bars.
-  const bcfg = useLiveQuery(() => getBudget(), [])
-  const budgetSummary = useMemo(
-    () => (bcfg ? monthBudgetSummary(all, bcfg, currentMonthKey()) : null),
-    [all, bcfg],
-  )
-
-  // Configured accounts in order, then any stray account that still holds money.
-  const acctRows = useMemo(() => {
-    const known = new Set(accounts)
-    const extra = Object.keys(balances).filter((a) => !known.has(a) && balances[a] !== 0)
-    return [...accounts, ...extra].map((a) => [a, balances[a] ?? 0] as [string, number])
-  }, [accounts, balances])
+  // Every mutation goes through the pure ops in homeLayout.ts and straight back
+  // to Dexie; useLiveQuery feeds the new layout back in.
+  const commit = (next: (l: HomeLayout) => HomeLayout) => {
+    if (layout) void saveHomeLayout(next(layout))
+  }
+  const drag = useDragReorder(uids, (order) => commit((l) => reorderItems(l, order)), DRAG_OPTS)
 
   // Reconcile nudge (only once the state has loaded, so it doesn't flash).
   const reconState = useLiveQuery(() => getReconcileState(), [])
   const reconcileDue = reconState !== undefined
     && reconcileReminderDue(reconState.lastReconciled ?? null, all.length > 0)
 
+  // The nudge is transient, not a widget the user arranges — so it stays out of
+  // the layout and is pinned just below the net-worth hero, exactly where it sat
+  // before the editor existed. It isn't draggable; useDragReorder only tracks
+  // uids, so an extra sibling in the list is harmless (drop positions feel ~64px
+  // off while dragging across it, on the few days a month it appears).
+  const reconAfter = items.some((i) => i.widget === 'networth') ? 'networth' : null
+
+  // One frame of nothing beats flashing the default layout over a custom one.
+  if (!layout) return null
+
+  const sheetDef = sheet ? LARGE[sheet.widget] : null
+  const reminder = reconcileDue && (
+    <div className="card recon-reminder" role="status">
+      <div className="recon-reminder-text">
+        <strong>{t('Time to reconcile')}</strong>
+        <span className="recon-reminder-sub">{t('Check your account balances match reality.')}</span>
+      </div>
+      <button type="button" className="btn recon-reminder-btn" onClick={() => navigate('/reconcile')}>
+        {t('Reconcile now')}
+      </button>
+    </div>
+  )
+
   return (
     <div className="home">
-      {/* Net worth — masked (bullets + blur) in privacy mode via the .money class. */}
-      <div className="card nw-hero">
-        <div className="nw-label">{t('Net worth')}</div>
-        <div className="nw-value">
-          <span className="money">{fmt(nw)}</span> <span className="nw-cur">{currency}</span>
-        </div>
+      <div className="home-list" {...drag.listProps}>
+        {reconAfter === null && reminder}
+        {drag.order.map((uid) => {
+          const item = byUid.get(uid)
+          if (!item) return null
+          return (
+            <Fragment key={uid}>
+              <WidgetFrame
+                item={item}
+                editing={editing}
+                collapsed={!!item.collapsed}
+                onToggleCollapse={() => commit((l) => setCollapsed(l, uid, !item.collapsed))}
+                onHold={() => setSheet(item)}
+                onRemove={() => commit((l) => removeItem(l, uid))}
+                onPickSlot={(slot) => setPicking({ kind: 'small', uid, slot })}
+                dragRef={drag.itemRef(uid)}
+                dragStyle={drag.itemStyle(uid)}
+                onDragPointerDown={drag.onItemPointerDown(uid)}
+                dragging={drag.dragging === uid}
+              />
+              {reconAfter === uid && reminder}
+            </Fragment>
+          )
+        })}
       </div>
 
-      {/* Reconcile reminder — a warning-orange nudge shown on the 1st of the month
-          or after 30+ days without reconciling (hidden when the ledger is empty). */}
-      {reconcileDue && (
-        <div className="card recon-reminder" role="status">
-          <div className="recon-reminder-text">
-            <strong>{t('Time to reconcile')}</strong>
-            <span className="recon-reminder-sub">{t('Check your account balances match reality.')}</span>
-          </div>
-          <button type="button" className="btn recon-reminder-btn" onClick={() => navigate('/reconcile')}>
-            {t('Reconcile now')}
-          </button>
-        </div>
-      )}
-
-      {/* Money flow: running balance + forward forecast (the default plot). */}
-      <CollapsibleCard
-        id="flow" title={t('Money Flow')} className="dash-card plot-card"
-        onNavigate={() => openPrompt({ label: t('Money Flow'), to: '/flow' })}
-      >
-        <Plot data={fig.data} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
-      </CollapsibleCard>
-
-      {/* Budget — this period's 50/30/20 bars. */}
-      {budgetSummary && (
-        <CollapsibleCard
-          id="budget" title={t('Budget')} className="budget-card"
-          onNavigate={() => openPrompt({ label: t('Budget'), to: '/budget' })}
+      {editing && (
+        <button
+          type="button" className="add-widget-tile"
+          onClick={() => setPicking({ kind: 'large' })}
         >
-          <ThisPeriodBudget summary={budgetSummary} censor={censor} hidePeriodLabel />
-        </CollapsibleCard>
+          + {t('Add widget')}
+        </button>
       )}
 
-      {/* Savings pool gauge (Emergency Fund + ticked goals). */}
-      <CollapsibleCard
-        id="pool" title={t('Savings Pool')} className="goals-gauge-card"
-        onNavigate={() => openPrompt({ label: t('Financial Goals'), to: '/goals' })}
+      <button
+        type="button"
+        className={`btn home-edit-btn ${editing ? 'btn-accent' : 'ghost'}`}
+        onClick={() => setEditing((v) => !v)}
       >
-        <SavingsPoolGauge bare />
-      </CollapsibleCard>
-
-      {/* Per-account balances. */}
-      <CollapsibleCard
-        id="accounts" title={t('Account balances')} className="dash-card"
-        onNavigate={() => openPrompt({ label: t('Transactions'), to: '/transactions' })}
-      >
-        {acctRows.map(([name, bal]) => (
-          <div key={name} className="acct-row">
-            <span>{name}</span>
-            <span className="money">{fmt(bal)}</span>
-          </div>
-        ))}
-      </CollapsibleCard>
+        {editing ? t('Done') : t('Edit layout')}
+      </button>
 
       <p className="muted">{t('Your data is stored on this device only.')}</p>
 
-      {navPrompt && (
-        <Modal title={t('Go to {section}?', { section: navPrompt.label })} onClose={() => { if (!promptSettling()) setNavPrompt(null) }}>
-          <p className="muted" style={{ margin: '0 0 14px' }}>
-            {t('Open the full {section} page?', { section: navPrompt.label })}
-          </p>
-          <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
-            <button type="button" className="btn ghost" onClick={() => { if (!promptSettling()) setNavPrompt(null) }}>{t('Cancel')}</button>
-            <button type="button" className="btn btn-accent" onClick={() => { if (promptSettling()) return; const to = navPrompt.to; setNavPrompt(null); navigate(to) }}>
-              {t('Open')}
-            </button>
-          </div>
-        </Modal>
+      {sheet && sheetDef && (
+        <WidgetActionSheet
+          title={t(sheetDef.title)}
+          canNavigate={!!sheetDef.route}
+          onNavigate={() => { const to = sheetDef.route!; setSheet(null); navigate(to) }}
+          onRemove={() => { commit((l) => removeItem(l, sheet.uid)); setSheet(null) }}
+          onClose={() => setSheet(null)}
+        />
+      )}
+
+      {picking?.kind === 'large' && (
+        <WidgetPicker
+          mode={{
+            kind: 'large',
+            options: availableLarge(layout),
+            onPick: (id: LargeWidgetId) => { commit((l) => addLarge(l, id)); setPicking(null) },
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
+      {picking?.kind === 'small' && (
+        <WidgetPicker
+          mode={{
+            kind: 'small',
+            current: byUid.get(picking.uid)?.slots?.[picking.slot] ?? null,
+            onPick: (id: SmallWidgetId | null) => {
+              commit((l) => setSlot(l, picking.uid, picking.slot, id))
+              setPicking(null)
+            },
+          }}
+          onClose={() => setPicking(null)}
+        />
       )}
     </div>
   )

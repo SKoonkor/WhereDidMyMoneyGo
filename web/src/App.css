@@ -226,13 +226,19 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 
 /* Home dashboard. One flex column owns all vertical spacing so every box is the
    same distance apart; per-card margins are zeroed inside it. */
-.home {
+.home,
+.home-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+/* Each widget now sits in a .home-item drag wrapper, so the wrapper's card needs
+   the same margin reset. Kept as child combinators on purpose: a descendant
+   selector would also flatten any .card a widget renders inside itself. */
 .home > .card,
-.home > p {
+.home > p,
+.home-list > .card,
+.home-item > .card {
   margin: 0;
 }
 /* Reconcile reminder: a warning-orange banner between Net worth and Money Flow. */
@@ -273,11 +279,16 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .plot-card > .dash-title {
   padding-left: 8px;
 }
-/* Hold-to-collapse dashboard boxes. The whole card is the press target, so block
-   text selection; scrolling still works (the gesture cancels on movement). */
+/* Dashboard boxes: double-tap folds, hold opens the action sheet. The whole card
+   is the press target, so block text selection; scrolling still works (the
+   gesture cancels on movement). `touch-action: manipulation` suppresses the
+   browser's own double-tap-to-zoom — index.html allows zooming, so without this
+   every fold gesture would also zoom the page. Plotly sets a stricter
+   `touch-action: none` on its drag layer, so chart panning is unaffected. */
 .collapsible {
   user-select: none;
   -webkit-user-select: none;
+  touch-action: manipulation;
 }
 .collapse-head {
   display: flex;
@@ -332,6 +343,301 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 }
 .acct-row:last-child {
   border-bottom: none;
+}
+
+/* ── Home layout editor ────────────────────────────────────────────────────── */
+.home-item {
+  position: relative;
+}
+.home-item[data-dragging] {
+  z-index: 2;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  border-radius: 12px;
+}
+/* Edit mode: cap each box and fade it out, so the whole list fits roughly one
+   screen. Without this a five-widget Home is ~1100px tall and the last box can
+   never be dragged to the top in a single gesture (there is no edge
+   auto-scroll). */
+.home-item.is-editing > .card {
+  max-height: 160px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(#000 68%, transparent);
+  mask-image: linear-gradient(#000 68%, transparent);
+}
+.home-item-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+/* Mirrors .drag-handle — touch-action:none is required for a pointer drag on a
+   touchscreen, or the browser scrolls instead. */
+.home-drag {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  padding: 0 2px;
+  touch-action: none;
+  user-select: none;
+}
+.home-item-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-remove {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.home-remove:active { color: var(--expense); }
+
+.add-widget-tile {
+  width: 100%;
+  border: 1px dashed var(--border-soft);
+  border-radius: 12px;
+  background: none;
+  color: var(--muted);
+  padding: 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.home-edit-btn {
+  align-self: center;
+  margin-top: 10px;
+}
+
+/* Small preview tiles. Three across is ~108px each on a 390px phone, so every
+   tile has to survive without axis labels or amounts. The fixed min-height keeps
+   the row from collapsing while a tile waits on its Dexie query — otherwise the
+   page reflows under the user's finger on first paint. */
+.small-row-card { padding: 12px 10px; }
+.small-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: stretch;
+}
+.small-row-hint {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  padding: 12px 4px;
+}
+.small-slot {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 116px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 4px;
+}
+.small-slot-btn {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.small-slot-empty {
+  border: 1px dashed var(--border-soft);
+  color: var(--muted);
+  font-size: 22px;
+}
+.small-slot-title {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: center;
+  line-height: 1.2;
+}
+.small-slot-value {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.small-slot-note,
+.small-slot-empty-note {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Sparkline: colours come from CSS variables, so it re-themes with no JS. */
+.spark {
+  width: 100%;
+  height: 46px;
+  display: block;
+}
+.spark-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.spark-fill {
+  fill: var(--accent);
+  opacity: 0.15;
+  stroke: none;
+}
+
+/* Ring gauge: a conic-gradient disc with the middle masked out. The label is a
+   sibling of the disc, not a child — a mask applies to descendants too, so a
+   nested label would be punched out along with the hole. */
+.mini-ring {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  flex: 0 0 auto;
+}
+.mini-ring-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--ring-color) 0 var(--ring-pct),
+    var(--surface-2) var(--ring-pct) 100%
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 58%, #000 59%);
+  mask: radial-gradient(closest-side, transparent 58%, #000 59%);
+}
+.mini-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-bars {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.mini-bar-name {
+  flex: 0 0 auto;
+  width: 10px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.mini-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  min-width: 0;
+}
+.mini-bar-pct {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  width: 26px;
+  text-align: right;
+}
+
+.mini-inout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.mini-inout-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.mini-inout-value {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 4px;
+}
+
+/* Widget action sheet (hold) + the add-widget picker. */
+.sheet-actions {
+  display: flex;
+  flex-direction: column;
+}
+.sheet-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 4px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--ink);
+  font-size: 15px;
+  text-align: left;
+  cursor: pointer;
+}
+.sheet-action:last-child { border-bottom: none; }
+.sheet-action.danger { color: var(--expense); }
+.sheet-action-icon {
+  flex: 0 0 auto;
+  width: 20px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 4px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.picker-row:last-child { border-bottom: none; }
+.picker-row.danger { color: var(--expense); }
+.picker-row.is-current { color: var(--accent); }
+.picker-row-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.picker-row-title { font-size: 15px; }
+.picker-row-desc { font-size: 12px; color: var(--muted); }
+.picker-row-plus {
+  flex: 0 0 auto;
+  font-size: 16px;
+  color: var(--muted);
 }
 
 /* Bottom tab bar — the primary navigation. */

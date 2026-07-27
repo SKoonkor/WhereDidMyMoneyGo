@@ -34,6 +34,16 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.4.0',
+    date: '27-07-2026',
+    changes: [
+      { kind: 'new', text: 'Home screen layout editor: tap "Edit layout" to drag boxes into the order you want, remove the ones you never look at, and add them back later.' },
+      { kind: 'new', text: 'Widget rows — a box that holds up to three small previews side by side: 3-month money flow, budget bars, budget used, savings pool, and this month\'s income vs output.' },
+      { kind: 'improved', text: 'Home gestures swapped: double-tap a box to fold it, hold it to open its page or remove it.' },
+      { kind: 'improved', text: 'Your Home arrangement is now included in backups.' },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '23-07-2026',
     changes: [

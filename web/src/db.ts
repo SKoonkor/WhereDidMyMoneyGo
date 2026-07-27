@@ -30,6 +30,9 @@ import {
   type Settings,
 } from './data/defaults'
 import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
+import {
+  DEFAULT_HOME_LAYOUT, applyLegacyCollapsed, normalizeLayout, type HomeLayout,
+} from './lib/homeLayout'
 import { RECON_CATEGORY, ADJUST_IN, ADJUST_OUT } from './lib/analytics/reconcile'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
@@ -61,7 +64,7 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai' | 'home'
   value: unknown
 }
 
@@ -94,7 +97,26 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('tax')) puts.push({ key: 'tax', value: DEFAULT_TAX })
   if (!existing.has('notifications')) puts.push({ key: 'notifications', value: DEFAULT_NOTIFICATIONS })
   if (!existing.has('ai')) puts.push({ key: 'ai', value: DEFAULT_AI })
+  // The Home layout starts as the pre-editor arrangement, carrying over whichever
+  // boxes the user had folded before 0.4 (collapse state used to live in
+  // localStorage, keyed by the same ids the singleton uids use).
+  if (!existing.has('home')) {
+    puts.push({ key: 'home', value: applyLegacyCollapsed(DEFAULT_HOME_LAYOUT, readLegacyCollapsed()) })
+  }
   if (puts.length) await db.config.bulkPut(puts)
+}
+
+// Pre-0.4 CollapsibleCard collapse state. Read once during seeding and then left
+// alone — deleting it costs nothing to keep and means a stale service-worker
+// shell serving an older build still finds the user's folds.
+function readLegacyCollapsed(): string[] {
+  try {
+    if (typeof localStorage === 'undefined') return []
+    const raw = JSON.parse(localStorage.getItem('home-collapsed') || '[]') as unknown
+    return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
 }
 
 // ── Config accessors ─────────────────────────────────────────────────────────
@@ -306,6 +328,18 @@ export async function getRetirementInputs(): Promise<RetirementInputs> {
 }
 export async function saveRetirementInputs(v: RetirementInputs): Promise<void> {
   await db.config.put({ key: 'retirement', value: v })
+}
+
+// The Home screen arrangement. Deliberately NOT the `{ ...DEFAULT, ...value }`
+// merge the other getters use: a layout is an ordered list, not a patchable
+// record, and spreading would resurrect every widget the user removed. An absent
+// row falls back to the default; a present-but-empty one is a valid empty Home.
+export async function getHomeLayout(): Promise<HomeLayout> {
+  const row = await db.config.get('home')
+  return row ? normalizeLayout(row.value) : DEFAULT_HOME_LAYOUT
+}
+export async function saveHomeLayout(layout: HomeLayout): Promise<void> {
+  await db.config.put({ key: 'home', value: layout })
 }
 
 export async function getReconcileState(): Promise<ReconcileState> {
