@@ -35,8 +35,11 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 export const CHANGELOG: Release[] = [
   {
     version: '0.4.0',
-    date: '27-07-2026',
+    date: '28-07-2026',
     changes: [
+      { kind: 'new', text: 'Editing a saved transaction now asks you to confirm before it overwrites the row — an edit sheet opened by accident can no longer change anything.' },
+      { kind: 'improved', text: 'Tap Save with a required field missing and those fields shake, every time you tap — not just the first.' },
+      { kind: 'improved', text: 'Every spending-limit row is marked with the same grey bar, on the page and on the Home widget.' },
       { kind: 'new', text: 'Home screen layout editor: tap "Edit layout" to drag boxes into the order you want, remove the ones you never look at, and add them back later.' },
       { kind: 'new', text: 'Widget rows — a box that holds up to three small previews side by side: 3-month money flow, budget bars, budget used, spending limits, savings pool, and this month\'s income vs output.' },
       { kind: 'new', text: 'Spending limits: set a monthly cap on any category or sub-category, see how close you are to each, and get nudged when one is nearly spent.' },

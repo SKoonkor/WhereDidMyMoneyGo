@@ -419,6 +419,10 @@ const TH: Record<string, string> = {
   'Go back': 'ย้อนกลับ',
   'Save anyway': 'บันทึกต่อไป',
   'Ignore this warning for 30 minutes': 'ปิดการเตือนนี้เป็นเวลา 30 นาที',
+  // --- Accidental-edit confirmation ---
+  'Save changes?': 'บันทึกการแก้ไข?',
+  'This will update the saved transaction.': 'รายการที่บันทึกไว้จะถูกแก้ไข',
+  'Save changes': 'บันทึกการแก้ไข',
   Accounts: 'บัญชี',
   Categories: 'หมวดหมู่',
   Rename: 'เปลี่ยนชื่อ',

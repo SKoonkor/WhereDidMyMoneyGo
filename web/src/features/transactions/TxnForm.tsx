@@ -8,19 +8,13 @@ import { ChipPicker } from './ChipPicker'
 import { CategoryPicker } from './CategoryPicker'
 import { Modal } from '../../components/Modal'
 import { dateStatus, isOldDateWarningSnoozed, snoozeOldDateWarning, type DateStatus } from './dateWarn'
+import { kindOf, txnChanged, type Kind } from './txnDirty'
 import { t, getLang } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
 // Saving isn't a separate kind — it's a Transfer into a savings account, and
 // Settings decides which accounts count toward the savings pool.
-type Kind = 'Income' | 'Expense' | 'Transfer'
 const KINDS: Kind[] = ['Expense', 'Income', 'Transfer']
-
-function kindOf(txn: Txn): Kind {
-  if (txn.type === 'Transfer-Out' || txn.type === 'Transfer-In') return 'Transfer'
-  if (txn.type === 'Income') return 'Income'
-  return 'Expense'
-}
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -104,9 +98,17 @@ export function TxnForm({
   }
   const invalid = (k: keyof typeof errors) => attempted && errors[k]
 
+  // Counts failed Save presses so the offending fields can re-animate on EVERY
+  // press, not just the first: `attempted` alone stops changing after press one.
+  // Odd/even picks between two identical animations — see the .nudge-a/.nudge-b
+  // comment in App.css for why the same one can't simply be re-applied.
+  const [nudge, setNudge] = useState(0)
+
   // Unusual-date safeguard: which confirmation (if any) is currently blocking the
   // save — 'future' or 'old'. Null means no confirmation is showing.
   const [dateWarn, setDateWarn] = useState<DateStatus | null>(null)
+  // Accidental-edit safeguard, shown only when an edit actually changed something.
+  const [confirmEdit, setConfirmEdit] = useState(false)
 
   // Write the row(s) and close. Called once validation (and any date confirmation)
   // has passed.
@@ -129,10 +131,25 @@ export function TxnForm({
     onClose()
   }
 
-  async function save(e: React.FormEvent) {
+  // Last gate before the write: an edit that changed something asks first, so a
+  // row opened by a stray tap can't be overwritten without a deliberate yes. An
+  // untouched edit saves straight through — there is nothing to confirm.
+  function requestSave() {
+    const changed = editing && txnChanged(editing, {
+      kind, period, amount: amountNum, note,
+      account, category, subcategory, from, to,
+    })
+    if (changed) setConfirmEdit(true)
+    else void commit()
+  }
+
+  function save(e: React.FormEvent) {
     e.preventDefault()
     setAttempted(true)
-    if (Object.values(errors).some(Boolean)) return // highlight the offending fields
+    if (Object.values(errors).some(Boolean)) {
+      setNudge((n) => n + 1) // re-animate the offending fields
+      return
+    }
 
     // Skip the date check when editing without touching the (legitimately old) date.
     const dateUnchanged = editing && period === editing.period.slice(0, 10)
@@ -142,7 +159,7 @@ export function TxnForm({
       setDateWarn(status)
       return
     }
-    await commit()
+    requestSave()
   }
 
   async function remove() {
@@ -154,7 +171,7 @@ export function TxnForm({
 
   return (
     <>
-    <form className="txn-form" onSubmit={save}>
+    <form className={`txn-form${nudge ? (nudge % 2 ? ' nudge-a' : ' nudge-b') : ''}`} onSubmit={save}>
       {notice && <p className="txn-notice" role="status">{notice}</p>}
       <div className="seg">
         {KINDS.map((k) => (
@@ -257,7 +274,7 @@ export function TxnForm({
         </p>
         <div className="row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
           <button type="button" className="btn" onClick={() => setDateWarn(null)}>{t('Go back')}</button>
-          <button type="button" className="btn btn-accent" onClick={() => { setDateWarn(null); void commit() }}>
+          <button type="button" className="btn btn-accent" onClick={() => { setDateWarn(null); requestSave() }}>
             {t('Save anyway')}
           </button>
         </div>
@@ -265,11 +282,26 @@ export function TxnForm({
           <button
             type="button"
             className="txn-warn-ignore"
-            onClick={() => { snoozeOldDateWarning(); setDateWarn(null); void commit() }}
+            onClick={() => { snoozeOldDateWarning(); setDateWarn(null); requestSave() }}
           >
             {t('Ignore this warning for 30 minutes')}
           </button>
         )}
+      </Modal>
+    )}
+
+    {/* Accidental-edit safeguard. Only reachable when this form was opened on an
+        existing row AND a field actually differs, so an edit sheet opened by a
+        stray tap and saved untouched still closes without a dialog. */}
+    {confirmEdit && (
+      <Modal title={t('Save changes?')} onClose={() => setConfirmEdit(false)}>
+        <p className="txn-warn-msg">{t('This will update the saved transaction.')}</p>
+        <div className="row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+          <button type="button" className="btn" onClick={() => setConfirmEdit(false)}>{t('Go back')}</button>
+          <button type="button" className="btn btn-accent" onClick={() => { setConfirmEdit(false); void commit() }}>
+            {t('Save changes')}
+          </button>
+        </div>
       </Modal>
     )}
     </>

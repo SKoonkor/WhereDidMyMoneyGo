@@ -1047,6 +1047,52 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent);
 }
 
+/* …and on EVERY Save press they shake: the ring swells to 6px and settles back to
+   exactly the values above (so nothing jumps when the animation ends) while the
+   field wobbles side to side.
+
+   The two keyframes are deliberate copies. A CSS animation is identified by its
+   NAME, so re-applying the same one to an element that already has it does not
+   restart it — the second Save press would do nothing visible. TxnForm alternates
+   .nudge-a / .nudge-b on the form so each press swaps to a different name and the
+   animation genuinely restarts. Keep them in sync; do not merge them. */
+@keyframes field-nudge-a {
+  0% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent); transform: translateX(0); }
+  12% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--expense) 45%, transparent); transform: translateX(-5px); }
+  32% { transform: translateX(5px); }
+  52% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--expense) 40%, transparent); transform: translateX(-3px); }
+  72% { transform: translateX(3px); }
+  100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent); transform: translateX(0); }
+}
+@keyframes field-nudge-b {
+  0% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent); transform: translateX(0); }
+  12% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--expense) 45%, transparent); transform: translateX(-5px); }
+  32% { transform: translateX(5px); }
+  52% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--expense) 40%, transparent); transform: translateX(-3px); }
+  72% { transform: translateX(3px); }
+  100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent); transform: translateX(0); }
+}
+.txn-form.nudge-a .field.is-invalid input,
+.txn-form.nudge-a .field.is-invalid .pick-summary {
+  animation: field-nudge-a 460ms ease-out;
+}
+.txn-form.nudge-b .field.is-invalid input,
+.txn-form.nudge-b .field.is-invalid .pick-summary {
+  animation: field-nudge-b 460ms ease-out;
+}
+/* Reduced motion: keep the ring pulse (it's the part that says WHICH field), drop
+   the movement. Same two-name split, same reason. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes field-nudge-a {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent); }
+    40% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--expense) 45%, transparent); }
+  }
+  @keyframes field-nudge-b {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--expense) 32%, transparent); }
+    40% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--expense) 45%, transparent); }
+  }
+}
+
 .txn-list {
   list-style: none;
   padding: 0;
@@ -1747,8 +1793,11 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .budget-bar-fill.warn { background: #f39c12; }
 .budget-bar-fill.bad { background: var(--expense); }
 
-/* Spending limits: the readout rows, and the chips that carry an amount. */
-.limit-row.is-sub {
+/* Spending limits: the readout rows, and the chips that carry an amount.
+   Category and sub-category rows share one marker — the row order is by ratio,
+   not by hierarchy, so an indent would imply a nesting that isn't there. Subs
+   stay identifiable by their "Category / Sub" label. */
+.limit-row {
   padding-left: 14px;
   border-left: 2px solid var(--border-soft);
 }

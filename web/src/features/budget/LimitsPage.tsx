@@ -119,7 +119,7 @@ function LimitRow({ status, warnAt, censor, currency }: {
   const nudging = status.remaining <= warnAt
   const amount = censor ? '•••' : fmt(Math.abs(status.remaining))
   return (
-    <div className={`budget-row limit-row ${status.sub ? 'is-sub' : ''}`}>
+    <div className="budget-row limit-row">
       <div className="budget-row-head">
         <span className="budget-row-name">
           {nudging && <span className="limit-warn" aria-hidden="true">⚠ </span>}
