@@ -1300,6 +1300,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   justify-content: center;
   z-index: 40;
   animation: mt-fade 0.2s ease;
+  /* Dragging the dimmed area must not bounce or reach the page behind it. */
+  overscroll-behavior: none;
 }
 .modal-sheet {
   background: var(--surface);
@@ -1309,8 +1311,12 @@ html[data-censor='on'] .censor-toggle .ct-eye {
      internally rather than clipping its top. */
   max-height: min(92vh, 100%);
   overflow-y: auto;
-  /* Reaching the end of a long sheet must not chain into the page behind it. */
-  overscroll-behavior: contain;
+  /* `none`, not `contain`. Both stop a scroll at the sheet's end from chaining
+     into the page, but `contain` still lets the sheet itself rubber-band — so a
+     sheet with nothing to scroll could still be dragged a few pixels up and down.
+     `none` also disables that bounce, while leaving genuine scrolling of a long
+     sheet completely intact. */
+  overscroll-behavior: none;
   border-radius: 16px 16px 0 0;
   padding: 16px clamp(14px, 4vw, 22px);
   padding-bottom: max(16px, env(safe-area-inset-bottom));

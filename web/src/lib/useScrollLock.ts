@@ -18,7 +18,7 @@ let depth = 0
 let savedY = 0
 
 // The properties we set, so unlock can clear exactly those and nothing else.
-const PROPS = ['position', 'top', 'left', 'right', 'width', 'overflow'] as const
+const PROPS = ['position', 'top', 'left', 'right', 'width', 'overflow', 'overscroll-behavior'] as const
 
 export function lockScroll(): void {
   if (depth++ > 0) return
@@ -30,6 +30,11 @@ export function lockScroll(): void {
   s.right = '0'
   s.width = '100%'
   s.overflow = 'hidden'
+  // A pinned document can still rubber-band on macOS and iOS, and Modal re-applies
+  // its backdrop transform from visualViewport on every scroll event — so that
+  // bounce would drag the sheet along with it. Set only while locked, so ordinary
+  // pull-to-refresh keeps working the rest of the time.
+  s.overscrollBehavior = 'none'
 }
 
 export function unlockScroll(): void {

@@ -30,6 +30,8 @@ describe('lockScroll / unlockScroll', () => {
     expect(s.top).toBe('-640px')
     expect(s.width).toBe('100%')
     expect(s.overflow).toBe('hidden')
+    // Stops the pinned document rubber-banding, which would drag the sheet with it.
+    expect(s.overscrollBehavior).toBe('none')
   })
 
   it('restores the exact position and clears every property it set', () => {
@@ -43,6 +45,7 @@ describe('lockScroll / unlockScroll', () => {
     expect(s.right).toBe('')
     expect(s.width).toBe('')
     expect(s.overflow).toBe('')
+    expect(s.overscrollBehavior).toBe('')
     expect(scrollTo).toHaveBeenCalledWith(0, 640)
   })
 
