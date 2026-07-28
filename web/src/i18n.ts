@@ -414,6 +414,7 @@ const TH: Record<string, string> = {
   'Move money': 'ย้ายเงิน',
   'Edit move': 'แก้ไขการย้ายเงิน',
   'Savings activity': 'ความเคลื่อนไหวเงินออม',
+  'See all': 'ดูทั้งหมด',
   'Nothing yet.': 'ยังไม่มีรายการ',
   '(from a transfer)': '(จากการโอน)',
   'Select a goal': 'เลือกเป้าหมาย',

@@ -1309,6 +1309,8 @@ html[data-censor='on'] .censor-toggle .ct-eye {
      internally rather than clipping its top. */
   max-height: min(92vh, 100%);
   overflow-y: auto;
+  /* Reaching the end of a long sheet must not chain into the page behind it. */
+  overscroll-behavior: contain;
   border-radius: 16px 16px 0 0;
   padding: 16px clamp(14px, 4vw, 22px);
   padding-bottom: max(16px, env(safe-area-inset-bottom));
@@ -2181,6 +2183,26 @@ a.pick-summary {
   font-weight: 600;
 }
 .gs-widget-foot.is-short { border-top-color: var(--expense); }
+
+/* A card title with an action on its right. `.dash-title` carries its own bottom
+   margin, so it's zeroed here and the row carries it instead. */
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.card-head .dash-title { margin: 0; }
+.card-head-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
 
 .gs-activity { list-style: none; padding: 0; margin: 4px 0 0; }
 .gs-act {

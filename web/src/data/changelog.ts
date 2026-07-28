@@ -45,6 +45,9 @@ export const CHANGELOG: Release[] = [
       { kind: 'improved', text: 'Goal moves appear in your transaction list alongside everything else, without counting toward income or spending.' },
       { kind: 'improved', text: 'Deleting a goal returns whatever it was holding to your unallocated savings instead of losing track of it.' },
       { kind: 'improved', text: 'Backups now include your goal allocations.' },
+      { kind: 'fixed', text: 'The page no longer scrolls behind a pop-up — opening the tour, a form or a picker holds your place until you close it.' },
+      { kind: 'improved', text: 'Savings activity shows the latest 10, with a "See all" pop-up for the full history.' },
+      { kind: 'improved', text: 'The Goals app is now called Financial Goals, and it links back and forth with Goal savings.' },
     ],
   },
   {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useScrollLock } from '../lib/useScrollLock'
 
 // A lightweight bottom-sheet-style modal. Closes on backdrop click or Esc.
 export function Modal({
@@ -12,6 +13,11 @@ export function Modal({
   children: ReactNode
 }) {
   const backdropRef = useRef<HTMLDivElement>(null)
+
+  // Freeze the page behind the sheet. Every modal in the app comes through here,
+  // and the lock is reference-counted, so a picker opening inside another sheet
+  // holds it rather than fighting over it.
+  useScrollLock()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()

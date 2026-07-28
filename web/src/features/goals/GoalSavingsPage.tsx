@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { addGoalMove, deleteGoalMove, updateGoalMove } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
 import { useSettings } from '../transactions/useConfig'
@@ -16,6 +17,9 @@ import { t, tBilingual } from '../../i18n'
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 const today = () => new Date().toISOString().slice(0, 10)
 
+// The card is a summary, not an archive — the rest lives behind "See all".
+const ACTIVITY_SHOWN = 10
+
 // The unallocated pool is an endpoint of a move like any goal, but it has no name
 // of its own — this is the label it wears in the pickers and the activity list.
 const poolLabel = () => t('Unallocated')
@@ -28,6 +32,7 @@ export function GoalSavingsPage() {
   const [censor] = useCensor()
   const [moving, setMoving] = useState(false)
   const [editing, setEditing] = useState<GoalMove | null>(null)
+  const [allActivity, setAllActivity] = useState(false)
 
   const activity = useMemo(
     () => (data ? savingsActivity(all, data.moves, settings.savingsAccounts) : []),
@@ -47,6 +52,13 @@ export function GoalSavingsPage() {
       <p className="muted page-desc" style={{ marginTop: -4, marginBottom: 14 }}>
         {t('Split your savings pool between individual goals.')}
       </p>
+
+      {/* Back to where goals and the pool itself are set up — mirrors the row
+          the Financial Goals page uses to get here. */}
+      <Link to="/goals" className="pick-summary budget-card">
+        <span>{t('Financial Goals')}</span>
+        <span className="pick-summary-arrow">›</span>
+      </Link>
 
       {/* ── What's left to assign ─────────────────────────────────────── */}
       <section className={`card budget-card gs-head${short ? ' is-short' : ''}`}>
@@ -93,22 +105,31 @@ export function GoalSavingsPage() {
 
       {/* ── How the pool got here ─────────────────────────────────────── */}
       <section className="card budget-card">
-        <div className="dash-title">{t('Savings activity')}</div>
+        <div className="card-head">
+          <div className="dash-title">{t('Savings activity')}</div>
+          {activity.length > ACTIVITY_SHOWN && (
+            <button type="button" className="card-head-link" onClick={() => setAllActivity(true)}>
+              {t('See all')} ›
+            </button>
+          )}
+        </div>
         {activity.length === 0 ? (
           <p className="muted" style={{ fontSize: 13, margin: 0 }}>{t('Nothing yet.')}</p>
         ) : (
-          <ul className="gs-activity">
-            {activity.slice(0, 40).map((row) => (
-              <ActivityLine
-                key={row.kind === 'txn' ? `t${row.txn.id}` : `m${row.move.id}`}
-                row={row}
-                censor={censor}
-                onEdit={setEditing}
-              />
-            ))}
-          </ul>
+          <ActivityList rows={activity.slice(0, ACTIVITY_SHOWN)} censor={censor} onEdit={setEditing} />
         )}
       </section>
+
+      {/* The complete history, on demand. Same rows, same component — the summary
+          above is only ever a prefix of this, so the two can't drift. */}
+      {allActivity && (
+        <Modal title={t('Savings activity')} onClose={() => setAllActivity(false)}>
+          <ActivityList rows={activity} censor={censor} onEdit={setEditing} />
+          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
+            <button type="button" className="btn" onClick={() => setAllActivity(false)}>{t('Close')}</button>
+          </div>
+        </Modal>
+      )}
 
       {(moving || editing) && (
         <MoveForm
@@ -123,6 +144,23 @@ export function GoalSavingsPage() {
 }
 
 // ── The activity list ────────────────────────────────────────────────────────
+
+function ActivityList({ rows, censor, onEdit }: {
+  rows: ActivityRow[]; censor: boolean; onEdit: (m: GoalMove) => void
+}) {
+  return (
+    <ul className="gs-activity">
+      {rows.map((row) => (
+        <ActivityLine
+          key={row.kind === 'txn' ? `t${row.txn.id}` : `m${row.move.id}`}
+          row={row}
+          censor={censor}
+          onEdit={onEdit}
+        />
+      ))}
+    </ul>
+  )
+}
 
 function ActivityLine({ row, censor, onEdit }: {
   row: ActivityRow; censor: boolean; onEdit: (m: GoalMove) => void

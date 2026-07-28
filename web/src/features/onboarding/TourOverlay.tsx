@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import { useScrollLock } from '../../lib/useScrollLock'
 import { t } from '../../i18n'
 import {
   IntroMock, RecordMock, TabBarMock, AppsMock, SettingsMock, ImportMock, BackupMock, SupportMock,
@@ -113,6 +114,11 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
       </Fragment>
     ))
   }
+
+  // The tour draws its own backdrop rather than going through Modal, so it has to
+  // hold the scroll lock itself. The nested (i) info overlay needs nothing — it
+  // only ever opens inside the tour, whose lock is already held.
+  useScrollLock()
 
   // Arrow keys + Esc for desktop.
   useEffect(() => {
