@@ -20,9 +20,14 @@ const FORECAST_COLOR = '#3498db'
 const BAR_OUTLINE = 'rgba(0,0,0,0.6)'
 
 // Plot box + the pixel gap between an Income bar top and its up-arrow. Kept as
-// constants so the arrow standoff (computed in data units) tracks the layout.
-const PLOT_H = 230
-const PLOT_MT = 40
+// constants so the arrow standoff (computed in data units) tracks the layout —
+// `areaPx` below mirrors these, so changing the height rescales the standoff
+// automatically and the arrows stay the same distance above their bars.
+// The top margin is deliberately small: nothing is drawn up there (no title, and
+// the net-worth annotation sits inside the plot area), so anything more is just
+// dead space between the box header and the chart.
+const PLOT_H = 184
+const PLOT_MT = 16
 const PLOT_MB = 36
 const ARROW_STANDOFF_PX = 13
 
@@ -51,18 +56,31 @@ export interface FlowFigureOpts {
   defaultDays: number
   censor: boolean
   ui: FlowUi
+  /**
+   * Every account in the ledger, for colour lookup. `accountColor` falls back to
+   * a palette indexed by position, so without this a filtered `flow.accounts`
+   * (one entry, index 0) would repaint an unnamed account.
+   */
+  allAccounts?: string[]
   noData: string
   labels: { netWorth: string; balances: string; amount: string; balanceAfter: string; forecast: string; hidden: string }
 }
 
 export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts: FlowFigureOpts) {
   const { currency, defaultDays, censor, ui, noData, labels } = opts
+  const order = opts.allAccounts ?? flow.accounts
+  const colorIdx = (name: string) => {
+    const i = order.indexOf(name)
+    return i >= 0 ? i : 0
+  }
 
   if (flow.bars.length === 0) {
     return {
       data: [] as Dict[],
       layout: {
-        height: 230, ...transparent, margin: { t: 40, b: 40, l: 60, r: 20 },
+        // Same box as the real figure — kept on the constants so the two can't
+        // drift apart (they had, before figure.test.ts started asserting it).
+        height: PLOT_H, ...transparent, margin: { t: PLOT_MT, b: PLOT_MB, l: 60, r: 20 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted, size: 16 } }],
       } as Dict,
     }
@@ -79,7 +97,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   }
 
   // ── One bar trace per account ───────────────────────────────────────────────
-  flow.accounts.forEach((account, i) => {
+  flow.accounts.forEach((account) => {
     const sub = flow.bars.filter((b) => b.account === account)
     if (sub.length === 0) return
     data.push({
@@ -91,7 +109,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
       name: account,
       showlegend: false,
       marker: {
-        color: accountColor(account, i),
+        color: accountColor(account, colorIdx(account)),
         // Income now reads via a green up-arrow above the bar (added below); its
         // dark outline is dropped. Transfer-/Adjustment-In keep the outline.
         line: { color: BAR_OUTLINE, width: sub.map((b) => (b.incomeLike && b.type !== 'Income' ? 1.6 : 0)) },

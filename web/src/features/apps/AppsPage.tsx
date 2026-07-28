@@ -10,6 +10,7 @@ const PERSONAL_FINANCE: Tile[] = [
   { to: '/flow', label: 'Money Flow', desc: 'Running balance and forecast.', icon: '💸' },
   { to: '/budget', label: 'Budget', desc: 'Where your money goes vs. plan.', icon: '📊' },
   { to: '/goals', label: 'Goals', desc: 'Savings goals and progress.', icon: '🎯' },
+  { to: '/limits', label: 'Spending limits', desc: 'Cap what you spend per category.', icon: '🚦' },
   { to: '/reconcile', label: 'Reconcile', desc: 'Match tracked balances to reality.', icon: '⚖️' },
 ]
 

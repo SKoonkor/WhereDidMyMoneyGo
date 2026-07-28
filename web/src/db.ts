@@ -20,6 +20,7 @@ import {
   DEFAULT_SETTINGS,
   OTHER_NAME,
   UNKNOWN_NAME,
+  normalizeLimits,
   type AiCfg,
   type BudgetCfg,
   type Categories,
@@ -33,6 +34,7 @@ import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
 import {
   DEFAULT_HOME_LAYOUT, applyLegacyCollapsed, normalizeLayout, type HomeLayout,
 } from './lib/homeLayout'
+import { remapBudget, type BudgetRename } from './lib/analytics/budgetMaintenance'
 import { RECON_CATEGORY, ADJUST_IN, ADJUST_OUT } from './lib/analytics/reconcile'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
@@ -244,7 +246,16 @@ export async function renameCategory(
   await db.transactions
     .filter((r) => r.type === type && r.category === oldName)
     .modify({ category: name })
+  // Budget buckets and spending limits are keyed by name — carry them across, or
+  // the limit quietly stops capping and the bucket falls back to Wants.
+  if (kind === 'expense') await remapBudgetCfg({ kind: 'category', from: oldName, to: name })
   return true
+}
+
+// Apply a rename/delete to the budget config. Kept next to the callers so every
+// category mutation remembers to do it.
+async function remapBudgetCfg(op: BudgetRename): Promise<void> {
+  await saveBudget(remapBudget(await getBudget(), op))
 }
 
 // Delete a category and reassign its transactions: a normal category funnels into
@@ -260,6 +271,7 @@ export async function deleteCategory(kind: 'income' | 'expense', name: string): 
   await db.transactions
     .filter((r) => r.type === type && r.category === name)
     .modify((r) => { r.category = dest; delete r.subcategory })
+  if (kind === 'expense') await remapBudgetCfg({ kind: 'category-delete', name, into: dest })
 }
 
 export async function reorderCategories(kind: 'income' | 'expense', order: string[]): Promise<void> {
@@ -285,6 +297,7 @@ export async function renameSubcategory(
   await db.transactions
     .filter((r) => r.type === 'Expense' && r.category === category && r.subcategory === oldName)
     .modify({ subcategory: name })
+  await remapBudgetCfg({ kind: 'sub', category, from: oldName, to: name })
   return true
 }
 
@@ -300,6 +313,7 @@ export async function deleteSubcategory(category: string, name: string): Promise
   await db.transactions
     .filter((r) => r.type === 'Expense' && r.category === category && r.subcategory === name)
     .modify((r) => { delete r.subcategory })
+  await remapBudgetCfg({ kind: 'sub-delete', category, name })
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -310,7 +324,10 @@ export async function saveSettings(settings: Settings): Promise<void> {
 }
 
 export async function getBudget(): Promise<BudgetCfg> {
-  return { ...DEFAULT_BUDGET, ...((await db.config.get('budget'))?.value as BudgetCfg) }
+  const row = (await db.config.get('budget'))?.value as Partial<BudgetCfg> | undefined
+  // `limits` is normalized rather than merged: the spread above is shallow, so a
+  // config saved before limits existed would otherwise arrive half-formed.
+  return { ...DEFAULT_BUDGET, ...row, limits: normalizeLimits(row?.limits) }
 }
 export async function saveBudget(cfg: BudgetCfg): Promise<void> {
   await db.config.put({ key: 'budget', value: cfg })

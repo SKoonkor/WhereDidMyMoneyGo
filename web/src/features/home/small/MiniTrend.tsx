@@ -20,16 +20,23 @@ export function MiniTrend() {
 
   return (
     <>
-      <div className="small-slot-title">{t('3M flow')}</div>
-      {paths ? (
-        <svg className="spark" viewBox="0 0 100 40" preserveAspectRatio="none" role="img"
-          aria-label={t('Net worth trend')}>
-          <path className="spark-fill" d={paths.area} />
-          <path className="spark-line" d={paths.line} />
-        </svg>
-      ) : (
-        <div className="small-slot-empty-note">{t('No data yet')}</div>
-      )}
+      <div className="small-slot-title">{t('3-Month flow')}</div>
+      <div className="small-slot-body">
+        {paths ? (
+          <svg className="spark" viewBox="0 0 100 40" preserveAspectRatio="none" role="img"
+            aria-label={t('Net worth trend')}>
+            <path className="spark-fill" d={paths.area} />
+            {/* Only drawn when the balance actually reaches zero — otherwise the
+                trend keeps the full height of the tile. */}
+            {paths.zeroY != null && (
+              <line className="spark-zero" x1="0" x2="100" y1={paths.zeroY} y2={paths.zeroY} />
+            )}
+            <path className="spark-line" d={paths.line} />
+          </svg>
+        ) : (
+          <div className="small-slot-empty-note">{t('No data yet')}</div>
+        )}
+      </div>
       <div className="small-slot-value money">{fmt(last)}</div>
     </>
   )

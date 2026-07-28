@@ -15,6 +15,8 @@ import { useMoneyFlow, FLOW_PLOT_CONFIG } from '../flow/useMoneyFlow'
 import { ThisPeriodBudget } from '../budget/ThisPeriodBudget'
 import { SavingsPoolGauge } from '../goals/SavingsPoolGauge'
 import { Plot } from '../../components/Plot'
+import { compactAmount } from '../../lib/format'
+import { useLimits } from './useLimits'
 import { t } from '../../i18n'
 
 export const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -61,6 +63,53 @@ export function BudgetWidget() {
 // Savings pool gauge (Emergency Fund + ticked goals).
 export function PoolWidget() {
   return <SavingsPoolGauge bare />
+}
+
+// The spending limits nearest to being blown, worst first.
+const LIMITS_SHOWN = 4
+
+export function LimitsWidget() {
+  const limits = useLimits()
+  const [censor] = useCensor()
+  if (!limits) return null
+  if (limits.statuses.length === 0) {
+    return <p className="muted" style={{ fontSize: 13, margin: 0 }}>{t('No limits set yet.')}</p>
+  }
+
+  const shown = limits.statuses.slice(0, LIMITS_SHOWN)
+  const rest = limits.statuses.length - shown.length
+  return (
+    <>
+      {shown.map((s) => {
+        const over = s.remaining < 0
+        return (
+          <div key={s.key} className="budget-row limit-row">
+            <div className="budget-row-head">
+              <span className="budget-row-name">
+                {s.remaining <= limits.warnAt && <span className="limit-warn" aria-hidden="true">⚠ </span>}
+                {s.label}
+              </span>
+              <span className="budget-row-note">
+                <span className={over ? 'amt-expense' : ''} style={{ fontWeight: 600 }}>
+                  <span className="money">{censor ? '•••' : compactAmount(Math.abs(s.remaining))}</span>
+                  {' '}{t(over ? 'over' : 'left')}
+                </span>
+              </span>
+            </div>
+            <div className="budget-bar">
+              <div className={`budget-bar-fill ${s.tone}`}
+                style={{ width: `${Math.min(100, Math.max(0, s.ratio * 100)).toFixed(0)}%` }} />
+            </div>
+          </div>
+        )
+      })}
+      {rest > 0 && (
+        <p className="muted" style={{ fontSize: 12, textAlign: 'center', margin: '10px 0 0' }}>
+          {t('+{n} more', { n: rest })}
+        </p>
+      )}
+    </>
+  )
 }
 
 // Per-account balances: configured accounts in order, then any stray account

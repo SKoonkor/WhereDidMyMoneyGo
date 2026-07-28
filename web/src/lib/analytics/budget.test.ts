@@ -3,7 +3,7 @@ import type { Txn } from '../../db'
 import { DEFAULT_BUDGET, type BudgetCfg } from '../../data/defaults'
 import {
   budgetPeriod, budgetIncome, spendingByBucket, monthPieData, budgetSummary,
-  monthBudgetSummary, bucketTone, hiddenCostIn, bucketForTxn, subcatMonthVsAvg,
+  monthBudgetSummary, bucketTone, ratioTone, hiddenCostIn, bucketForTxn, subcatMonthVsAvg,
 } from './budget'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -172,13 +172,30 @@ describe('monthBudgetSummary', () => {
   })
 })
 
+describe('ratioTone', () => {
+  it('turns amber at 75% and red past 95%', () => {
+    expect(ratioTone(0, 100)).toBe('good')
+    expect(ratioTone(74.9, 100)).toBe('good')
+    expect(ratioTone(75, 100)).toBe('warn')
+    expect(ratioTone(95, 100)).toBe('warn')
+    expect(ratioTone(95.1, 100)).toBe('bad')
+    expect(ratioTone(120, 100)).toBe('bad')
+  })
+  it('treats a zero target as unspent', () => {
+    expect(ratioTone(50, 0)).toBe('good')
+  })
+})
+
 describe('bucketTone', () => {
   it('Needs/Wants: less is better', () => {
     expect(bucketTone('Needs', 40, 100)).toBe('good')
-    expect(bucketTone('Wants', 70, 100)).toBe('warn')
-    expect(bucketTone('Needs', 90, 100)).toBe('bad')
+    expect(bucketTone('Wants', 70, 100)).toBe('good')
+    expect(bucketTone('Wants', 80, 100)).toBe('warn')
+    expect(bucketTone('Needs', 90, 100)).toBe('warn')
+    expect(bucketTone('Needs', 110, 100)).toBe('bad')
   })
-  it('Savings: more is better', () => {
+  // Savings is inverted, so the 75/95 retune deliberately does NOT apply here.
+  it('Savings: more is better, on its own thresholds', () => {
     expect(bucketTone('Savings', 95, 100)).toBe('good')
     expect(bucketTone('Savings', 70, 100)).toBe('warn')
     expect(bucketTone('Savings', 40, 100)).toBe('bad')

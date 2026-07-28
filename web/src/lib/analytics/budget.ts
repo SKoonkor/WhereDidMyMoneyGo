@@ -9,7 +9,7 @@
 // Pure and testable; persistence lives in db.ts and the donut in
 // features/budget/figure.ts.
 import type { Txn } from '../../db'
-import type { Bucket, BudgetCfg } from '../../data/defaults'
+import type { Bucket, BudgetCfg, SpendingLimits } from '../../data/defaults'
 
 export const NEEDS: Bucket = 'Needs'
 export const WANTS: Bucket = 'Wants'
@@ -264,13 +264,23 @@ export function monthBudgetSummary(txns: Txn[], cfg: BudgetCfg, month: string, t
   }
 }
 
-// Traffic-light tone for a bucket's spend vs target. Needs/Wants: less is better
-// (green <50%, orange 50–85%, red >85%). Savings: more is better (green ≥90%,
-// orange 65–90%, red <65%).
-export function bucketTone(name: Bucket, spent: number, target: number): 'good' | 'warn' | 'bad' {
+export type Tone = 'good' | 'warn' | 'bad'
+
+// Traffic-light tone where LESS is better: green <75%, orange 75–95%, red >95%.
+// The single source of truth for the budget bars, the "budget used" ring, and the
+// spending-limit bars, so they can never drift apart.
+export function ratioTone(spent: number, target: number): Tone {
   const raw = target ? (spent / target) * 100 : 0
-  if (name === SAVINGS) return raw >= 90 ? 'good' : raw >= 65 ? 'warn' : 'bad'
-  return raw < 50 ? 'good' : raw <= 85 ? 'warn' : 'bad'
+  return raw < 75 ? 'good' : raw <= 95 ? 'warn' : 'bad'
+}
+
+// Tone for a bucket's spend vs target. Needs/Wants use `ratioTone`. Savings is
+// inverted — more is better — so it keeps its own thresholds (green ≥90%, orange
+// 65–90%, red <65%): "over budget" is a good thing there, not a warning.
+export function bucketTone(name: Bucket, spent: number, target: number): Tone {
+  if (name !== SAVINGS) return ratioTone(spent, target)
+  const raw = target ? (spent / target) * 100 : 0
+  return raw >= 90 ? 'good' : raw >= 65 ? 'warn' : 'bad'
 }
 
 // ── Sub-category detail: this-month spend vs a date-of-month rolling average ────
@@ -356,4 +366,111 @@ export function subcatMonthVsAvg(
   for (const g of out) g.rows.sort((a, b) => b.cur - a.cur)
   out.sort((a, b) => b.cur - a.cur)
   return out
+}
+
+// ── Spending limits ──────────────────────────────────────────────────────────
+
+// The [start, end) day window of a calendar month ("YYYY-MM"), end exclusive.
+//
+// Calendar months, not Settings.resetDay: monthBudgetSummary — which drives
+// every budget figure the user actually sees — is calendar-based, so limits use
+// the same window rather than showing a second, differently-dated "this period"
+// on the same screen.
+export function monthWindow(month: string): [string, string] {
+  const [y, m] = month.split('-').map(Number)
+  return [iso(y, m, 1), m === 12 ? iso(y + 1, 1, 1) : iso(y, m + 1, 1)]
+}
+
+export interface PeriodSpend {
+  /** Category to total expense, INCLUDING every subcategory under it. */
+  byCategory: Record<string, number>
+  /** Category to subcategory ('' when untagged) to expense. */
+  bySub: Record<string, Record<string, number>>
+}
+
+// Sum of expenses in [start, end) grouped both ways in a single pass.
+//
+// Deliberately not built on the private `sumBySubcat` used by subcatMonthVsAvg:
+// that one is scoped to a calendar month with a day-of-month cutoff, treats its
+// end as INCLUSIVE, and relabels untagged rows to BLANK_SUB for display. Limits
+// need arbitrary [start, end) windows and a raw '' key, so the two would fight.
+export function spendingBySubcategory(txns: Txn[], start: string, end: string): PeriodSpend {
+  const byCategory: Record<string, number> = {}
+  const bySub: Record<string, Record<string, number>> = {}
+  for (const t of txns) {
+    if (t.type !== 'Expense' || !inWindow(t, start, end)) continue
+    byCategory[t.category] = (byCategory[t.category] ?? 0) + t.amount
+    const sub = t.subcategory ?? ''
+    const m = bySub[t.category] ?? (bySub[t.category] = {})
+    m[sub] = (m[sub] ?? 0) + t.amount
+  }
+  return { byCategory, bySub }
+}
+
+export interface LimitStatus {
+  /** Stable identity: 'c:Food' for a category, 's:Food/Lunch' for a sub. */
+  key: string
+  category: string
+  /** Absent on a category-level (umbrella) limit. */
+  sub?: string
+  label: string
+  limit: number
+  spent: number
+  /** limit minus spent; negative once it's overspent. */
+  remaining: number
+  /** spent / limit, 0 when there's no limit to divide by. */
+  ratio: number
+  tone: Tone
+}
+
+function mkStatus(
+  key: string, category: string, sub: string | undefined,
+  label: string, limit: number, spent: number,
+): LimitStatus {
+  return {
+    key,
+    category,
+    ...(sub === undefined ? {} : { sub }),
+    label,
+    limit,
+    spent,
+    remaining: limit - spent,
+    ratio: limit > 0 ? spent / limit : 0,
+    tone: ratioTone(spent, limit),
+  }
+}
+
+// Every configured limit with its current standing, closest-to-the-limit first.
+//
+// Ordered by RATIO rather than by headroom on purpose: the order has to match the
+// bar and the colour the user sees, and 5,000 left of 100,000 is a tighter spot
+// than 500 left of 1,000 even though the raw headroom says otherwise.
+export function limitStatuses(
+  txns: Txn[], limits: SpendingLimits, start: string, end: string,
+): LimitStatus[] {
+  const spend = spendingBySubcategory(txns, start, end)
+  const out: LimitStatus[] = []
+
+  for (const [category, limit] of Object.entries(limits.categories)) {
+    // The umbrella total: every row in the category, subcategories included.
+    out.push(mkStatus(`c:${category}`, category, undefined, category, limit,
+      spend.byCategory[category] ?? 0))
+  }
+  for (const [category, subs] of Object.entries(limits.subcategories)) {
+    for (const [sub, limit] of Object.entries(subs)) {
+      out.push(mkStatus(`s:${category}/${sub}`, category, sub, `${category} / ${sub}`, limit,
+        spend.bySub[category]?.[sub] ?? 0))
+    }
+  }
+
+  out.sort((a, b) => (b.ratio - a.ratio) || (a.remaining - b.remaining) || a.label.localeCompare(b.label))
+  return out
+}
+
+// Which limits should nudge the user. This rule is ABSOLUTE ("this much or less
+// left") while the bar colour is a ratio, so on a small limit the two can
+// disagree — the page marks those rows explicitly rather than inventing a second
+// palette for them.
+export function limitAlerts(statuses: LimitStatus[], warnAt: number): LimitStatus[] {
+  return statuses.filter((s) => s.remaining <= warnAt)
 }

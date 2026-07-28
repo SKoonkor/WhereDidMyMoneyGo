@@ -437,6 +437,9 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   text-align: center;
   padding: 12px 4px;
 }
+/* Every tile is title (top) → body (centred, takes the slack) → note (bottom),
+   so the three bands line up across neighbouring tiles regardless of what each
+   one draws. */
 .small-slot {
   flex: 1 1 0;
   min-width: 0;
@@ -444,9 +447,19 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 5px;
   padding: 6px 4px;
+}
+.small-slot-body {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 .small-slot-btn {
   background: none;
@@ -461,7 +474,16 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   color: var(--muted);
   font-size: 22px;
 }
+/* Reserve two lines whether or not this title needs them: at ~108px wide
+   "3-MONTH FLOW" and "BUDGET USED" wrap while "BUDGET" doesn't, and without a
+   fixed box the bodies below would still sit at different heights. */
 .small-slot-title {
+  flex: 0 0 auto;
+  min-height: 24px;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   font-size: 10px;
   color: var(--muted);
   text-transform: uppercase;
@@ -499,6 +521,14 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   opacity: 0.15;
   stroke: none;
 }
+/* Zero reference. non-scaling-stroke is required: the svg is
+   preserveAspectRatio="none", so a plain stroke would be squashed. */
+.spark-zero {
+  stroke: var(--expense);
+  stroke-width: 1;
+  opacity: 0.35;
+  vector-effect: non-scaling-stroke;
+}
 
 /* Ring gauge: a conic-gradient disc with the middle masked out. The label is a
    sibling of the disc, not a child — a mask applies to descendants too, so a
@@ -531,10 +561,13 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   font-variant-numeric: tabular-nums;
 }
 
+/* Shares its element with .small-slot-body, which centres its children — the
+   rows must override that and stretch, or the bars collapse to zero width. */
 .mini-bars {
   width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 7px;
 }
 .mini-bar-row {
@@ -542,25 +575,24 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   align-items: center;
   gap: 5px;
 }
-.mini-bar-name {
-  flex: 0 0 auto;
-  width: 10px;
-  font-size: 10px;
-  color: var(--muted);
-}
 .mini-bar {
   flex: 1 1 auto;
   height: 6px;
   min-width: 0;
 }
-.mini-bar-pct {
+/* Wide enough for "-100k" / "23.4k" at 10px tabular-nums. */
+.mini-bar-amt {
   flex: 0 0 auto;
   font-size: 10px;
+  font-weight: 600;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  width: 26px;
+  width: 42px;
   text-align: right;
 }
+.mini-bar-amt.good { color: var(--income); }
+.mini-bar-amt.warn { color: #f39c12; }
+.mini-bar-amt.bad { color: var(--expense); }
 
 .mini-inout {
   display: flex;
@@ -1330,6 +1362,13 @@ html[data-censor='on'] .censor-toggle .ct-eye {
   gap: 12px;
   font-size: 14px;
 }
+/* The account the plot is scoped to. */
+.flow-bal-list li.is-selected {
+  font-weight: 700;
+}
+.flow-account-card {
+  margin-top: 12px;
+}
 .flow-bal-amt {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1707,6 +1746,30 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 .budget-bar-fill.good { background: var(--income); }
 .budget-bar-fill.warn { background: #f39c12; }
 .budget-bar-fill.bad { background: var(--expense); }
+
+/* Spending limits: the readout rows, and the chips that carry an amount. */
+.limit-row.is-sub {
+  padding-left: 14px;
+  border-left: 2px solid var(--border-soft);
+}
+/* The bar colour is a ratio but the alert is an absolute headroom, so a small
+   limit can be green and still nudging — this marks those rows. */
+.limit-warn {
+  color: #f39c12;
+}
+.budget-chip.has-limit {
+  border-color: var(--accent);
+}
+.budget-chip-amt {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+a.pick-summary {
+  text-decoration: none;
+  color: var(--ink);
+}
 
 /* Over-budget overflow list under the donut. */
 .budget-overflow { margin-top: 10px; }

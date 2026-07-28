@@ -117,8 +117,49 @@ const TH: Record<string, string> = {
   'What sits in each account right now.': 'ยอดคงเหลือในแต่ละบัญชีตอนนี้',
   'Holds up to three small previews side by side.': 'ใส่วิดเจ็ตขนาดเล็กได้สูงสุดสามอันเรียงกัน',
 
+  // Money Flow — per-account view.
+  'All accounts': 'ทุกบัญชี',
+  'Show one account': 'แสดงเฉพาะบัญชี',
+  '{account} balance': 'ยอดบัญชี {account}',
+  'Plot and forecast show {account} only.': 'กราฟและการพยากรณ์แสดงเฉพาะ {account}',
+  'Add a few more weeks of history for this account to see a forecast.':
+    'เพิ่มข้อมูลของบัญชีนี้อีกสองสามสัปดาห์เพื่อดูการพยากรณ์',
+  'No transactions for {account} yet.': 'ยังไม่มีรายการของ {account}',
+
+  // Spending limits.
+  'Spending limits': 'วงเงินรายจ่าย',
+  'Cap what you spend per category.': 'กำหนดเพดานรายจ่ายของแต่ละหมวด',
+  'How close you are to each limit.': 'คุณใกล้ถึงวงเงินแต่ละรายการแค่ไหน',
+  Limits: 'วงเงิน',
+  'Your limits': 'วงเงินของคุณ',
+  'No limits set yet.': 'ยังไม่ได้ตั้งวงเงิน',
+  'This period: {month}': 'งวดนี้: {month}',
+  'Set a limit': 'ตั้งวงเงิน',
+  'With a limit': 'มีวงเงิน',
+  'No limit': 'ไม่มีวงเงิน',
+  'Hold a category to set its limit · tap for sub-categories.':
+    'กดค้างที่หมวดเพื่อตั้งวงเงิน · แตะเพื่อดูหมวดย่อย',
+  'Hold a sub-category to set its limit': 'กดค้างที่หมวดย่อยเพื่อตั้งวงเงิน',
+  'A category limit covers everything in it, including its sub-categories.':
+    'วงเงินของหมวดครอบคลุมทุกอย่างในหมวดนั้น รวมถึงหมวดย่อยด้วย',
+  'Limit for {name}': 'วงเงินของ {name}',
+  'Monthly limit': 'วงเงินต่อเดือน',
+  'Remove limit': 'ลบวงเงิน',
+  'Alert threshold': 'เกณฑ์แจ้งเตือน',
+  'Warn me when a limit has this much left': 'แจ้งเตือนเมื่อวงเงินเหลือน้อยกว่านี้',
+  'Applies to every limit below.': 'ใช้กับทุกวงเงินด้านล่าง',
+  '+{n} more': 'และอีก {n} รายการ',
+  '{name} is close to its spending limit.': '{name} ใกล้ถึงวงเงินที่ตั้งไว้แล้ว',
+  '{name} is over its spending limit.': '{name} เกินวงเงินที่ตั้งไว้แล้ว',
+  '{n} spending limits need attention': 'มีวงเงิน {n} รายการที่ต้องดู',
+  'Spending limit almost reached': 'ใกล้ถึงวงเงินที่ตั้งไว้',
+  '{name} — {amount} left.': '{name} — เหลือ {amount}',
+  '{n} of your limits are near or over.': 'วงเงิน {n} รายการของคุณใกล้เต็มหรือเกินแล้ว',
+  'View limits': 'ดูวงเงิน',
+  View: 'ดู',
+
   // Small preview tiles.
-  '3M flow': 'กระแสเงิน 3 เดือน',
+  '3-Month flow': 'กระแสเงิน 3 เดือน',
   'Budget bars': 'แถบงบประมาณ',
   'Budget used': 'งบที่ใช้ไป',
   'Income & Output': 'รายรับและรายจ่าย',

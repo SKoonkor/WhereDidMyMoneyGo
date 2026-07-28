@@ -12,8 +12,7 @@ export function MiniInOut() {
   const s = useMemo(() => monthSummary(filterByMonth(all, currentMonthKey())), [all])
   return (
     <>
-      <div className="small-slot-title">{t('This month')}</div>
-      <div className="mini-inout">
+      <div className="mini-inout small-slot-body">
         <div className="mini-inout-label">{t('Income')}</div>
         <div className="mini-inout-value amt-income money">{fmt(s.income)}</div>
         <div className="mini-inout-label">{t('Output')}</div>

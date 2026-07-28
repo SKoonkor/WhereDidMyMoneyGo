@@ -5,7 +5,7 @@ import {
   renameAccount, deleteAccount, reorderAccounts,
   renameCategory, deleteCategory, reorderCategories,
   renameSubcategory, deleteSubcategory,
-  getAccounts, getCategories,
+  getAccounts, getCategories, getBudget, saveBudget,
 } from '../../db'
 
 beforeEach(async () => {
@@ -101,5 +101,51 @@ describe('delete + reorder', () => {
     expect(Object.keys((await getCategories()).expense)).not.toContain('Subscription')
     await deleteSubcategory('Food', 'Lunch')
     expect((await getCategories()).expense.Food).not.toContain('Lunch')
+  })
+})
+
+// Everything the budget stores is keyed by NAME, so a rename that doesn't
+// cascade silently detaches a spending limit (the cap stops applying) and leaves
+// a ghost row at 0 spent.
+describe('budget config follows category renames', () => {
+  it('carries buckets and limits across a category rename', async () => {
+    const cfg = await getBudget()
+    await saveBudget({
+      ...cfg,
+      assignments: { ...cfg.assignments, Food: 'Needs' },
+      subAssignments: { Food: { Dinner: 'Wants' } },
+      limits: { categories: { Food: 8000 }, subcategories: { Food: { Lunch: 800 } }, warnAt: 500 },
+    })
+
+    expect(await renameCategory('expense', 'Food', 'Meals')).toBe(true)
+
+    const after = await getBudget()
+    expect(after.assignments.Meals).toBe('Needs')
+    expect(after.assignments.Food).toBeUndefined()
+    expect(after.subAssignments).toEqual({ Meals: { Dinner: 'Wants' } })
+    expect(after.limits.categories).toEqual({ Meals: 8000 })
+    expect(after.limits.subcategories).toEqual({ Meals: { Lunch: 800 } })
+  })
+
+  it('carries a sub limit across a subcategory rename', async () => {
+    const cfg = await getBudget()
+    await saveBudget({
+      ...cfg,
+      limits: { categories: {}, subcategories: { Food: { Lunch: 800 } }, warnAt: 500 },
+    })
+    expect(await renameSubcategory('Food', 'Lunch', 'Brunch')).toBe(true)
+    expect((await getBudget()).limits.subcategories).toEqual({ Food: { Brunch: 800 } })
+  })
+
+  it('drops a limit when its category is deleted, rather than moving it to Other', async () => {
+    const cfg = await getBudget()
+    await saveBudget({
+      ...cfg,
+      limits: { categories: { Subscription: 500 }, subcategories: {}, warnAt: 500 },
+    })
+    await deleteCategory('expense', 'Subscription')
+    const after = await getBudget()
+    expect(after.limits.categories).toEqual({})
+    expect(after.limits.categories.Other).toBeUndefined()
   })
 })

@@ -140,6 +140,29 @@ function dailySeries(txns: Txn[], type: 'Income' | 'Expense', start: number, end
   return out
 }
 
+// Same shape as dailySeries, but classified by which way money moved rather than
+// by row type — so Transfer-* and Adjustment-* count too.
+//
+// Deliberately a sibling rather than a generalisation of dailySeries: the
+// whole-ledger path must stay bit-for-bit what it was, and the two have genuinely
+// different semantics. Across the whole ledger transfers net to zero and are
+// noise; scoped to ONE account they are often the only flow there is (a savings
+// account fed purely by transfers has no Income rows at all, and would otherwise
+// forecast a dead-flat line while its balance climbs every month).
+//
+// Signs come from `signedAmount`, the same classifier the anchor's `netWorth`
+// uses, so in account mode the drift and the anchor agree exactly.
+function dailyFlowSeries(txns: Txn[], dir: 'in' | 'out', start: number, end: number): number[] {
+  const out = new Array(end - start + 1).fill(0)
+  for (const t of txns) {
+    const signed = signedAmount(t.type, t.amount)
+    if (dir === 'in' ? signed <= 0 : signed >= 0) continue
+    const d = dayNum(t.period) - start
+    if (d >= 0 && d < out.length) out[d] += Math.abs(signed)
+  }
+  return out
+}
+
 // ── Public forecast ──────────────────────────────────────────────────────────
 
 export interface Forecast {
@@ -155,10 +178,26 @@ export interface Forecast {
 
 const isoDay = (n: number): string => new Date(n * MS_PER_DAY).toISOString().slice(0, 10)
 
-// Fit income & expense from the whole ledger and project the cumulative balance
-// `horizonDays` into the future. The fan is anchored at today's net worth and
-// begins the next day. Returns null when there is too little history to fit.
-export function forecast(txns: Txn[], horizonDays = 30, cfg: ForecastCfg = DEFAULT_CFG): Forecast | null {
+// Which flows drive the drift.
+//   'ledger'  — Income and Expense rows only (transfers net out across the whole
+//               ledger, so counting them would double-count moves between your
+//               own accounts). The default; unchanged behaviour.
+//   'account' — everything that moves money in or out, transfers included, for
+//               when `txns` has already been filtered to a single account.
+export type ForecastScope = 'ledger' | 'account'
+export interface ForecastOpts {
+  scope?: ForecastScope
+}
+
+// Fit inflow & outflow and project the cumulative balance `horizonDays` into the
+// future. The fan is anchored at the closing balance and begins the next day.
+// Returns null when there is too little history to fit.
+export function forecast(
+  txns: Txn[],
+  horizonDays = 30,
+  cfg: ForecastCfg = DEFAULT_CFG,
+  opts: ForecastOpts = {},
+): Forecast | null {
   if (txns.length === 0) return null
   const days = txns.map((t) => dayNum(t.period))
   const start = Math.min(...days)
@@ -173,8 +212,11 @@ export function forecast(txns: Txn[], horizonDays = 30, cfg: ForecastCfg = DEFAU
   // Most-recent day weight 1; older days decay by the half-life.
   const w = t.map((ti) => 0.5 ** ((span - ti) / cfg.halfLifeDays))
 
-  const inc = wls(X, dailySeries(txns, 'Income', start, end), w)
-  const exp = wls(X, dailySeries(txns, 'Expense', start, end), w)
+  const [yIn, yOut] = opts.scope === 'account'
+    ? [dailyFlowSeries(txns, 'in', start, end), dailyFlowSeries(txns, 'out', start, end)]
+    : [dailySeries(txns, 'Income', start, end), dailySeries(txns, 'Expense', start, end)]
+  const inc = wls(X, yIn, w)
+  const exp = wls(X, yOut, w)
 
   const anchorValue = netWorth(txns)
   const anchorIdx = span // today = last trained day

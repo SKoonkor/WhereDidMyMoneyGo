@@ -44,6 +44,36 @@ describe('sparklinePath', () => {
     }
   })
 
+  describe('zeroY', () => {
+    it('is null when the series never reaches zero', () => {
+      expect(sparklinePath([100, 200, 300], 100, 40)!.zeroY).toBeNull()
+    })
+
+    // min <= 0 alone would report a zeroY here, but zero is ABOVE an
+    // all-negative range, so the line would land outside the box.
+    it('is null when the series is entirely negative', () => {
+      expect(sparklinePath([-30, -10], 100, 40)!.zeroY).toBeNull()
+    })
+
+    it('sits proportionally where zero falls in the range', () => {
+      const { zeroY } = sparklinePath([-50, 50], 100, 40, 2)!
+      expect(zeroY).toBe(20) // symmetric → dead centre of [pad, h-pad]
+      const low = sparklinePath([-10, 90], 100, 40, 2)!.zeroY!
+      expect(low).toBeGreaterThan(20) // zero near the bottom → larger y
+      expect(low).toBeLessThanOrEqual(38)
+    })
+
+    it('handles a series that just touches zero', () => {
+      expect(sparklinePath([0, 100], 100, 40, 2)!.zeroY).toBe(38) // at the floor
+      expect(sparklinePath([-100, 0], 100, 40, 2)!.zeroY).toBe(2) // at the ceiling
+    })
+
+    it('centres a flat-at-zero series and skips a flat non-zero one', () => {
+      expect(sparklinePath([0, 0, 0], 100, 40)!.zeroY).toBe(20)
+      expect(sparklinePath([7, 7, 7], 100, 40)!.zeroY).toBeNull()
+    })
+  })
+
   it('closes the area path down to the baseline', () => {
     const { line, area } = sparklinePath([1, 5, 3], 100, 40)!
     expect(area.startsWith(line)).toBe(true)

@@ -18,12 +18,14 @@ export function MiniPoolGauge() {
   return (
     <>
       <div className="small-slot-title">{t('Savings Pool')}</div>
-      <Ring
-        pct={pool.pct}
-        color="var(--accent)"
-        label={censor ? '•••' : `${Math.round(pool.pct)}%`}
-        ariaLabel={t('Savings Pool')}
-      />
+      <div className="small-slot-body">
+        <Ring
+          pct={pool.pct}
+          color="var(--accent)"
+          label={censor ? '•••' : `${Math.round(pool.pct)}%`}
+          ariaLabel={t('Savings Pool')}
+        />
+      </div>
       <div className="small-slot-note">{note}</div>
     </>
   )

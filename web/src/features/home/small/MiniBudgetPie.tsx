@@ -3,7 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { getBudget } from '../../../db'
 import { useLiveTxns } from '../../useLiveTxns'
 import { currentMonthKey } from '../../transactions/month'
-import { budgetIncome, monthPieData } from '../../../lib/analytics/budget'
+import { budgetIncome, monthPieData, ratioTone } from '../../../lib/analytics/budget'
+import { TONE_COLOR } from '../../budget/tone'
 import { Ring } from './Ring'
 import { t } from '../../../i18n'
 
@@ -22,13 +23,15 @@ export function MiniBudgetPie() {
   const pct = pie.budget > 0 ? (pie.total / pie.budget) * 100 : 0
   return (
     <>
-      <div className="small-slot-title">{t('Budget')}</div>
-      <Ring
-        pct={pct}
-        color={pie.over ? 'var(--expense)' : 'var(--accent)'}
-        label={`${Math.round(pct)}%`}
-        ariaLabel={t('{pct}% of budget', { pct: Math.round(pct) })}
-      />
+      <div className="small-slot-title">{t('Budget used')}</div>
+      <div className="small-slot-body">
+        <Ring
+          pct={pct}
+          color={TONE_COLOR[ratioTone(pie.total, pie.budget)]}
+          label={`${Math.round(pct)}%`}
+          ariaLabel={t('{pct}% of budget', { pct: Math.round(pct) })}
+        />
+      </div>
       <div className="small-slot-note">{t('of budget')}</div>
     </>
   )

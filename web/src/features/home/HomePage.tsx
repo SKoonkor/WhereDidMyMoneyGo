@@ -10,6 +10,8 @@ import {
   type HomeItem, type HomeLayout, type LargeWidgetId, type SmallWidgetId,
 } from '../../lib/homeLayout'
 import { LARGE } from './registry'
+import { useLimits } from './useLimits'
+import { compactAmount } from '../../lib/format'
 import { WidgetFrame } from './WidgetFrame'
 import { WidgetActionSheet } from './WidgetActionSheet'
 import { WidgetPicker } from './WidgetPicker'
@@ -35,6 +37,7 @@ export function HomePage() {
   const [editing, setEditing] = useState(false)
   const [sheet, setSheet] = useState<HomeItem | null>(null)
   const [picking, setPicking] = useState<Picking | null>(null)
+  const limits = useLimits()
 
   const items = useMemo(() => layout?.items ?? [], [layout])
   const uids = useMemo(() => items.map((i) => i.uid), [items])
@@ -75,8 +78,33 @@ export function HomePage() {
     </div>
   )
 
+  const nearLimit = limits ? limits.statuses.filter((s) => s.remaining <= limits.warnAt) : []
+
   return (
     <div className="home">
+      {/* Spending-limit nudge. Sits ABOVE the list rather than inside it: an
+          extra non-draggable sibling among the widgets throws off the drop
+          positions while dragging past it (see the reconcile banner below), and
+          unlike that one this banner has no reason to sit at a particular spot. */}
+      {nearLimit.length > 0 && (
+        <div className="card recon-reminder limit-reminder" role="status">
+          <div className="recon-reminder-text">
+            <strong>{t('Spending limit almost reached')}</strong>
+            <span className="recon-reminder-sub">
+              {nearLimit.length === 1
+                ? t('{name} — {amount} left.', {
+                  name: nearLimit[0].label,
+                  amount: compactAmount(Math.max(0, nearLimit[0].remaining)),
+                })
+                : t('{n} of your limits are near or over.', { n: nearLimit.length })}
+            </span>
+          </div>
+          <button type="button" className="btn recon-reminder-btn" onClick={() => navigate('/limits')}>
+            {t('View limits')}
+          </button>
+        </div>
+      )}
+
       <div className="home-list" {...drag.listProps}>
         {reconAfter === null && reminder}
         {drag.order.map((uid) => {

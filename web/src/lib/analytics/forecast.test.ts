@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Txn } from '../../db'
-import { forecast, _internal } from './forecast'
+import { forecast, DEFAULT_CFG, _internal } from './forecast'
 
 const { invert, wls } = _internal
 
@@ -92,5 +92,62 @@ describe('forecast', () => {
     if (!fc) return
     // A steady +40/day surplus should keep the median trending upward.
     expect(fc.median[fc.median.length - 1]).toBeGreaterThan(fc.median[0])
+  })
+})
+
+// A savings account fed only by transfers — no Income or Expense rows at all.
+function transfersOnly(days: number, perDay: number): Txn[] {
+  const out: Txn[] = []
+  let id = 1
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today.getTime() - i * 86_400_000).toISOString().slice(0, 10)
+    out.push({ id: id++, period: d, account: 'Savings', amount: perDay, type: 'Transfer-In', category: 'Cash', currency: 'THB' })
+  }
+  return out
+}
+
+describe('forecast scope', () => {
+  it('leaves the whole-ledger path byte-identical', () => {
+    const txns = ledger(60, 100, 60)
+    expect(forecast(txns, 30)).toEqual(forecast(txns, 30, DEFAULT_CFG, {}))
+    expect(forecast(txns, 30)).toEqual(forecast(txns, 30, DEFAULT_CFG, { scope: 'ledger' }))
+  })
+
+  // The whole reason account scope exists: a transfer-fed account has no
+  // Income/Expense rows, so the ledger model sees no drift at all.
+  it('turns a flat transfers-only forecast into a rising one', () => {
+    const txns = transfersOnly(90, 500)
+
+    const asLedger = forecast(txns, 30)
+    expect(asLedger).not.toBeNull()
+    expect(asLedger!.median[30]).toBeCloseTo(asLedger!.median[0], 6) // dead flat
+
+    const asAccount = forecast(txns, 30, DEFAULT_CFG, { scope: 'account' })
+    expect(asAccount).not.toBeNull()
+    expect(asAccount!.median[30]).toBeGreaterThan(asAccount!.median[0])
+  })
+
+  it('anchors both scopes at the same closing balance', () => {
+    const txns = transfersOnly(90, 500)
+    const a = forecast(txns, 30)!
+    const b = forecast(txns, 30, DEFAULT_CFG, { scope: 'account' })!
+    // Only the drift changes — the starting point is the same either way.
+    expect(b.anchorValue).toBeCloseTo(a.anchorValue, 6)
+    expect(b.anchorDate).toBe(a.anchorDate)
+  })
+
+  it('counts spending out of the account too', () => {
+    const txns = transfersOnly(90, 500)
+    const today = new Date()
+    today.setUTCHours(0, 0, 0, 0)
+    for (let i = 89; i >= 0; i -= 1) {
+      const d = new Date(today.getTime() - i * 86_400_000).toISOString().slice(0, 10)
+      txns.push({ id: 9000 + i, period: d, account: 'Savings', amount: 900, type: 'Transfer-Out', category: 'Cash', currency: 'THB' })
+    }
+    const fc = forecast(txns, 30, DEFAULT_CFG, { scope: 'account' })!
+    // Net −400/day, so the account drains rather than grows.
+    expect(fc.median[30]).toBeLessThan(fc.median[0])
   })
 })

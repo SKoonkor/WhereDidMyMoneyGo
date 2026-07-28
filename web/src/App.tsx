@@ -20,6 +20,8 @@ import { CompositionPage } from './features/composition/CompositionPage'
 import { FlowPage } from './features/flow/FlowPage'
 // (Placeholder retired — every Apps tile now routes to a real page.)
 import { BudgetPage } from './features/budget/BudgetPage'
+import { LimitsPage } from './features/budget/LimitsPage'
+import { useLimitAlert } from './features/budget/useLimitAlert'
 import { GoalsPage } from './features/goals/GoalsPage'
 import { CompoundPage } from './features/compound/CompoundPage'
 import { RetirementPage } from './features/retirement/RetirementPage'
@@ -151,6 +153,12 @@ export default function App() {
   useEffect(() => {
     void getNotifications().then((cfg) => scheduleReminders(cfg))
   }, [])
+  // Fires whenever a saved transaction newly pushes a spending limit into its
+  // warning band — from any of the save paths, since it watches the ledger.
+  useLimitAlert((message) => setToast({
+    message,
+    action: { label: t('View'), onClick: () => { window.location.hash = '#/limits' } },
+  }))
   return (
     <HashRouter>
       <div className="app">
@@ -163,6 +171,7 @@ export default function App() {
             <Route path="/composition" element={<CompositionPage />} />
             <Route path="/flow" element={<FlowPage />} />
             <Route path="/budget" element={<BudgetPage />} />
+            <Route path="/limits" element={<LimitsPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/retirement" element={<RetirementPage />} />
             <Route path="/compound" element={<CompoundPage />} />

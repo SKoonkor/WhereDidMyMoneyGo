@@ -38,9 +38,15 @@ export const CHANGELOG: Release[] = [
     date: '27-07-2026',
     changes: [
       { kind: 'new', text: 'Home screen layout editor: tap "Edit layout" to drag boxes into the order you want, remove the ones you never look at, and add them back later.' },
-      { kind: 'new', text: 'Widget rows — a box that holds up to three small previews side by side: 3-month money flow, budget bars, budget used, savings pool, and this month\'s income vs output.' },
+      { kind: 'new', text: 'Widget rows — a box that holds up to three small previews side by side: 3-month money flow, budget bars, budget used, spending limits, savings pool, and this month\'s income vs output.' },
+      { kind: 'new', text: 'Spending limits: set a monthly cap on any category or sub-category, see how close you are to each, and get nudged when one is nearly spent.' },
+      { kind: 'new', text: 'Money Flow can now show a single account, with its own forecast — including money moved in by transfers.' },
       { kind: 'improved', text: 'Home gestures swapped: double-tap a box to fold it, hold it to open its page or remove it.' },
+      { kind: 'improved', text: 'Budget bars turn amber at 75% and red past 95%, instead of 50% and 85%.' },
+      { kind: 'improved', text: 'The Money Flow chart is shorter, with the empty space above it removed.' },
+      { kind: 'improved', text: 'Small preview tiles line up properly and show amounts left rather than percentages.' },
       { kind: 'improved', text: 'Your Home arrangement is now included in backups.' },
+      { kind: 'fixed', text: 'Renaming a category no longer detaches its budget bucket or its spending limit.' },
     ],
   },
   {

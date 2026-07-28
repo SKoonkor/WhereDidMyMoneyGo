@@ -9,11 +9,12 @@
 // would freeze the language at module-eval time, since t() reads the current
 // language on every call.
 import type { HomeItem, LargeWidgetId, SmallWidgetId } from '../../lib/homeLayout'
-import { NetWorthHero, FlowWidget, BudgetWidget, PoolWidget, AccountsWidget } from './large'
+import { NetWorthHero, FlowWidget, BudgetWidget, LimitsWidget, PoolWidget, AccountsWidget } from './large'
 import { SmallRow } from './SmallRow'
 import { MiniTrend } from './small/MiniTrend'
 import { MiniBudgetBars } from './small/MiniBudgetBars'
 import { MiniBudgetPie } from './small/MiniBudgetPie'
+import { MiniLimits } from './small/MiniLimits'
 import { MiniPoolGauge } from './small/MiniPoolGauge'
 import { MiniInOut } from './small/MiniInOut'
 
@@ -58,6 +59,12 @@ export const LARGE: Record<LargeWidgetId, LargeDef> = {
     route: '/budget',
     className: 'budget-card', header: true, Render: BudgetWidget,
   },
+  limits: {
+    title: 'Spending limits',
+    desc: 'How close you are to each limit.',
+    route: '/limits',
+    className: 'budget-card', header: true, Render: LimitsWidget,
+  },
   pool: {
     title: 'Savings Pool',
     desc: 'Emergency Fund plus the goals you ticked.',
@@ -83,9 +90,10 @@ export interface SmallDef {
 }
 
 export const SMALL: Record<SmallWidgetId, SmallDef> = {
-  'mini-trend': { title: '3M flow', Render: MiniTrend },
+  'mini-trend': { title: '3-Month flow', Render: MiniTrend },
   'mini-bars': { title: 'Budget bars', Render: MiniBudgetBars },
   'mini-pie': { title: 'Budget used', Render: MiniBudgetPie },
+  'mini-limits': { title: 'Limits', Render: MiniLimits },
   'mini-pool': { title: 'Savings Pool', Render: MiniPoolGauge },
   'mini-inout': { title: 'Income & Output', Render: MiniInOut },
 }

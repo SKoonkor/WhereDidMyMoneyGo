@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getBudget, getSettings, saveBudget, saveSettings, type Txn } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
@@ -74,6 +75,12 @@ export function BudgetPage() {
       <section className="card budget-card">
         <ThisPeriodBudget summary={summary} censor={censor} />
       </section>
+
+      {/* ── Per-category caps, on their own page ─────────────────────── */}
+      <Link to="/limits" className="pick-summary budget-card">
+        <span>{t('Spending limits')}</span>
+        <span className="pick-summary-arrow">›</span>
+      </Link>
 
       {/* ── Spending vs budget donut ─────────────────────────────────── */}
       <section className="card budget-card">

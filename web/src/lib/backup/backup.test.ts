@@ -97,6 +97,39 @@ describe('backup / restore', () => {
     expect((await getGoals()).goals.Trip).toBe(50000)
   })
 
+  // Limits live inside the budget config, so they ride along without a version
+  // bump — but that's exactly why it's worth asserting.
+  it('round-trips spending limits inside the budget config', async () => {
+    await saveBudget({
+      ...(await getBudget()),
+      limits: {
+        categories: { Food: 8000 },
+        subcategories: { Food: { Lunch: 800 } },
+        warnAt: 250,
+      },
+    })
+    const backup = await makeBackup()
+    expect(backup.budget?.limits.categories).toEqual({ Food: 8000 })
+
+    await db.transactions.clear()
+    await db.config.clear()
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+
+    const limits = (await getBudget()).limits
+    expect(limits.categories).toEqual({ Food: 8000 })
+    expect(limits.subcategories).toEqual({ Food: { Lunch: 800 } })
+    expect(limits.warnAt).toBe(250)
+  })
+
+  it('gives a pre-limits backup a usable default', async () => {
+    const backup = await makeBackup()
+    delete (backup.budget as { limits?: unknown }).limits
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+    // Without normalizeLimits this would be undefined and the alert would never
+    // fire, silently.
+    expect((await getBudget()).limits).toEqual({ categories: {}, subcategories: {}, warnAt: 500 })
+  })
+
   it('round-trips the Home layout (v4)', async () => {
     await saveHomeLayout({
       version: 1,

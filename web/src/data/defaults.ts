@@ -105,6 +105,65 @@ export const DEFAULT_RECONCILE: ReconcileState = { lastReconciled: null }
 // here — Budget reads it from Settings.resetDay so there's one source of truth.
 export type Bucket = 'Needs' | 'Wants' | 'Savings'
 
+// Per-category / per-subcategory spending caps for the current month.
+//
+// Two separate maps rather than one with a sentinel key, because they mean
+// genuinely different things: a CATEGORY limit is an umbrella covering every row
+// in it (its subcategories included), whereas a subcategory limit covers only
+// that subcategory. Note `subAssignments` uses '' to key "rows with no
+// subcategory" — a sentinel here would collide with that meaning.
+export interface SpendingLimits {
+  categories: Record<string, number>
+  subcategories: Record<string, Record<string, number>>
+  /** Nudge the user once a limit has this much or less left. Base currency. */
+  warnAt: number
+}
+
+export const DEFAULT_WARN_AT = 500
+export const DEFAULT_LIMITS: SpendingLimits = {
+  categories: {},
+  subcategories: {},
+  warnAt: DEFAULT_WARN_AT,
+}
+
+// Coerce a stored/restored value into a usable SpendingLimits.
+//
+// This is not belt-and-braces: `getBudget` merges with `{ ...DEFAULT_BUDGET,
+// ...row }`, a SHALLOW spread, so a config written before limits existed (or a
+// hand-edited backup carrying only `categories`) would leave `warnAt` undefined.
+// `remaining <= undefined` is false, so the alert would silently never fire —
+// no crash, no clue. Normalising on read closes that off.
+export function normalizeLimits(raw: unknown): SpendingLimits {
+  const src = (raw && typeof raw === 'object' ? raw : {}) as Partial<SpendingLimits>
+
+  // A limit of zero or less is meaningless — removing a cap is deleting the key.
+  const amount = (v: unknown): number | null =>
+    (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null)
+
+  const categories: Record<string, number> = {}
+  for (const [cat, v] of Object.entries(src.categories ?? {})) {
+    const n = amount(v)
+    if (n !== null) categories[cat] = n
+  }
+
+  const subcategories: Record<string, Record<string, number>> = {}
+  for (const [cat, subs] of Object.entries(src.subcategories ?? {})) {
+    if (!subs || typeof subs !== 'object') continue
+    const kept: Record<string, number> = {}
+    for (const [sub, v] of Object.entries(subs)) {
+      const n = amount(v)
+      if (n !== null) kept[sub] = n
+    }
+    if (Object.keys(kept).length) subcategories[cat] = kept
+  }
+
+  const warnAt = typeof src.warnAt === 'number' && Number.isFinite(src.warnAt) && src.warnAt >= 0
+    ? src.warnAt
+    : DEFAULT_WARN_AT
+
+  return { categories, subcategories, warnAt }
+}
+
 export interface BudgetCfg {
   mode: 'fixed' | 'rolling'
   fixedIncome: number
@@ -115,6 +174,7 @@ export interface BudgetCfg {
   // when it differs from the parent category's bucket; setting it equal to the
   // parent removes it (so a subcat moved back auto-collapses into its category).
   subAssignments: Record<string, Record<string, Bucket>>
+  limits: SpendingLimits
 }
 
 // A sensible starting Needs/Wants map for the seed categories; anything else
@@ -133,6 +193,7 @@ export const DEFAULT_BUDGET: BudgetCfg = {
   percentages: { Needs: 50, Wants: 30, Savings: 20 },
   assignments: { ...DEFAULT_ASSIGN },
   subAssignments: {},
+  limits: DEFAULT_LIMITS,
 }
 
 // ── Retirement planner inputs ────────────────────────────────────────────────
