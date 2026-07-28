@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import {
   addMonths, monthKeyOf, filterByMonth, collapseTransfers, groupByDay, monthSummary, daySummary,
-  filterByRange, latestPeriod, addDays,
+  filterByRange, latestPeriod, addDays, groupDaysWithMoves,
 } from './month'
+import { UNALLOCATED, type GoalMove } from '../../lib/analytics/goalSavings'
 import type { Txn } from '../../db'
+
+const M = (over: Partial<GoalMove>): GoalMove => ({
+  id: 0, period: '2026-07-10', from: UNALLOCATED, to: 'Car', amount: 1000, ...over,
+})
 
 const T = (over: Partial<Txn>): Txn => ({
   id: 0, period: '2026-07-10', account: 'Cash', amount: 0,
@@ -80,5 +85,56 @@ describe('month utils', () => {
     expect(latestPeriod([T({ period: '2026-07-01' }), T({ period: '2026-07-20' })])).toBe('2026-07-20')
     expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01')
+  })
+
+  it('filterByMonth also filters goal moves', () => {
+    const moves = [M({ id: 1, period: '2026-07-10' }), M({ id: 2, period: '2026-08-02' })]
+    expect(filterByMonth(moves, '2026-07').map((m) => m.id)).toEqual([1])
+  })
+})
+
+describe('groupDaysWithMoves', () => {
+  it('files a move on its own day, after that day’s transactions', () => {
+    const txns = [T({ id: 3, period: '2026-07-10' }), T({ id: 5, period: '2026-07-10' })]
+    const moves = [M({ id: 1, period: '2026-07-10' })]
+    const [[day, rows]] = groupDaysWithMoves(txns, moves)
+    expect(day).toBe('2026-07-10')
+    expect(rows.map((r) => r.kind)).toEqual(['txn', 'txn', 'move'])
+    // The existing newest-added-first rule for transactions is preserved.
+    expect(rows.flatMap((r) => (r.kind === 'txn' ? [r.txn.id] : []))).toEqual([5, 3])
+  })
+
+  it('opens a day that has only moves', () => {
+    const days = groupDaysWithMoves([], [M({ id: 1, period: '2026-07-12' })])
+    expect(days.map(([d]) => d)).toEqual(['2026-07-12'])
+    expect(days[0][1]).toHaveLength(1)
+  })
+
+  it('keeps days newest-first across both sources', () => {
+    const txns = [T({ id: 1, period: '2026-07-01' })]
+    const moves = [M({ id: 1, period: '2026-07-20' }), M({ id: 2, period: '2026-07-10' })]
+    expect(groupDaysWithMoves(txns, moves).map(([d]) => d))
+      .toEqual(['2026-07-20', '2026-07-10', '2026-07-01'])
+  })
+
+  it('sorts several moves on one day newest-added first', () => {
+    const moves = [M({ id: 2 }), M({ id: 7 }), M({ id: 4 })]
+    const [[, rows]] = groupDaysWithMoves([], moves)
+    expect(rows.flatMap((r) => (r.kind === 'move' ? [r.move.id] : []))).toEqual([7, 4, 2])
+  })
+
+  it('leaves the day and month totals untouched — a move is not income or spending', () => {
+    const txns = [T({ id: 1, period: '2026-07-10', type: 'Income', amount: 500 })]
+    const moves = [M({ id: 1, period: '2026-07-10', amount: 9999 })]
+    const [[, rows]] = groupDaysWithMoves(txns, moves)
+    const dayTxns = rows.flatMap((r) => (r.kind === 'txn' ? [r.txn] : []))
+    expect(daySummary(dayTxns)).toEqual({ income: 500, expense: 0 })
+    expect(monthSummary(txns)).toEqual({ income: 500, expense: 0, net: 500 })
+  })
+
+  it('matches groupByDay exactly when there are no moves', () => {
+    const txns = [T({ id: 1, period: '2026-07-01' }), T({ id: 2, period: '2026-07-05' })]
+    expect(groupDaysWithMoves(txns, []).map(([d, rows]) => [d, rows.length]))
+      .toEqual(groupByDay(txns).map(([d, rows]) => [d, rows.length]))
   })
 })

@@ -11,6 +11,7 @@ import {
 } from '../../lib/homeLayout'
 import { LARGE } from './registry'
 import { useLimits } from './useLimits'
+import { useGoalSavings } from './useGoalSavings'
 import { compactAmount } from '../../lib/format'
 import { WidgetFrame } from './WidgetFrame'
 import { WidgetActionSheet } from './WidgetActionSheet'
@@ -38,6 +39,7 @@ export function HomePage() {
   const [sheet, setSheet] = useState<HomeItem | null>(null)
   const [picking, setPicking] = useState<Picking | null>(null)
   const limits = useLimits()
+  const goalSavings = useGoalSavings()
 
   const items = useMemo(() => layout?.items ?? [], [layout])
   const uids = useMemo(() => items.map((i) => i.uid), [items])
@@ -79,6 +81,9 @@ export function HomePage() {
   )
 
   const nearLimit = limits ? limits.statuses.filter((s) => s.remaining <= limits.warnAt) : []
+  // Goals hold more than the savings accounts actually contain — the user has to
+  // move some back before the split means anything again.
+  const overAllocated = !!goalSavings && goalSavings.unallocated < 0
 
   return (
     <div className="home">
@@ -101,6 +106,24 @@ export function HomePage() {
           </div>
           <button type="button" className="btn recon-reminder-btn" onClick={() => navigate('/limits')}>
             {t('View limits')}
+          </button>
+        </div>
+      )}
+
+      {/* Savings needs rebalancing. Same placement rationale as the limit banner
+          above: outside the drag list, because it has no positional meaning. */}
+      {overAllocated && (
+        <div className="card recon-reminder limit-reminder" role="status">
+          <div className="recon-reminder-text">
+            <strong>{t('Savings need adjusting')}</strong>
+            <span className="recon-reminder-sub">
+              {t('Your goals hold {amount} more than your savings accounts contain.', {
+                amount: compactAmount(Math.abs(goalSavings.unallocated)),
+              })}
+            </span>
+          </div>
+          <button type="button" className="btn recon-reminder-btn" onClick={() => navigate('/goal-savings')}>
+            {t('Rebalance')}
           </button>
         </div>
       )}

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  addTxn, updateTxn, addTransfer, updateTransfer, deleteTxn,
+  addTxn, updateTxn, addTransfer, updateTransfer, deleteTxn, getGoals, getTransferGoal,
   addAccount, addCategory, addSubcategory, type Txn, type TxnType,
 } from '../../db'
-import { useAccounts, useCategories, useBaseCurrency } from './useConfig'
+import { EMERGENCY_FUND } from '../../data/defaults'
+import { useAccounts, useCategories, useBaseCurrency, useSettings } from './useConfig'
 import { ChipPicker } from './ChipPicker'
 import { CategoryPicker } from './CategoryPicker'
 import { Modal } from '../../components/Modal'
@@ -69,6 +71,38 @@ export function TxnForm({
     editing && kindOf(editing) === 'Transfer' ? editing.category : '',
   )
 
+  // ── Goal earmarking (transfers that cross the savings-pool boundary) ───────
+  // Which goal this transfer's money belongs to. '' = leave it in the unallocated
+  // pool, which is also what a transfer that misses the pool always means.
+  const settings = useSettings()
+  const goalsCfg = useLiveQuery(() => getGoals(), [])
+  const [goal, setGoal] = useState('')
+  // Prefill from the linked move when editing an existing transfer.
+  const storedGoal = useLiveQuery(
+    () => (editing?.transferId ? getTransferGoal(editing.transferId) : Promise.resolve('')),
+    [editing?.transferId],
+  )
+  const [goalSeeded, setGoalSeeded] = useState(false)
+  useEffect(() => {
+    if (!goalSeeded && storedGoal !== undefined) { setGoal(storedGoal); setGoalSeeded(true) }
+  }, [storedGoal, goalSeeded])
+
+  // Only offered when the transfer changes the pool total — with the pool on both
+  // sides (or neither) there is nothing to earmark, and db.ts drops the goal anyway.
+  const pool = useMemo(() => new Set(settings.savingsAccounts), [settings.savingsAccounts])
+  const crossesPool = kind === 'Transfer' && !!from && !!to && pool.has(from) !== pool.has(to)
+  const goalOptions = useMemo(
+    () => [EMERGENCY_FUND, ...Object.keys(goalsCfg?.goals ?? {})],
+    [goalsCfg],
+  )
+  // The picker deals in labels; index 0 is "leave it unallocated".
+  const goalLabelOf = (g: string) => (g ? (g === EMERGENCY_FUND ? t(EMERGENCY_FUND) : g) : t('Unallocated'))
+  const goalLabels = useMemo(
+    () => [t('Unallocated'), ...goalOptions.map(goalLabelOf)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [goalOptions],
+  )
+
   const catNames = useMemo(
     () => Object.keys(kind === 'Income' ? categories.income : categories.expense),
     [kind, categories],
@@ -114,7 +148,12 @@ export function TxnForm({
   // has passed.
   async function commit() {
     if (kind === 'Transfer') {
-      const tr = { period, amount: amountNum, from, to, note: note || undefined }
+      const tr = {
+        period, amount: amountNum, from, to, note: note || undefined,
+        // Dropped when the transfer doesn't cross the pool — a goal there would
+        // earmark money the pool never gained or lost.
+        goal: crossesPool ? goal || undefined : undefined,
+      }
       if (editing?.transferId) await updateTransfer(editing.transferId, tr)
       else await addTransfer(tr)
     } else {
@@ -138,7 +177,8 @@ export function TxnForm({
     const changed = editing && txnChanged(editing, {
       kind, period, amount: amountNum, note,
       account, category, subcategory, from, to,
-    })
+      goal: crossesPool ? goal : '',
+    }, storedGoal ?? '')
     if (changed) setConfirmEdit(true)
     else void commit()
   }
@@ -216,6 +256,28 @@ export function TxnForm({
             <label>{t('To')}</label>
             <ChipPicker value={to} options={accounts} onChange={setTo} onAddNew={addAccount} title={t('To')} placeholder={t('Select account')} />
           </div>
+          {/* Only when this transfer changes the savings-pool total. */}
+          {crossesPool && (
+            <div className="field pick-field">
+              <label>{t('Goal')}</label>
+              <ChipPicker
+                value={goalLabelOf(goal)}
+                options={goalLabels}
+                onChange={(label) => {
+                  // Matched by position, not by string, so a goal named like one
+                  // of the labels can't be mistaken for it.
+                  const i = goalLabels.indexOf(label)
+                  setGoal(i <= 0 ? '' : goalOptions[i - 1])
+                }}
+                title={t('Goal')}
+              />
+              <span className="set-hint">
+                {pool.has(to)
+                  ? t('Earmark this money for a goal, or leave it unallocated.')
+                  : t('Take this money out of a goal, or out of the unallocated pool.')}
+              </span>
+            </div>
+          )}
         </>
       ) : (
         <>

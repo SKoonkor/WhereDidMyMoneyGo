@@ -9,13 +9,16 @@
 // would freeze the language at module-eval time, since t() reads the current
 // language on every call.
 import type { HomeItem, LargeWidgetId, SmallWidgetId } from '../../lib/homeLayout'
-import { NetWorthHero, FlowWidget, BudgetWidget, LimitsWidget, PoolWidget, AccountsWidget } from './large'
+import {
+  NetWorthHero, FlowWidget, BudgetWidget, LimitsWidget, PoolWidget, GoalSavingsWidget, AccountsWidget,
+} from './large'
 import { SmallRow } from './SmallRow'
 import { MiniTrend } from './small/MiniTrend'
 import { MiniBudgetBars } from './small/MiniBudgetBars'
 import { MiniBudgetPie } from './small/MiniBudgetPie'
 import { MiniLimits } from './small/MiniLimits'
 import { MiniPoolGauge } from './small/MiniPoolGauge'
+import { MiniGoals } from './small/MiniGoals'
 import { MiniInOut } from './small/MiniInOut'
 
 // Every large widget is handed its instance and the edit state; only the
@@ -71,6 +74,12 @@ export const LARGE: Record<LargeWidgetId, LargeDef> = {
     route: '/goals', routeLabel: 'Financial Goals',
     className: 'goals-gauge-card', header: true, Render: PoolWidget,
   },
+  goals: {
+    title: 'Goal savings',
+    desc: 'How your pool is split between goals.',
+    route: '/goal-savings',
+    className: 'budget-card', header: true, Render: GoalSavingsWidget,
+  },
   accounts: {
     title: 'Account balances',
     desc: 'What sits in each account right now.',
@@ -95,5 +104,6 @@ export const SMALL: Record<SmallWidgetId, SmallDef> = {
   'mini-pie': { title: 'Budget used', Render: MiniBudgetPie },
   'mini-limits': { title: 'Limits', Render: MiniLimits },
   'mini-pool': { title: 'Savings Pool', Render: MiniPoolGauge },
+  'mini-goals': { title: 'Goal savings', Render: MiniGoals },
   'mini-inout': { title: 'Income & Output', Render: MiniInOut },
 }

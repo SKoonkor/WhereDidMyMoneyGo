@@ -69,7 +69,11 @@ describe('simulateRetirementMc — zero-vol equivalence', () => {
   })
 })
 
-describe('simulateRetirementMc — structure & statistics', () => {
+// Several of these run 3,000 Monte Carlo paths. On an idle machine each takes
+// ~2s, but under the full suite's parallel load they stretch past the default 5s
+// timeout — a slow test, not a hanging one. The extra headroom keeps the suite
+// from failing based on how busy the machine is.
+describe('simulateRetirementMc — structure & statistics', { timeout: 30_000 }, () => {
   it('series percentiles ordered everywhere', () => {
     const mc = simulateRetirementMc({ ...plan(), volReturn: 0.15, volInflation: 0.01, volDeposit: 0.02, nMc: 500 })
     for (let i = 0; i < mc.nominal.p50.length; i++) {

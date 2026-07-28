@@ -36,6 +36,7 @@ import {
 } from './lib/homeLayout'
 import { remapBudget, type BudgetRename } from './lib/analytics/budgetMaintenance'
 import { RECON_CATEGORY, ADJUST_IN, ADJUST_OUT } from './lib/analytics/reconcile'
+import { UNALLOCATED, allocations, type GoalMove, type NewGoalMove } from './lib/analytics/goalSavings'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
 // "add" choices are Income / Expense / Transfer; a Transfer expands into the two
@@ -73,13 +74,21 @@ interface ConfigRow {
 const db = new Dexie('money-tracker') as Dexie & {
   transactions: EntityTable<Txn, 'id'>
   config: EntityTable<ConfigRow, 'key'>
+  goalMoves: EntityTable<GoalMove, 'id'>
 }
 
 // v1 shipped only `transactions`. v2 adds the transferId index + the config store.
+// v3 adds `goalMoves` — the per-goal allocation layer. Dexie needs the whole
+// schema restated per version, so the first two stores are repeated verbatim.
 db.version(1).stores({ transactions: '++id, period, account, type, category' })
 db.version(2).stores({
   transactions: '++id, period, account, type, category, transferId',
   config: 'key',
+})
+db.version(3).stores({
+  transactions: '++id, period, account, type, category, transferId',
+  config: 'key',
+  goalMoves: '++id, period, transferId',
 })
 
 export { db }
@@ -477,27 +486,63 @@ export interface TransferInput {
   from: string
   to: string
   note?: string
+  // Optional goal to earmark this transfer against, when it crosses the savings
+  // pool boundary. Creates a linked GoalMove — see goalMoveFor below.
+  goal?: string
+}
+
+// The allocation move a transfer implies, or null if it implies none.
+//
+// The direction is derived rather than asked for: money arriving in the pool goes
+// Unallocated → goal, money leaving comes goal → Unallocated. A transfer with the
+// pool on BOTH sides (Savings → Brokerage, both ticked) or NEITHER doesn't change
+// the pool at all, so tagging it with a goal would be meaningless — hence the
+// `inPool === outPool` guard rather than two separate checks.
+//
+// Reads settings itself, so callers must resolve it BEFORE opening an rw
+// transaction: `config` is outside the transaction's table scope.
+async function goalMoveFor(tr: TransferInput, transferId: string): Promise<NewGoalMove | null> {
+  if (!tr.goal) return null
+  const pool = new Set((await getSettings()).savingsAccounts)
+  const inPool = pool.has(tr.to)
+  const outPool = pool.has(tr.from)
+  if (inPool === outPool) return null
+  return {
+    period: tr.period,
+    from: inPool ? UNALLOCATED : tr.goal,
+    to: inPool ? tr.goal : UNALLOCATED,
+    amount: tr.amount,
+    note: tr.note,
+    transferId,
+  }
 }
 
 export async function addTransfer(tr: TransferInput): Promise<string> {
   const transferId = crypto.randomUUID()
   const cur = await currency()
-  await db.transactions.bulkAdd([
-    {
-      period: tr.period, account: tr.from, amount: tr.amount, type: 'Transfer-Out',
-      category: tr.to, note: tr.note, currency: cur, transferId,
-    },
-    {
-      period: tr.period, account: tr.to, amount: tr.amount, type: 'Transfer-In',
-      category: tr.from, note: tr.note, currency: cur, transferId,
-    },
-  ] as Txn[])
+  const move = await goalMoveFor(tr, transferId)
+  await db.transaction('rw', db.transactions, db.goalMoves, async () => {
+    await db.transactions.bulkAdd([
+      {
+        period: tr.period, account: tr.from, amount: tr.amount, type: 'Transfer-Out',
+        category: tr.to, note: tr.note, currency: cur, transferId,
+      },
+      {
+        period: tr.period, account: tr.to, amount: tr.amount, type: 'Transfer-In',
+        category: tr.from, note: tr.note, currency: cur, transferId,
+      },
+    ] as Txn[])
+    if (move) await db.goalMoves.add(move as GoalMove)
+  })
   return transferId
 }
 
 export async function updateTransfer(transferId: string, tr: TransferInput): Promise<void> {
   const cur = await currency()
-  await db.transaction('rw', db.transactions, async () => {
+  // Rewritten rather than patched: the goal, the direction and the amount can all
+  // change at once, and dropping the old move first keeps that from needing cases.
+  const move = await goalMoveFor(tr, transferId)
+  await db.transaction('rw', db.transactions, db.goalMoves, async () => {
     const legs = await db.transactions.where('transferId').equals(transferId).toArray()
     const out = legs.find((l) => l.type === 'Transfer-Out')
     const inc = legs.find((l) => l.type === 'Transfer-In')
@@ -511,9 +556,66 @@ export async function updateTransfer(transferId: string, tr: TransferInput): Pro
         period: tr.period, account: tr.to, amount: tr.amount,
         category: tr.from, note: tr.note, currency: cur,
       })
+    await db.goalMoves.where('transferId').equals(transferId).delete()
+    if (move) await db.goalMoves.add(move as GoalMove)
   })
 }
 
 export async function deleteTransfer(transferId: string): Promise<void> {
+  await db.goalMoves.where('transferId').equals(transferId).delete()
   await db.transactions.where('transferId').equals(transferId).delete()
+}
+
+// ── Per-goal savings (the allocation layer) ──────────────────────────────────
+// These rows earmark parts of the savings pool for individual goals. They move no
+// real money, which is why they live in their own table — see lib/analytics/goalSavings.ts.
+
+export async function listGoalMoves(): Promise<GoalMove[]> {
+  return (await db.goalMoves.toArray()).sort((a, b) => b.period.localeCompare(a.period))
+}
+
+export async function addGoalMove(move: NewGoalMove): Promise<number> {
+  return db.goalMoves.add(move as GoalMove)
+}
+
+export async function updateGoalMove(id: number, patch: Partial<GoalMove>): Promise<void> {
+  await db.goalMoves.update(id, patch)
+}
+
+export async function deleteGoalMove(id: number): Promise<void> {
+  await db.goalMoves.delete(id)
+}
+
+// Which goal (if any) a transfer is earmarked against — the value that prefills
+// the edit form's goal picker. '' when the transfer has no linked move.
+export async function getTransferGoal(transferId: string): Promise<string> {
+  const move = await db.goalMoves.where('transferId').equals(transferId).first()
+  if (!move) return ''
+  // One end is always UNALLOCATED on a transfer-linked move; the other is the goal.
+  return move.to === UNALLOCATED ? move.from : move.to
+}
+
+// Delete a goal, refunding whatever it still holds back to the unallocated pool.
+//
+// A refund MOVE rather than deleting the goal's history: the activity list still
+// explains where the money went, and the arithmetic self-heals — leaving the old
+// moves in place with no compensating entry would silently strand the amount,
+// since `unallocatedAmount` subtracts every allocation it finds.
+export async function deleteGoal(name: string): Promise<void> {
+  const held = allocations(await db.goalMoves.toArray())[name] ?? 0
+  if (held !== 0) {
+    await db.goalMoves.add({
+      period: new Date().toISOString().slice(0, 10),
+      // A negative holding refunds the other way, so the goal still lands on zero.
+      from: held > 0 ? name : UNALLOCATED,
+      to: held > 0 ? UNALLOCATED : name,
+      amount: Math.abs(held),
+    } as GoalMove)
+  }
+  const cfg = await getGoals()
+  const goals = { ...cfg.goals }
+  const factors = { ...cfg.factors }
+  delete goals[name]
+  delete factors[name]
+  await saveGoals({ goals, factors, selected: cfg.selected.filter((g) => g !== name) })
 }

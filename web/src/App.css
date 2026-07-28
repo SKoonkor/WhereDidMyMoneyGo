@@ -2119,6 +2119,100 @@ a.pick-summary {
 }
 .goal-pin { flex: 0 0 auto; font-size: 13px; opacity: 0.7; }
 
+/* A goal move inside the main transaction list. Muted throughout: it earmarks
+   money that is already in the savings accounts, so it must not read as a
+   transaction — and it contributes nothing to the day totals beside it. */
+.txn-goal-move .txn-cat-main,
+.txn-goal-move .txn-primary,
+.txn-goal-move .amt {
+  color: var(--muted);
+}
+.txn-goal-move .amt { font-weight: 500; }
+
+/* ── Goal savings (the per-goal allocation layer) ──────────────────────────── */
+
+/* The headline "what's left to assign" figure. Turns red when goals hold more
+   than the savings accounts actually contain — the state the Home banner nags
+   about — so the number and its warning border say the same thing. */
+.gs-head-amt {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin-top: 2px;
+}
+.gs-head-cur { font-size: 14px; font-weight: 500; color: var(--muted); }
+.gs-head.is-short { border-color: var(--expense); }
+
+.gs-rings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 10px;
+  justify-content: center;
+  margin: 6px 0 4px;
+}
+.gs-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 88px;
+}
+.gs-ring-name {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.gs-ring-amt { font-size: 13px; font-weight: 600; }
+.gs-ring-target { font-size: 11px; }
+.gs-move-btn { width: 100%; margin-top: 10px; }
+
+/* The unallocated line under the Home widget's rings. */
+.gs-widget-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+.gs-widget-foot.is-short { border-top-color: var(--expense); }
+
+.gs-activity { list-style: none; padding: 0; margin: 4px 0 0; }
+.gs-act {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.gs-act:last-child { border-bottom: none; }
+.gs-act-day { flex: 0 0 40px; color: var(--muted); font-size: 12px; }
+.gs-act-what { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.gs-act-amt { flex: 0 0 auto; font-weight: 600; }
+.gs-act-amt.income { color: var(--income); }
+.gs-act-amt.expense { color: var(--expense); }
+/* Allocation moves are bookkeeping, not money leaving — muted so the real
+   movements above them stay the louder rows. */
+.gs-act.is-move .gs-act-what,
+.gs-act.is-move .gs-act-amt { color: var(--muted); }
+.gs-act-move {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.gs-act-move:disabled { cursor: default; }
+.gs-act-tag { font-size: 11px; opacity: 0.75; }
+
 /* ── Reconcile ─────────────────────────────────────────────────────────────── */
 .recon-head, .recon-row {
   display: flex;

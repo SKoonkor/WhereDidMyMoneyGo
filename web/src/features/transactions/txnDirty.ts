@@ -31,9 +31,14 @@ export interface TxnDraft {
   // Transfer
   from: string
   to: string
+  /** Goal this transfer is earmarked against; '' = unallocated. */
+  goal: string
 }
 
-export function txnChanged(editing: Txn, draft: TxnDraft): boolean {
+// `storedGoal` is the goal the saved transfer is currently earmarked against —
+// it lives in the goalMoves table rather than on the row, so it has to be passed
+// in rather than read off `editing`.
+export function txnChanged(editing: Txn, draft: TxnDraft, storedGoal = ''): boolean {
   if (kindOf(editing) !== draft.kind) return true
 
   // Shared fields. The stored period carries a time component; the form edits the
@@ -45,7 +50,9 @@ export function txnChanged(editing: Txn, draft: TxnDraft): boolean {
   if (draft.kind === 'Transfer') {
     // The collapsed leg TxnForm edits is the Transfer-Out one: account=from,
     // category=to.
-    return draft.from !== editing.account || draft.to !== editing.category
+    return draft.from !== editing.account
+      || draft.to !== editing.category
+      || draft.goal !== storedGoal
   }
 
   if (draft.account !== editing.account) return true

@@ -19,6 +19,7 @@ const draftOf = (t: Txn): TxnDraft => ({
   subcategory: t.subcategory ?? '',
   from: t.account,
   to: t.category,
+  goal: '',
 })
 
 describe('kindOf', () => {
@@ -82,5 +83,18 @@ describe('txnChanged', () => {
     expect(txnChanged(transfer, { ...base, to: 'Cash' })).toBe(true)
     // The unused Income/Expense fields must not leak into the comparison.
     expect(txnChanged(transfer, { ...base, account: 'zzz', category: 'zzz', subcategory: 'zzz' })).toBe(false)
+  })
+
+  it('treats a re-earmarked transfer as changed', () => {
+    // The goal lives in the goalMoves table, so it arrives as a separate argument.
+    const transfer: Txn = {
+      ...expense, type: 'Transfer-Out', account: 'Cash', category: 'Savings',
+      subcategory: undefined, transferId: 'g1',
+    }
+    const base = { ...draftOf(transfer), goal: 'Car' }
+    expect(txnChanged(transfer, base, 'Car')).toBe(false)
+    expect(txnChanged(transfer, base, 'Italy')).toBe(true)   // moved to another goal
+    expect(txnChanged(transfer, base, '')).toBe(true)        // newly earmarked
+    expect(txnChanged(transfer, { ...base, goal: '' }, 'Car')).toBe(true) // earmark cleared
   })
 })

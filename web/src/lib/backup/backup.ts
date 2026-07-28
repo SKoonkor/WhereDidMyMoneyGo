@@ -2,19 +2,25 @@
 // settings as one JSON document. Restore is a full replace (guarded by a
 // confirm in the UI). Nothing here talks to a server.
 import {
-  db, listTxns, getAccounts, getCategories, getSettings, getBudget, getGoals, getReconcileState, getTax,
-  getHomeLayout, saveAccounts, saveCategories, saveSettings, saveBudget, saveGoals, saveReconcileState,
-  saveTax, saveHomeLayout, type Txn,
+  db, listTxns, listGoalMoves, getAccounts, getCategories, getSettings, getBudget, getGoals,
+  getReconcileState, getTax, getHomeLayout, saveAccounts, saveCategories, saveSettings, saveBudget,
+  saveGoals, saveReconcileState, saveTax, saveHomeLayout, type Txn,
 } from '../../db'
 import type { BudgetCfg, Categories, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
 import type { TaxCfg } from '../analytics/income_tax'
+import type { GoalMove } from '../analytics/goalSavings'
 import { normalizeLayout, type HomeLayout } from '../homeLayout'
 
 const APP_TAG = 'where-did-my-money-go'
 // v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals +
-// reconcile config; v3 adds tax config; v4 adds the Home screen layout. Older
-// files still restore (the new keys are optional and left as-is when absent).
-const BACKUP_VERSION = 4
+// reconcile config; v3 adds tax config; v4 adds the Home screen layout; v5 adds
+// the per-goal allocation moves. Older files still restore (the new keys are
+// optional and left as-is when absent).
+//
+// v5 earns its bump where the 0.4.0 spending limits didn't: those were an extra
+// field on a config object that already travelled, whereas goal moves are a whole
+// table a v4 file has no way to represent.
+const BACKUP_VERSION = 5
 
 export interface Backup {
   app: typeof APP_TAG
@@ -29,6 +35,7 @@ export interface Backup {
   reconcile?: ReconcileState
   tax?: TaxCfg
   home?: HomeLayout
+  goalMoves?: GoalMove[]
 }
 
 export async function makeBackup(): Promise<Backup> {
@@ -45,6 +52,7 @@ export async function makeBackup(): Promise<Backup> {
     reconcile: await getReconcileState(),
     tax: await getTax(),
     home: await getHomeLayout(),
+    goalMoves: await listGoalMoves(),
   }
 }
 
@@ -75,7 +83,7 @@ export interface RestoreResult { transactions: number; accounts: number }
 // dropped so IndexedDB reassigns them (transfer links use uuids in `transferId`,
 // which are preserved, so pairs stay linked).
 export async function restoreBackup(b: Backup): Promise<RestoreResult> {
-  await db.transaction('rw', db.transactions, db.config, async () => {
+  await db.transaction('rw', db.transactions, db.config, db.goalMoves, async () => {
     await db.transactions.clear()
     await db.transactions.bulkAdd(b.transactions.map(({ id: _id, ...rest }) => rest as Txn))
     await saveAccounts(b.accounts)
@@ -90,6 +98,13 @@ export async function restoreBackup(b: Backup): Promise<RestoreResult> {
     // Normalized on the way in — a backup file is untrusted input, and one
     // written by a newer build may name widgets this version can't render.
     if (b.home) await saveHomeLayout(normalizeLayout(b.home))
+    // v5 — goal allocation moves. Ids are dropped like transaction ids are, and
+    // for the same reason: IndexedDB reassigns them. The link back to a transfer
+    // rides in `transferId`, a uuid, so tagged transfers stay tagged.
+    if (b.goalMoves) {
+      await db.goalMoves.clear()
+      await db.goalMoves.bulkAdd(b.goalMoves.map(({ id: _id, ...rest }) => rest as GoalMove))
+    }
   })
   return { transactions: b.transactions.length, accounts: b.accounts.length }
 }

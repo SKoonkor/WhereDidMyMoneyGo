@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useLiveTxns } from '../useLiveTxns'
 import { useBaseCurrency } from './useConfig'
 import {
   addMonths, currentMonthKey, monthLabel, filterByMonth, collapseTransfers,
-  groupByDay, monthSummary, daySummary, dayHeaderParts,
+  groupDaysWithMoves, monthSummary, daySummary, dayHeaderParts,
 } from './month'
 import { TxnForm } from './TxnForm'
 import { MonthYearPicker } from './MonthYearPicker'
 import { Modal } from '../../components/Modal'
-import type { Txn } from '../../db'
-import { UNKNOWN_NAME } from '../../data/defaults'
+import { db, type Txn } from '../../db'
+import { UNALLOCATED, type GoalMove } from '../../lib/analytics/goalSavings'
+import { EMERGENCY_FUND, UNKNOWN_NAME } from '../../data/defaults'
 import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -63,8 +65,28 @@ function RowLine({ x, onTap }: { x: Txn; onTap: () => void }) {
   )
 }
 
+// A goal-allocation move, shown in the list for visibility. It changes no account
+// balance, so it carries no signed amount and never reaches the day totals.
+function GoalMoveLine({ m, onTap }: { m: GoalMove; onTap: () => void }) {
+  const name = (n: string) =>
+    (n === UNALLOCATED ? t('Unallocated') : n === EMERGENCY_FUND ? t(EMERGENCY_FUND) : n)
+  return (
+    <li className="txn-item txn-goal-move" onClick={onTap}>
+      <span className="txn-cat">
+        <span className="txn-cat-main">{t('Goal')}</span>
+      </span>
+      <span className="txn-main">
+        <span className="txn-primary">{name(m.from)} → {name(m.to)}</span>
+        {m.note && <span className="txn-sub">{m.note}</span>}
+      </span>
+      <span className="amt money">{fmt(m.amount)}</span>
+    </li>
+  )
+}
+
 export function TransactionsPage() {
   const all = useLiveTxns()
+  const moves = useLiveQuery(() => db.goalMoves.toArray(), [], [])
   const currency = useBaseCurrency()
   const [month, setMonth] = useState(currentMonthKey())
   const [editing, setEditing] = useState<Txn | null>(null)
@@ -74,7 +96,19 @@ export function TransactionsPage() {
 
   const monthTxns = useMemo(() => filterByMonth(all, month), [all, month])
   const summary = useMemo(() => monthSummary(monthTxns), [monthTxns])
-  const days = useMemo(() => groupByDay(collapseTransfers(monthTxns)), [monthTxns])
+  const monthMoves = useMemo(() => filterByMonth(moves, month), [moves, month])
+  const days = useMemo(
+    () => groupDaysWithMoves(collapseTransfers(monthTxns), monthMoves),
+    [monthTxns, monthMoves],
+  )
+
+  // Tapping a move that a transfer created opens that transfer — it owns the
+  // amount and date, so editing the move on its own would only desync the two.
+  const openMove = (m: GoalMove) => {
+    if (!m.transferId) { window.location.hash = '#/goal-savings'; return }
+    const leg = all.find((x) => x.transferId === m.transferId && x.type === 'Transfer-Out')
+    if (leg) setEditing(leg)
+  }
 
   return (
     <div>
@@ -112,7 +146,10 @@ export function TransactionsPage() {
       ) : (
         days.map(([day, rows], i) => {
           const { dayNum, weekday, dow } = dayHeaderParts(day)
-          const { income, expense } = daySummary(rows)
+          // Goal moves are deliberately excluded — they aren't income or spending.
+          const { income, expense } = daySummary(
+            rows.flatMap((r) => (r.kind === 'txn' ? [r.txn] : [])),
+          )
           // Alternating bands: the latest day (index 0) is shaded, then normal…
           return (
             <div key={day} className={`day-group${i % 2 === 0 ? ' is-shaded' : ''}`}>
@@ -128,9 +165,11 @@ export function TransactionsPage() {
                 </span>
               </div>
               <ul className="txn-list">
-                {rows.map((x) => (
-                  <RowLine key={x.id} x={x} onTap={() => setEditing(x)} />
-                ))}
+                {rows.map((r) => (r.kind === 'txn' ? (
+                  <RowLine key={`t${r.txn.id}`} x={r.txn} onTap={() => setEditing(r.txn)} />
+                ) : (
+                  <GoalMoveLine key={`m${r.move.id}`} m={r.move} onTap={() => openMove(r.move)} />
+                )))}
               </ul>
             </div>
           )

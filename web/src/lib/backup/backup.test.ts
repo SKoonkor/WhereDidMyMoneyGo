@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, ensureSeeded, addTxn, addTransfer, listTxns, getAccounts, getBudget, getGoals, getTax, getHomeLayout, saveBudget, saveGoals, saveTax, saveHomeLayout } from '../../db'
+import { db, ensureSeeded, addTxn, addTransfer, listTxns, addGoalMove, listGoalMoves, getAccounts, getBudget, getGoals, getTax, getHomeLayout, saveBudget, saveGoals, saveTax, saveHomeLayout } from '../../db'
+import { allocations } from '../analytics/goalSavings'
 import { toExportRecords, toCsv } from './exporter'
 import { makeBackup, parseBackup, restoreBackup } from './backup'
 
 beforeEach(async () => {
   await db.transactions.clear()
   await db.config.clear()
+  await db.goalMoves.clear()
   await ensureSeeded()
 })
 
@@ -63,13 +65,43 @@ describe('backup / restore', () => {
     expect(legs[0].transferId).toBe(legs[1].transferId)
   })
 
+  it('round-trips goal allocation moves (v5)', async () => {
+    await addGoalMove({ period: '2026-07-10', from: '', to: 'Car', amount: 5000 })
+    const gid = await addTransfer({ period: '2026-07-11', amount: 2000, from: 'Cash', to: 'Savings', goal: 'Car' })
+
+    const backup = await makeBackup()
+    expect(backup.version).toBe(5)
+    expect(backup.goalMoves).toHaveLength(2)
+
+    await db.transactions.clear()
+    await db.config.clear()
+    await db.goalMoves.clear()
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+
+    const moves = await listGoalMoves()
+    expect(moves).toHaveLength(2)
+    expect(allocations(moves)).toEqual({ Car: 7000 })
+    // transferId is a uuid, so the link to its transfer survives the id reshuffle.
+    expect(moves.find((m) => m.transferId)?.transferId).toBe(gid)
+  })
+
+  it('leaves current goal moves alone when restoring a pre-v5 file', async () => {
+    await addGoalMove({ period: '2026-07-10', from: '', to: 'Car', amount: 5000 })
+    const v4 = {
+      app: 'where-did-my-money-go', version: 4, exportedAt: new Date().toISOString(),
+      transactions: [], accounts: ['Cash'], categories: { income: {}, expense: {} },
+    }
+    await restoreBackup(parseBackup(JSON.stringify(v4)))
+    expect(await listGoalMoves()).toHaveLength(1)
+  })
+
   it('round-trips budget + goals + tax config (v3)', async () => {
     await saveBudget({ ...(await getBudget()), mode: 'rolling', fixedIncome: 12345, assignments: { Food: 'Wants' } })
     await saveGoals({ goals: { Car: 300000 }, factors: { Car: 2 }, selected: ['Car'] })
     await saveTax({ country: 'Thailand', allowances: { spouse: true, children: 2 }, incomeSelections: ['Salary'], taxSelections: ['Bills'] })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(4)
+    expect(backup.version).toBe(5)
     expect(backup.budget?.mode).toBe('rolling')
     expect(backup.goals?.selected).toEqual(['Car'])
     expect(backup.tax?.allowances.children).toBe(2)

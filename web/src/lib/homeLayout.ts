@@ -11,6 +11,7 @@ export type LargeWidgetId =
   | 'budget'    // 50/30/20 bars
   | 'limits'    // per-category spending caps
   | 'pool'      // Savings Pool gauge
+  | 'goals'     // per-goal allocation rings
   | 'accounts'  // per-account balances
   | 'smallrow'  // a row of 1-3 small preview tiles
 
@@ -20,13 +21,14 @@ export type SmallWidgetId =
   | 'mini-pie'     // share-of-budget ring
   | 'mini-limits'  // the three tightest spending limits
   | 'mini-pool'    // savings-pool arc
+  | 'mini-goals'   // the goal closest to fully funded
   | 'mini-inout'   // this month's income / output
 
 export const LARGE_IDS: readonly LargeWidgetId[] = [
-  'networth', 'flow', 'budget', 'limits', 'pool', 'accounts', 'smallrow',
+  'networth', 'flow', 'budget', 'limits', 'pool', 'goals', 'accounts', 'smallrow',
 ]
 export const SMALL_IDS: readonly SmallWidgetId[] = [
-  'mini-trend', 'mini-bars', 'mini-pie', 'mini-limits', 'mini-pool', 'mini-inout',
+  'mini-trend', 'mini-bars', 'mini-pie', 'mini-limits', 'mini-pool', 'mini-goals', 'mini-inout',
 ]
 
 // Widgets that may appear more than once. Everything else is a singleton, so the

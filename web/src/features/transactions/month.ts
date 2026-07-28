@@ -1,4 +1,5 @@
 import type { Txn } from '../../db'
+import type { GoalMove } from '../../lib/analytics/goalSavings'
 import { getLang } from '../../i18n'
 
 // Month key helpers ("YYYY-MM") and per-month/-day grouping for the list.
@@ -25,8 +26,10 @@ export function monthLabel(key: string): string {
   return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' })
 }
 
-export function filterByMonth(txns: Txn[], key: string): Txn[] {
-  return txns.filter((t) => monthKeyOf(t.period) === key)
+// Generic over anything dated, so the same helper filters goal moves as well as
+// transactions. Existing callers keep their exact types via inference.
+export function filterByMonth<T extends { period: string }>(rows: T[], key: string): T[] {
+  return rows.filter((r) => monthKeyOf(r.period) === key)
 }
 
 // Rows whose day falls in [startIso, endIso] inclusive (YYYY-MM-DD compare).
@@ -74,6 +77,34 @@ export function groupByDay(txns: Txn[]): [string, Txn[]][] {
     ;(byDay.get(day) ?? byDay.set(day, []).get(day)!).push(t)
   }
   for (const rows of byDay.values()) rows.sort((a, b) => b.id - a.id)
+  return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+}
+
+// The same day grouping, with goal-allocation moves folded in.
+//
+// A goal move earmarks part of the savings pool; it moves no real money, so it
+// belongs in the list for visibility but must never touch the arithmetic. That
+// falls out for free: `daySummary` and `monthSummary` only count Income and
+// Expense rows, and moves are never Txns at all.
+//
+// Within a day the transactions come first (keeping the existing newest-added-on-
+// top rule), then the moves — ids come from two independent auto-increment
+// sequences, so interleaving them by id would order nothing meaningful.
+export type DayRow =
+  | { kind: 'txn'; txn: Txn }
+  | { kind: 'move'; move: GoalMove }
+
+export function groupDaysWithMoves(txns: Txn[], moves: GoalMove[]): [string, DayRow[]][] {
+  const byDay = new Map<string, DayRow[]>()
+  const push = (day: string, row: DayRow) => {
+    ;(byDay.get(day) ?? byDay.set(day, []).get(day)!).push(row)
+  }
+  for (const [day, rows] of groupByDay(txns)) {
+    for (const txn of rows) push(day, { kind: 'txn', txn })
+  }
+  for (const move of [...moves].sort((a, b) => b.id - a.id)) {
+    push(move.period.slice(0, 10), { kind: 'move', move })
+  }
   return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]))
 }
 

@@ -34,6 +34,20 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.5.0',
+    date: '28-07-2026',
+    changes: [
+      { kind: 'new', text: 'Goal savings: split your savings pool between individual goals, so you can see how much of it is the house and how much is the trip.' },
+      { kind: 'new', text: 'Money paid into a savings account waits as "unallocated" until you assign it — move it to a goal, back out again, or straight from one goal to another.' },
+      { kind: 'new', text: 'A transfer in or out of a savings account can name the goal it belongs to, and the earmark follows the transfer when you edit or delete it.' },
+      { kind: 'new', text: 'Home warns you when your goals hold more than your savings accounts actually contain, until you move some back.' },
+      { kind: 'new', text: 'Goal savings widgets for Home — a ring per goal, or a small tile for the goal closest to done.' },
+      { kind: 'improved', text: 'Goal moves appear in your transaction list alongside everything else, without counting toward income or spending.' },
+      { kind: 'improved', text: 'Deleting a goal returns whatever it was holding to your unallocated savings instead of losing track of it.' },
+      { kind: 'improved', text: 'Backups now include your goal allocations.' },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '28-07-2026',
     changes: [

@@ -202,10 +202,10 @@ describe('setSlot', () => {
 
 describe('availableLarge', () => {
   it('excludes present singletons but always offers the container', () => {
-    // 'limits' ships off the default Home, so it shows up as addable.
-    expect(availableLarge(DEFAULT_HOME_LAYOUT)).toEqual(['limits', 'smallrow'])
+    // 'limits' and 'goals' ship off the default Home, so they show up as addable.
+    expect(availableLarge(DEFAULT_HOME_LAYOUT)).toEqual(['limits', 'goals', 'smallrow'])
     expect(availableLarge(L({ uid: 'smallrow', widget: 'smallrow' })))
-      .toEqual(['networth', 'flow', 'budget', 'limits', 'pool', 'accounts', 'smallrow'])
+      .toEqual(['networth', 'flow', 'budget', 'limits', 'pool', 'goals', 'accounts', 'smallrow'])
   })
 })
 

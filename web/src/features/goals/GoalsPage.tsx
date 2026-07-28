@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getGoals, getSettings, saveGoals, saveSettings } from '../../db'
+import { deleteGoal, getGoals, getSettings, saveGoals, saveSettings } from '../../db'
 import { useAccounts, useSettings } from '../transactions/useConfig'
 import { EMERGENCY_FUND, type GoalsCfg, type Settings } from '../../data/defaults'
 import { goalFactor } from '../../lib/analytics/goals'
@@ -41,6 +42,12 @@ export function GoalsPage() {
 
       <PoolSettings />
       <SavingsPoolGauge />
+
+      {/* ── Per-goal allocation, on its own page ─────────────────────── */}
+      <Link to="/goal-savings" className="pick-summary budget-card">
+        <span>{t('Goal savings')}</span>
+        <span className="pick-summary-arrow">›</span>
+      </Link>
 
       <section className="card">
         <div className="dash-title">{t('Goals')}</div>
@@ -183,13 +190,9 @@ function PoolSettings() {
   )
 }
 
-function removeGoal(cfg: GoalsCfg, name: string, save: (p: Partial<GoalsCfg>) => void) {
-  const goals = { ...cfg.goals }
-  const factors = { ...cfg.factors }
-  delete goals[name]
-  delete factors[name]
-  save({ goals, factors, selected: cfg.selected.filter((g) => g !== name) })
-}
+// Removing a goal goes through db.ts rather than patching the config here: the
+// goal may be holding part of the savings pool, and `deleteGoal` refunds that to
+// the unallocated pool in the same step. Editing `cfg` directly would strand it.
 
 // Draggable list of user goals (the Emergency Fund base is pinned above and not
 // part of this list). Dragging a row reorders the goal priority; the new key
@@ -254,7 +257,7 @@ function GoalList({ cfg, save, currency }: { cfg: GoalsCfg; save: (p: Partial<Go
           <button
             type="button"
             className="btn solid-danger"
-            onClick={() => { removeGoal(cfg, confirmDel, save); setConfirmDel(null) }}
+            onClick={() => { void deleteGoal(confirmDel); setConfirmDel(null) }}
           >
             {t('Delete')}
           </button>

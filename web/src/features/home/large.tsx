@@ -17,6 +17,10 @@ import { SavingsPoolGauge } from '../goals/SavingsPoolGauge'
 import { Plot } from '../../components/Plot'
 import { compactAmount } from '../../lib/format'
 import { useLimits } from './useLimits'
+import { useGoalSavings } from './useGoalSavings'
+import { TONE_COLOR } from '../budget/tone'
+import { Ring } from './small/Ring'
+import { EMERGENCY_FUND } from '../../data/defaults'
 import { t } from '../../i18n'
 
 export const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -131,6 +135,56 @@ export function AccountsWidget() {
           <span className="money">{fmt(bal)}</span>
         </div>
       ))}
+    </>
+  )
+}
+
+// Per-goal savings: how the pool is split between goals, plus what's left to
+// assign. Rings follow the user's own goal order (Emergency Fund first, then the
+// drag-ordered list) rather than a ranking — that order IS the priority they set.
+const GOAL_RINGS_SHOWN = 4
+
+export function GoalSavingsWidget() {
+  const data = useGoalSavings()
+  const [censor] = useCensor()
+  const currency = useBaseCurrency()
+  if (!data) return null
+
+  const shown = data.standings.slice(0, GOAL_RINGS_SHOWN)
+  const rest = data.standings.length - shown.length
+  const short = data.unallocated < 0
+  const money = (n: number) => (censor ? '•••' : compactAmount(n))
+
+  return (
+    <>
+      <div className="gs-rings">
+        {shown.map((s) => {
+          const pct = Math.round(s.ratio * 100)
+          return (
+            <div key={s.name} className="gs-ring">
+              <Ring
+                pct={pct}
+                color={TONE_COLOR[s.tone]}
+                label={censor ? '•••' : `${pct}%`}
+                ariaLabel={t('{name}: {pct}% funded', { name: s.name, pct: String(pct) })}
+              />
+              <span className="gs-ring-name">{s.isEmergencyFund ? t(EMERGENCY_FUND) : s.name}</span>
+              <span className="gs-ring-amt money">{money(s.allocated)}</span>
+            </div>
+          )
+        })}
+      </div>
+      {rest > 0 && (
+        <p className="muted" style={{ fontSize: 12, textAlign: 'center', margin: '6px 0 0' }}>
+          {t('+{n} more', { n: rest })}
+        </p>
+      )}
+      <div className={`gs-widget-foot${short ? ' is-short' : ''}`}>
+        <span>{t('Unallocated')}</span>
+        <span className={`money${short ? ' amt-expense' : ''}`}>
+          {money(data.unallocated)} {currency}
+        </span>
+      </div>
     </>
   )
 }
