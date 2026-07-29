@@ -1288,8 +1288,9 @@ html[data-censor='on'] .censor-toggle .ct-eye {
 /* Modal (bottom sheet on phones). */
 .modal-backdrop {
   position: fixed;
-  /* Not `inset: 0`: the height is set inline from visualViewport (see Modal.tsx)
-     so the sheet stays above the on-screen keyboard, which needs `bottom` free. */
+  /* Not `inset: 0`: while the on-screen keyboard is open the height is set inline
+     from visualViewport (see Modal.tsx) so the sheet stays above it, and that
+     needs `bottom` free. The rest of the time this 100% is what applies. */
   top: 0;
   left: 0;
   right: 0;
@@ -2025,7 +2026,25 @@ a.pick-summary {
 /* Whole draggable rows (the pinned .base row lives outside .goal-list). */
 .goal-list .goal-row { cursor: grab; touch-action: none; user-select: none; }
 .goal-row.base { opacity: 0.95; }
-.goal-label { flex: 1; min-width: 0; font-size: 14px; }
+/* The label box IS the goal's progress bar — it runs from the first letter to
+   just short of the delete button, and fills with how much of the target is
+   allocated to it (--goal-fill / --goal-fill-color, set per row in GoalsPage).
+   A hard-stop gradient rather than a pseudo-element: no extra box to position
+   and no stacking context to fight the text with. The negative margin keeps the
+   padding from making the rows taller than they were. */
+.goal-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  padding: 5px 8px;
+  margin: -5px 0;
+  border-radius: 7px;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--goal-fill-color, var(--accent)) 22%, transparent) 0 var(--goal-fill, 0%),
+    transparent var(--goal-fill, 0%)
+  );
+}
 .goal-tag { color: var(--accent); font-size: 12px; }
 
 /* Tap target that ticks a goal into the pool. */

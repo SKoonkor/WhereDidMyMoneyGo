@@ -1,11 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { deleteGoal, getGoals, getSettings, saveGoals, saveSettings } from '../../db'
 import { useAccounts, useSettings } from '../transactions/useConfig'
 import { EMERGENCY_FUND, type GoalsCfg, type Settings } from '../../data/defaults'
 import { goalFactor } from '../../lib/analytics/goals'
+import { fundedPct, type GoalStanding } from '../../lib/analytics/goalSavings'
 import { useDragReorder } from '../../lib/useDragReorder'
+import { useGoalSavings } from '../home/useGoalSavings'
+import { TONE_COLOR } from '../budget/tone'
 import { SavingsPoolGauge } from './SavingsPoolGauge'
 import { Modal } from '../../components/Modal'
 import { t } from '../../i18n'
@@ -19,6 +22,24 @@ function compact(v: number): string {
 }
 const fmtFactor = (f: number) => (Number.isInteger(f) ? String(f) : String(f))
 
+// A goal row doubles as its own progress bar: the label box — everything from the
+// first letter to just short of the delete button — fills left to right with how
+// much of the target is earmarked for it on the Goal savings page.
+//
+// Deliberately the raw allocated/target. The xN rule scales a goal when sizing the
+// POOL, not when funding it, so folding it in here would draw a bar that neither
+// the Goal savings rings nor the numbers beside them agree with.
+function fillProps(label: string, standing: GoalStanding | undefined) {
+  const pct = standing ? fundedPct(standing.ratio) : 0
+  const style = {
+    '--goal-fill': `${pct}%`,
+    '--goal-fill-color': TONE_COLOR[standing?.tone ?? 'bad'],
+  } as CSSProperties
+  // `title`, not `aria-label`: the row's visible text (name + target) is the
+  // better accessible name, and this only adds the figure the bar is showing.
+  return { style, title: t('{name}: {pct}% funded', { name: label, pct: String(pct) }) }
+}
+
 export function GoalsPage() {
   const settings = useSettings()
   const cfg = useLiveQuery(() => getGoals(), []) // undefined until loaded
@@ -26,6 +47,15 @@ export function GoalsPage() {
   const currency = settings.baseCurrency
 
   const efTarget = settings.monthlyRequired * settings.targetMonths
+
+  // Funding per goal, from the same hook the Goal savings page and both Home
+  // widgets use — so a row's bar can never disagree with its ring. Empty until
+  // the allocations load; every bar simply starts at zero.
+  const savings = useGoalSavings()
+  const standings = useMemo(
+    () => new Map((savings?.standings ?? []).map((s) => [s.name, s])),
+    [savings],
+  )
 
   const save = (patch: Partial<GoalsCfg>) => {
     if (cfg) void saveGoals({ ...cfg, ...patch })
@@ -56,12 +86,12 @@ export function GoalsPage() {
         <div className="goal-row base">
           <span className="goal-pin" aria-hidden="true">📌</span>
           <span className="goal-check on" aria-hidden="true">✓</span>
-          <span className="goal-label">
+          <span className="goal-label" {...fillProps(t(EMERGENCY_FUND), standings.get(EMERGENCY_FUND))}>
             {t(EMERGENCY_FUND)} (<span className="money">{compact(efTarget)} {currency}</span>) · <span className="muted">{t('base')}</span>
           </span>
         </div>
 
-        <GoalList cfg={cfg} save={save} currency={currency} />
+        <GoalList cfg={cfg} save={save} currency={currency} standings={standings} />
 
         <button type="button" className="btn goal-add-btn" onClick={() => setAdding(true)}>＋ {t('Add a goal')}</button>
       </section>
@@ -197,7 +227,12 @@ function PoolSettings() {
 // Draggable list of user goals (the Emergency Fund base is pinned above and not
 // part of this list). Dragging a row reorders the goal priority; the new key
 // order is persisted on drop via the shared hold-to-drag reorder mechanic.
-function GoalList({ cfg, save, currency }: { cfg: GoalsCfg; save: (p: Partial<GoalsCfg>) => void; currency: string }) {
+function GoalList({ cfg, save, currency, standings }: {
+  cfg: GoalsCfg
+  save: (p: Partial<GoalsCfg>) => void
+  currency: string
+  standings: Map<string, GoalStanding>
+}) {
   const keys = Object.keys(cfg.goals)
   const [confirmDel, setConfirmDel] = useState<string | null>(null) // goal pending delete
   const selectedSet = new Set(cfg.selected)
@@ -237,7 +272,7 @@ function GoalList({ cfg, save, currency }: { cfg: GoalsCfg; save: (p: Partial<Go
             >
               {on ? '✓' : ''}
             </button>
-            <span className="goal-label">
+            <span className="goal-label" {...fillProps(name, standings.get(name))}>
               {name} (<span className="money">{compact(cfg.goals[name])} {currency}</span>)
               {factor > 1 && <span className="goal-tag"> {t('[{fx}x rule]', { fx: fmtFactor(factor) })}</span>}
             </span>

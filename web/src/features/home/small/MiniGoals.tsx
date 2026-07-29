@@ -2,22 +2,21 @@ import { useCensor } from '../../../prefs'
 import { useGoalSavings } from '../useGoalSavings'
 import { TONE_COLOR } from '../../budget/tone'
 import { EMERGENCY_FUND } from '../../../data/defaults'
+import { fundedPct, nextGoal } from '../../../lib/analytics/goalSavings'
 import { Ring } from './Ring'
 import { t } from '../../../i18n'
 
-// The goal nearest to fully funded — the one worth celebrating. Only a single
-// ring fits at ~108px, so ranking by ratio (rather than the user's priority
-// order, which the full-size widget follows) is what makes the one on show
-// worth showing.
+// What to save for next: the highest-priority goal that isn't finished yet, in
+// the user's own order from Financial Goals — the Emergency Fund first, then
+// their drag order, skipping anything already fully funded. Only one ring fits
+// at ~108px, and the goal still needing money is the one worth that space.
 export function MiniGoals() {
   const data = useGoalSavings()
   const [censor] = useCensor()
   if (!data) return null
 
-  const funded = [...data.standings]
-    .filter((s) => s.target > 0)
-    .sort((a, b) => b.ratio - a.ratio)[0]
-  if (!funded) {
+  const hasTargets = data.standings.some((s) => s.target > 0)
+  if (!hasTargets) {
     return (
       <>
         <div className="small-slot-title">{t('Goal savings')}</div>
@@ -28,20 +27,34 @@ export function MiniGoals() {
     )
   }
 
-  const pct = Math.round(funded.ratio * 100)
+  const next = nextGoal(data.standings)
+  // Nothing left to fund — an end state of its own, not an arbitrary goal at 100%.
+  if (!next) {
+    return (
+      <>
+        <div className="small-slot-title">{t('Goal savings')}</div>
+        <div className="small-slot-body">
+          <Ring pct={100} color={TONE_COLOR.good} label="✓" ariaLabel={t('All goals funded')} />
+        </div>
+        <div className="small-slot-note">{t('All goals funded')}</div>
+      </>
+    )
+  }
+
+  const pct = fundedPct(next.ratio)
   return (
     <>
       <div className="small-slot-title">{t('Goal savings')}</div>
       <div className="small-slot-body">
         <Ring
           pct={pct}
-          color={TONE_COLOR[funded.tone]}
+          color={TONE_COLOR[next.tone]}
           label={censor ? '•••' : `${pct}%`}
-          ariaLabel={t('{name}: {pct}% funded', { name: funded.name, pct: String(pct) })}
+          ariaLabel={t('{name}: {pct}% funded', { name: next.name, pct: String(pct) })}
         />
       </div>
       <div className="small-slot-note">
-        {funded.isEmergencyFund ? t(EMERGENCY_FUND) : funded.name}
+        {next.isEmergencyFund ? t(EMERGENCY_FUND) : next.name}
       </div>
     </>
   )

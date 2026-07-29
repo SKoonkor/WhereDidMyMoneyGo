@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   UNALLOCATED, allocations, unallocatedAmount, goalStandings, goalTone, savingsActivity,
-  type GoalMove,
+  fundedPct, nextGoal,
+  type GoalMove, type GoalStanding,
 } from './goalSavings'
 import { savingsBalance } from './goals'
 import type { Txn } from '../../db'
@@ -162,5 +163,64 @@ describe('savingsActivity', () => {
   it('is empty when no pool account has been touched', () => {
     expect(savingsActivity([txn({ account: 'Cash', amount: 1, type: 'Expense' })], [], ['Savings']))
       .toEqual([])
+  })
+})
+
+describe('fundedPct', () => {
+  it('turns a ratio into a whole percentage', () => {
+    expect(fundedPct(0.4237)).toBe(42)
+    expect(fundedPct(0)).toBe(0)
+  })
+
+  it('clamps an overfunded goal to a full bar', () => {
+    expect(fundedPct(1.8)).toBe(100)
+  })
+
+  it('clamps a goal that went negative to an empty bar, not a backwards one', () => {
+    // Real state: money left the pool without first being taken out of the goal.
+    expect(fundedPct(-0.35)).toBe(0)
+  })
+
+  it('survives a goal with no target', () => {
+    expect(fundedPct(Number.NaN)).toBe(0)
+    expect(fundedPct(Number.POSITIVE_INFINITY)).toBe(0)
+  })
+})
+
+describe('nextGoal', () => {
+  const stand = (name: string, allocated: number, target: number): GoalStanding => ({
+    name, allocated, target,
+    ratio: target > 0 ? allocated / target : 0,
+    tone: goalTone(allocated, target),
+    isEmergencyFund: name === EF,
+  })
+
+  it('takes the top of the user’s order, not the goal closest to done', () => {
+    const rows = [stand(EF, 6000, 60000), stand('Car', 9000, 10000)]
+    expect(nextGoal(rows)!.name).toBe(EF)
+  })
+
+  it('skips a finished Emergency Fund and moves down the order', () => {
+    const rows = [stand(EF, 60000, 60000), stand('Car', 0, 10000), stand('Italy', 0, 5000)]
+    expect(nextGoal(rows)!.name).toBe('Car')
+  })
+
+  it('skips every funded goal, including an overfunded one', () => {
+    const rows = [stand(EF, 60000, 60000), stand('Car', 12000, 10000), stand('Italy', 100, 5000)]
+    expect(nextGoal(rows)!.name).toBe('Italy')
+  })
+
+  it('returns null once everything with a target is funded', () => {
+    expect(nextGoal([stand(EF, 60000, 60000), stand('Car', 10000, 10000)])).toBeNull()
+  })
+
+  it('ignores goals with no target to fund', () => {
+    // An Emergency Fund sized 0 (monthlyRequired never set) is not "unfunded".
+    const rows = [stand(EF, 0, 0), stand('Car', 0, 10000)]
+    expect(nextGoal(rows)!.name).toBe('Car')
+  })
+
+  it('returns null when there are no goals at all', () => {
+    expect(nextGoal([])).toBeNull()
   })
 })

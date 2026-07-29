@@ -397,6 +397,7 @@ const TH: Record<string, string> = {
   'The pool needs the highest of your ticked goals; the factor scales a goal before it counts.': 'พูลใช้เป้าหมายที่สูงที่สุดที่เลือกไว้ ตัวคูณจะปรับยอดเป้าหมายก่อนนับว่าถึงเป้า',
   'Add goal': 'เพิ่มเป้าหมาย',
   'No goals yet.': 'ยังไม่มีเป้าหมาย',
+  'All goals funded': 'ออมครบทุกเป้าหมายแล้ว',
   '{n} goals': '{n} เป้าหมาย',
   '{pct}%': '{pct}%',
   '{pct}% · Emergency Fund covers {months} months': '{pct}% · เงินออมฉุกเฉินครอบคลุม {months} เดือน',

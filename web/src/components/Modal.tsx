@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useScrollLock } from '../lib/useScrollLock'
+import { viewportFit } from './viewportFit'
 
 // A lightweight bottom-sheet-style modal. Closes on backdrop click or Esc.
 export function Modal({
@@ -29,14 +30,24 @@ export function Modal({
   // opens it shrinks visualViewport (not always the layout viewport), so a
   // bottom-anchored fixed sheet can end up hidden behind the keyboard. Pin the
   // backdrop to the visual viewport's height/offset so the sheet rides above it.
+  //
+  // ONLY for the keyboard, though — viewportFit decides. Following every small
+  // visual-viewport shift is what made the sheet drift up and down under a drag
+  // even with the page behind it frozen; see the note in viewportFit.ts.
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
     const sync = () => {
       const el = backdropRef.current
       if (!el) return
-      el.style.height = `${vv.height}px`
-      el.style.transform = `translateY(${vv.offsetTop}px)`
+      const fit = viewportFit(window.innerHeight, vv.height, vv.offsetTop)
+      if (fit.height === null || fit.transform === null) {
+        el.style.removeProperty('height')
+        el.style.removeProperty('transform')
+        return
+      }
+      el.style.height = fit.height
+      el.style.transform = fit.transform
     }
     sync()
     vv.addEventListener('resize', sync)

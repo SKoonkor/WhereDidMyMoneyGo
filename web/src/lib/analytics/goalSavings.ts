@@ -84,6 +84,15 @@ export function goalTone(allocated: number, target: number): Tone {
   return raw >= 90 ? 'good' : raw >= 65 ? 'warn' : 'bad'
 }
 
+// A GoalStanding.ratio as a percentage safe to hand to CSS or a ring. Ratios are
+// deliberately unclamped upstream — a goal can be overfunded, and one can go
+// negative when money left the pool without being un-earmarked — but neither may
+// draw a bar past its track or backwards out of it.
+export function fundedPct(ratio: number): number {
+  if (!Number.isFinite(ratio)) return 0
+  return Math.round(Math.min(100, Math.max(0, ratio * 100)))
+}
+
 // Every goal that can hold money, in the user's own priority order: the Emergency
 // Fund first (it is pinned at the top of the Goals page), then the goal list in
 // its stored — that is, drag-ordered — sequence.
@@ -112,6 +121,18 @@ export function goalStandings(
     mk(efName, efTarget, true),
     ...Object.keys(goals).map((name) => mk(name, goals[name], false)),
   ]
+}
+
+// The one goal worth putting on a single-ring tile: the highest-priority one that
+// still needs money. `goalStandings` already returns the user's own order — the
+// Emergency Fund first, then their drag order — so this is just the first goal
+// short of its target, which is exactly the rule the user asked for: the top of
+// the list, unless it's finished, in which case the next unfinished one down.
+//
+// null means every goal that has a target is fully funded — a state worth showing
+// as itself rather than falling back to an arbitrary goal.
+export function nextGoal(standings: GoalStanding[]): GoalStanding | null {
+  return standings.find((s) => s.target > 0 && s.ratio < 1) ?? null
 }
 
 // ── The savings activity list ────────────────────────────────────────────────
