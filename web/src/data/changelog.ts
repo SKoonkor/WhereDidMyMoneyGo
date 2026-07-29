@@ -47,6 +47,7 @@ export const CHANGELOG: Release[] = [
       { kind: 'improved', text: 'Backups now include your goal allocations.' },
       { kind: 'fixed', text: 'The page no longer scrolls behind a pop-up — opening the tour, a form or a picker holds your place until you close it.' },
       { kind: 'fixed', text: 'Pop-ups no longer drift up and down when you drag the screen; they only move to clear the on-screen keyboard.' },
+      { kind: 'fixed', text: 'A pop-up now stays put while the keyboard is open too — dragging it only scrolls the pop-up itself, and does nothing once you reach the end.' },
       { kind: 'improved', text: 'Each goal in Financial Goals fills in as you allocate savings to it, so you can see how far along every one is from the list.' },
       { kind: 'improved', text: 'The small Goal savings tile now shows the highest-priority goal you haven’t finished funding, instead of the one closest to done.' },
       { kind: 'improved', text: 'Savings activity shows the latest 10, with a "See all" pop-up for the full history.' },

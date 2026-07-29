@@ -2,6 +2,32 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useScrollLock } from '../lib/useScrollLock'
 import { viewportFit } from './viewportFit'
+import { allowsScroll, type DragScroller } from './touchDrag'
+
+// The scroller the finger is actually on: the nearest ancestor of `target`, up to
+// and including `root`, that both overflows and is allowed to scroll. Usually that
+// is the sheet itself, but a modal is free to hold a scrolling list of its own.
+// `null` means the drag has nothing to move — the dimmed area, or a sheet short
+// enough not to scroll.
+function scrollerAt(target: EventTarget | null, root: HTMLElement): DragScroller | null {
+  let el = target instanceof Element ? target : null
+  while (el) {
+    if (el instanceof HTMLElement && el.scrollHeight > el.clientHeight) {
+      const overflow = getComputedStyle(el).overflowY
+      if (overflow === 'auto' || overflow === 'scroll') {
+        return { scrollTop: el.scrollTop, scrollHeight: el.scrollHeight, clientHeight: el.clientHeight }
+      }
+    }
+    if (el === root) return null
+    el = el.parentElement
+  }
+  return null
+}
+
+// A drag inside a text field is the browser's caret/selection business, never ours.
+function inTextField(target: EventTarget | null): boolean {
+  return target instanceof Element && !!target.closest('input, textarea, [contenteditable]')
+}
 
 // A lightweight bottom-sheet-style modal. Closes on backdrop click or Esc.
 export function Modal({
@@ -55,6 +81,35 @@ export function Modal({
     return () => {
       vv.removeEventListener('resize', sync)
       vv.removeEventListener('scroll', sync)
+    }
+  }, [])
+
+  // Cancel any drag the sheet itself can't use. With the keyboard open there is
+  // room for the browser to pan the visual viewport, and that pan carries every
+  // fixed element — this whole overlay — along with it; see touchDrag.ts.
+  useEffect(() => {
+    const el = backdropRef.current
+    if (!el) return
+    let startX = 0
+    let startY = 0
+    const onStart = (e: TouchEvent) => {
+      startX = e.touches[0]?.clientX ?? 0
+      startY = e.touches[0]?.clientY ?? 0
+    }
+    const onMove = (e: TouchEvent) => {
+      // Leave pinch-zoom alone: two fingers are never a scroll.
+      if (e.touches.length !== 1 || !e.cancelable) return
+      if (inTextField(e.target)) return
+      const dx = e.touches[0].clientX - startX
+      const dy = e.touches[0].clientY - startY
+      if (!allowsScroll(scrollerAt(e.target, el), dx, dy)) e.preventDefault()
+    }
+    el.addEventListener('touchstart', onStart, { passive: true })
+    // Non-passive: preventDefault is the entire point.
+    el.addEventListener('touchmove', onMove, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
     }
   }, [])
 
