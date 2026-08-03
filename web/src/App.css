@@ -2075,9 +2075,11 @@ a.pick-summary {
 }
 .goal-del:hover { color: var(--expense); }
 
-.goal-add { display: flex; flex-direction: column; gap: 8px; }
+.goal-add,
+.debt-form { display: flex; flex-direction: column; gap: 8px; }
 .goal-add-btn { width: 100%; margin-top: 12px; }
-.goal-add input {
+.goal-add input,
+.debt-form input {
   padding: 9px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -2145,6 +2147,137 @@ a.pick-summary {
   cursor: grabbing;
 }
 .goal-pin { flex: 0 0 auto; font-size: 13px; opacity: 0.7; }
+
+/* ── Debts ───────────────────────────────────────────────────────────────────
+   The rows deliberately reuse .goal-row / .goal-label, including the --goal-fill
+   gradient: a goal fills as it is funded and a debt fills as it is repaid, and
+   they should read as the same kind of progress even though one is the mirror of
+   the other. Only what differs is redefined here. */
+.form-error { color: var(--expense); font-size: 12px; }
+
+.debt-owed { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.debt-owed-amount { font-size: 26px; font-weight: 700; }
+.debt-owed-note { font-size: 12px; }
+.debt-dsr-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  margin-top: 14px;
+}
+.debt-verdict { font-size: 13px; margin: 10px 0 0; }
+.debt-verdict.good { color: var(--income); }
+.debt-verdict.warn { color: #f39c12; }
+.debt-verdict.bad { color: var(--expense); }
+
+/* The ratio on a marked track: the number only means something against the 36 /
+   50 / 70 lines, so they are drawn on it rather than explained beside it. */
+.dsr-meter { margin-top: 8px; }
+.dsr-track {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.dsr-fill { height: 100%; border-radius: 5px; transition: width 0.25s ease; }
+.dsr-fill.good { background: var(--income); }
+.dsr-fill.warn { background: #f39c12; }
+.dsr-fill.bad { background: var(--expense); }
+.dsr-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  /* Ink, not the page background: a tick has to read both against the empty track
+     and against a fill that has already passed it. */
+  background: var(--ink);
+  opacity: 0.35;
+}
+.dsr-scale { position: relative; height: 15px; margin-top: 4px; }
+.dsr-mark {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 10px;
+  white-space: nowrap;
+}
+/* The 70% mark would hang off the right edge on a narrow phone. */
+.dsr-mark:last-child { transform: translateX(-72%); }
+/* On a phone the 36% and 50% labels are only 14px apart and their words collide.
+   The percentages alone still carry the scale, and the sentence under the meter
+   is what actually says which side of the line you are on. */
+@media (max-width: 480px) {
+  .dsr-mark .muted { display: none; }
+}
+
+.debt-row { align-items: stretch; }
+/* Rank in the payoff order — the whole reason the list is worth ordering. */
+.debt-rank {
+  flex: 0 0 22px;
+  align-self: center;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* .goal-label as a button: strip the chrome, keep the fill. */
+.debt-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.debt-name { font-size: 14px; }
+.debt-meta { font-size: 11.5px; }
+.debt-chip {
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  padding: 0 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* The three numbers a plan comes down to. Wraps to two rows on a narrow phone
+   rather than shrinking the figures to unreadable. */
+.debt-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 14px;
+}
+.debt-figure { display: flex; flex-direction: column; gap: 1px; min-width: 90px; }
+.debt-figure-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.debt-figure-value { font-size: 17px; font-weight: 700; }
+.debt-figure-delta { font-size: 11px; color: var(--expense); }
+
+.debt-payments { display: flex; flex-direction: column; }
+.debt-payment {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: 13px;
+}
+.debt-payment:last-of-type { border-bottom: none; }
+.debt-payment-day { flex: 0 0 auto; font-size: 11px; }
+.debt-payment-note { flex: 1; min-width: 0; font-size: 12px; }
+.debt-payment-amount { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.debt-payment-amount.income { color: var(--income); }
+.debt-payment-amount.expense { color: var(--expense); }
 
 /* A goal move inside the main transaction list. Muted throughout: it earmarks
    money that is already in the savings accounts, so it must not read as a

@@ -3,10 +3,10 @@
 // confirm in the UI). Nothing here talks to a server.
 import {
   db, listTxns, listGoalMoves, getAccounts, getCategories, getSettings, getBudget, getGoals,
-  getReconcileState, getTax, getHomeLayout, saveAccounts, saveCategories, saveSettings, saveBudget,
-  saveGoals, saveReconcileState, saveTax, saveHomeLayout, type Txn,
+  getDebts, getReconcileState, getTax, getHomeLayout, saveAccounts, saveCategories, saveSettings,
+  saveBudget, saveGoals, saveDebts, saveReconcileState, saveTax, saveHomeLayout, type Txn,
 } from '../../db'
-import type { BudgetCfg, Categories, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
+import type { BudgetCfg, Categories, DebtsCfg, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
 import type { TaxCfg } from '../analytics/income_tax'
 import type { GoalMove } from '../analytics/goalSavings'
 import { normalizeLayout, type HomeLayout } from '../homeLayout'
@@ -14,13 +14,18 @@ import { normalizeLayout, type HomeLayout } from '../homeLayout'
 const APP_TAG = 'where-did-my-money-go'
 // v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals +
 // reconcile config; v3 adds tax config; v4 adds the Home screen layout; v5 adds
-// the per-goal allocation moves. Older files still restore (the new keys are
-// optional and left as-is when absent).
+// the per-goal allocation moves; v6 adds the debts config. Older files still
+// restore (the new keys are optional and left as-is when absent).
 //
 // v5 earns its bump where the 0.4.0 spending limits didn't: those were an extra
 // field on a config object that already travelled, whereas goal moves are a whole
 // table a v4 file has no way to represent.
-const BACKUP_VERSION = 5
+//
+// v6 is the debts config. The `debt` tag on a transaction needs no version of its
+// own — it rides along inside the transaction rows, which have always travelled
+// whole. Debt ids are uuids, so a restore keeps every tag pointing at its debt
+// even though IndexedDB reassigns the row ids around them.
+const BACKUP_VERSION = 6
 
 export interface Backup {
   app: typeof APP_TAG
@@ -36,6 +41,7 @@ export interface Backup {
   tax?: TaxCfg
   home?: HomeLayout
   goalMoves?: GoalMove[]
+  debts?: DebtsCfg
 }
 
 export async function makeBackup(): Promise<Backup> {
@@ -53,6 +59,7 @@ export async function makeBackup(): Promise<Backup> {
     tax: await getTax(),
     home: await getHomeLayout(),
     goalMoves: await listGoalMoves(),
+    debts: await getDebts(),
   }
 }
 
@@ -93,6 +100,7 @@ export async function restoreBackup(b: Backup): Promise<RestoreResult> {
     // older v1 file leaves the current budget/goals config untouched.
     if (b.budget) await saveBudget(b.budget)
     if (b.goals) await saveGoals(b.goals)
+    if (b.debts) await saveDebts(b.debts)
     if (b.reconcile) await saveReconcileState(b.reconcile)
     if (b.tax) await saveTax(b.tax)
     // Normalized on the way in — a backup file is untrusted input, and one

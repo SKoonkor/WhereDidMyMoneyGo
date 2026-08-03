@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, ensureSeeded, addTxn, addTransfer, listTxns, addGoalMove, listGoalMoves, getAccounts, getBudget, getGoals, getTax, getHomeLayout, saveBudget, saveGoals, saveTax, saveHomeLayout } from '../../db'
+import { db, ensureSeeded, addTxn, addTransfer, listTxns, addGoalMove, listGoalMoves, getAccounts, getBudget, getGoals, getTax, getDebts, getHomeLayout, saveBudget, saveGoals, saveTax, saveDebts, saveHomeLayout } from '../../db'
 import { allocations } from '../analytics/goalSavings'
 import { toExportRecords, toCsv } from './exporter'
 import { makeBackup, parseBackup, restoreBackup } from './backup'
@@ -70,7 +70,7 @@ describe('backup / restore', () => {
     const gid = await addTransfer({ period: '2026-07-11', amount: 2000, from: 'Cash', to: 'Savings', goal: 'Car' })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(5)
+    expect(backup.version).toBe(6)
     expect(backup.goalMoves).toHaveLength(2)
 
     await db.transactions.clear()
@@ -101,7 +101,7 @@ describe('backup / restore', () => {
     await saveTax({ country: 'Thailand', allowances: { spouse: true, children: 2 }, incomeSelections: ['Salary'], taxSelections: ['Bills'] })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(5)
+    expect(backup.version).toBe(6)
     expect(backup.budget?.mode).toBe('rolling')
     expect(backup.goals?.selected).toEqual(['Car'])
     expect(backup.tax?.allowances.children).toBe(2)
@@ -116,6 +116,35 @@ describe('backup / restore', () => {
     expect((await getGoals()).selected).toEqual(['Car'])
     expect((await getTax()).allowances.spouse).toBe(true)
     expect((await getTax()).incomeSelections).toEqual(['Salary'])
+  })
+
+  it('round-trips the debts config, tags and all (v6)', async () => {
+    await saveDebts({
+      strategy: 'snowball',
+      extraPayment: 3000,
+      debts: [
+        { id: 'card-1', name: 'Credit Card', kind: 'revolving', account: 'Credit Card', apr: 16, minPayment: { mode: 'percent', value: 8 }, creditLimit: 50000 },
+        { id: 'loan-1', name: 'Car Loan', kind: 'installment', openingBalance: 300000, openingDate: '2026-01-01', apr: 6, minPayment: { mode: 'fixed', value: 8000 } },
+      ],
+    })
+    // A payment tagged to the standalone loan. The tag rides inside the row, so it
+    // needs no key of its own — which is exactly why it's worth asserting.
+    await addTxn({ period: '2026-07-01', account: 'Cash', amount: 8000, type: 'Expense', category: 'Bills', debt: 'loan-1' })
+
+    const backup = await makeBackup()
+    expect(backup.debts?.strategy).toBe('snowball')
+
+    await db.transactions.clear()
+    await db.config.clear()
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+
+    const cfg = await getDebts()
+    expect(cfg.strategy).toBe('snowball')
+    expect(cfg.extraPayment).toBe(3000)
+    expect(cfg.debts.map((d) => d.id)).toEqual(['card-1', 'loan-1'])
+    expect(cfg.debts[0].creditLimit).toBe(50000)
+    // Row ids get reassigned; the uuid the tag points at does not.
+    expect((await listTxns())[0].debt).toBe('loan-1')
   })
 
   it('restores an older v1 file (no budget/goals) without wiping current config', async () => {

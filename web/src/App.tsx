@@ -24,6 +24,7 @@ import { LimitsPage } from './features/budget/LimitsPage'
 import { useLimitAlert } from './features/budget/useLimitAlert'
 import { GoalsPage } from './features/goals/GoalsPage'
 import { GoalSavingsPage } from './features/goals/GoalSavingsPage'
+import { DebtsPage } from './features/debts/DebtsPage'
 import { CompoundPage } from './features/compound/CompoundPage'
 import { RetirementPage } from './features/retirement/RetirementPage'
 import { IncomeTaxPage } from './features/tax/IncomeTaxPage'
@@ -175,6 +176,7 @@ export default function App() {
             <Route path="/limits" element={<LimitsPage />} />
             <Route path="/goals" element={<GoalsPage />} />
             <Route path="/goal-savings" element={<GoalSavingsPage />} />
+            <Route path="/debts" element={<DebtsPage />} />
             <Route path="/retirement" element={<RetirementPage />} />
             <Route path="/compound" element={<CompoundPage />} />
             <Route path="/income-tax" element={<IncomeTaxPage />} />

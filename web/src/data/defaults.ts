@@ -92,6 +92,65 @@ export interface GoalsCfg {
 
 export const DEFAULT_GOALS: GoalsCfg = { goals: {}, factors: {}, selected: [] }
 
+// ── Debts ────────────────────────────────────────────────────────────────────
+// The mirror image of the goals above: what the user owes rather than what they
+// are saving for. Analytics live in src/lib/analytics/debt.ts.
+//
+// A debt is either LINKED to one of the user's accounts — a credit card is
+// already a default account, and everything charged to it is already in the
+// ledger, so its balance and its payments need no re-entry — or STANDALONE, for a
+// mortgage the user would rather not track transaction by transaction. A
+// standalone debt's balance is derived forward from `openingBalance`, never
+// stored, so it cannot drift out of step with its payments.
+
+export type DebtKind = 'revolving' | 'installment'
+export type PayoffStrategy = 'avalanche' | 'snowball'
+
+// What the lender demands each month. `percent` is the revolving rule (a share of
+// the balance, so the payment shrinks as the balance does); `fixed` is the
+// installment rule. `floor` is the "or ฿X, whichever is greater" clause every
+// real card carries — without it a pure percentage never quite reaches zero.
+export interface MinPayment {
+  mode: 'percent' | 'fixed'
+  value: number
+  floor?: number
+}
+
+export interface Debt {
+  /** uuid. Names get edited; the link from a tagged transaction must not break. */
+  id: string
+  name: string
+  kind: DebtKind
+  /** Linked: the account whose (negative) balance IS this debt. */
+  account?: string
+  /** Standalone: where the derivation starts. */
+  openingBalance?: number
+  openingDate?: string
+  /** Annual percentage rate. 0 for an interest-free debt. */
+  apr: number
+  minPayment: MinPayment
+  /** Revolving only — drives the utilisation figure. */
+  creditLimit?: number
+  /** Day of the month the payment is due (1–31), for the reminder line. */
+  dueDay?: number
+}
+
+export interface DebtsCfg {
+  debts: Debt[]
+  strategy: PayoffStrategy
+  /** What the user puts toward debt each month ON TOP of the minimums. */
+  extraPayment: number
+}
+
+// The Bank of Thailand's reduced minimum credit-card payment (8%, in force to the
+// end of 2026; 10% otherwise) — the right default for this app's users, and the
+// number the "paying only the minimum" warning is built around.
+export const DEFAULT_CARD_MIN_PERCENT = 8
+// "…or ฿500, whichever is greater", the usual floor clause.
+export const DEFAULT_MIN_FLOOR = 500
+
+export const DEFAULT_DEBTS: DebtsCfg = { debts: [], strategy: 'avalanche', extraPayment: 0 }
+
 // ── Reconciliation state ─────────────────────────────────────────────────────
 // Just the last-reconciled date (drives the "due" reminder). The adjustment rows
 // themselves are ordinary transactions.

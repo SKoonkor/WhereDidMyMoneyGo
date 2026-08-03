@@ -11,6 +11,7 @@
 import type { HomeItem, LargeWidgetId, SmallWidgetId } from '../../lib/homeLayout'
 import {
   NetWorthHero, FlowWidget, BudgetWidget, LimitsWidget, PoolWidget, GoalSavingsWidget, AccountsWidget,
+  DebtsWidget,
 } from './large'
 import { SmallRow } from './SmallRow'
 import { MiniTrend } from './small/MiniTrend'
@@ -20,6 +21,8 @@ import { MiniLimits } from './small/MiniLimits'
 import { MiniPoolGauge } from './small/MiniPoolGauge'
 import { MiniGoals } from './small/MiniGoals'
 import { MiniInOut } from './small/MiniInOut'
+import { MiniDebt } from './small/MiniDebt'
+import { MiniDsr } from './small/MiniDsr'
 
 // Every large widget is handed its instance and the edit state; only the
 // widget-row container has any use for them.
@@ -86,6 +89,12 @@ export const LARGE: Record<LargeWidgetId, LargeDef> = {
     route: '/transactions', routeLabel: 'Transactions',
     className: 'dash-card', header: true, Render: AccountsWidget,
   },
+  debts: {
+    title: 'Debts',
+    desc: 'What you owe and what it takes from your income.',
+    route: '/debts',
+    className: 'budget-card', header: true, Render: DebtsWidget,
+  },
   smallrow: {
     title: 'Widget row',
     desc: 'Holds up to three small previews side by side.',
@@ -106,4 +115,6 @@ export const SMALL: Record<SmallWidgetId, SmallDef> = {
   'mini-pool': { title: 'Savings Pool', Render: MiniPoolGauge },
   'mini-goals': { title: 'Goal savings', Render: MiniGoals },
   'mini-inout': { title: 'Income & Output', Render: MiniInOut },
+  'mini-debt': { title: 'Debts', Render: MiniDebt },
+  'mini-dsr': { title: 'Debt ratio', Render: MiniDsr },
 }

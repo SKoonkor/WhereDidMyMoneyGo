@@ -13,6 +13,7 @@ import {
   DEFAULT_BUDGET,
   DEFAULT_CATEGORIES,
   DEFAULT_AI,
+  DEFAULT_DEBTS,
   DEFAULT_GOALS,
   DEFAULT_NOTIFICATIONS,
   DEFAULT_RECONCILE,
@@ -24,6 +25,7 @@ import {
   type AiCfg,
   type BudgetCfg,
   type Categories,
+  type DebtsCfg,
   type GoalsCfg,
   type NotificationCfg,
   type ReconcileState,
@@ -64,10 +66,14 @@ export interface Txn {
   currency: string
   // Set on both legs of a transfer to link them; absent for single rows.
   transferId?: string
+  // The standalone debt (by id) this row pays toward or borrows from. Only ever
+  // set on rows for a debt that ISN'T linked to an account — a linked debt reads
+  // its own account's rows and needs no tag. See lib/analytics/debt.ts.
+  debt?: string
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai' | 'home'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'debts' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai' | 'home'
   value: unknown
 }
 
@@ -78,8 +84,9 @@ const db = new Dexie('money-tracker') as Dexie & {
 }
 
 // v1 shipped only `transactions`. v2 adds the transferId index + the config store.
-// v3 adds `goalMoves` — the per-goal allocation layer. Dexie needs the whole
-// schema restated per version, so the first two stores are repeated verbatim.
+// v3 adds `goalMoves` — the per-goal allocation layer. v4 adds the `debt` index,
+// which tags a row as a payment toward (or a draw on) a standalone debt. Dexie
+// needs the whole schema restated per version, so earlier stores are repeated.
 db.version(1).stores({ transactions: '++id, period, account, type, category' })
 db.version(2).stores({
   transactions: '++id, period, account, type, category, transferId',
@@ -87,6 +94,11 @@ db.version(2).stores({
 })
 db.version(3).stores({
   transactions: '++id, period, account, type, category, transferId',
+  config: 'key',
+  goalMoves: '++id, period, transferId',
+})
+db.version(4).stores({
+  transactions: '++id, period, account, type, category, transferId, debt',
   config: 'key',
   goalMoves: '++id, period, transferId',
 })
@@ -104,6 +116,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('settings')) puts.push({ key: 'settings', value: DEFAULT_SETTINGS })
   if (!existing.has('budget')) puts.push({ key: 'budget', value: DEFAULT_BUDGET })
   if (!existing.has('goals')) puts.push({ key: 'goals', value: DEFAULT_GOALS })
+  if (!existing.has('debts')) puts.push({ key: 'debts', value: DEFAULT_DEBTS })
   if (!existing.has('reconcile')) puts.push({ key: 'reconcile', value: DEFAULT_RECONCILE })
   if (!existing.has('tax')) puts.push({ key: 'tax', value: DEFAULT_TAX })
   if (!existing.has('notifications')) puts.push({ key: 'notifications', value: DEFAULT_NOTIFICATIONS })
@@ -347,6 +360,32 @@ export async function getGoals(): Promise<GoalsCfg> {
 }
 export async function saveGoals(cfg: GoalsCfg): Promise<void> {
   await db.config.put({ key: 'goals', value: cfg })
+}
+
+// Like the Home layout and unlike the other getters, `debts` is NOT merged with
+// its default: the debt list is an ordered collection, not a patchable record, and
+// `{ ...DEFAULT_DEBTS, ...row }` would be fine today but silently resurrect an
+// empty list the moment the default gains a seeded entry. Fall back wholesale.
+export async function getDebts(): Promise<DebtsCfg> {
+  const row = (await db.config.get('debts'))?.value as Partial<DebtsCfg> | undefined
+  if (!row || !Array.isArray(row.debts)) return DEFAULT_DEBTS
+  return {
+    debts: row.debts,
+    strategy: row.strategy === 'snowball' ? 'snowball' : 'avalanche',
+    extraPayment: Number.isFinite(row.extraPayment) ? Number(row.extraPayment) : 0,
+  }
+}
+export async function saveDebts(cfg: DebtsCfg): Promise<void> {
+  await db.config.put({ key: 'debts', value: cfg })
+}
+
+// Remove a debt and untag whatever pointed at it. Only standalone debts have
+// tagged rows; a linked debt's transactions belong to its account and must be left
+// exactly as they are — deleting the debt record forgets the terms, not the money.
+export async function deleteDebt(id: string): Promise<void> {
+  const cfg = await getDebts()
+  await saveDebts({ ...cfg, debts: cfg.debts.filter((d) => d.id !== id) })
+  await db.transactions.where('debt').equals(id).modify((r) => { delete r.debt })
 }
 
 export async function getRetirementInputs(): Promise<RetirementInputs> {

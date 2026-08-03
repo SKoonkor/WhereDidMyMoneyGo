@@ -202,10 +202,11 @@ describe('setSlot', () => {
 
 describe('availableLarge', () => {
   it('excludes present singletons but always offers the container', () => {
-    // 'limits' and 'goals' ship off the default Home, so they show up as addable.
-    expect(availableLarge(DEFAULT_HOME_LAYOUT)).toEqual(['limits', 'goals', 'smallrow'])
+    // 'limits', 'goals' and 'debts' ship off the default Home, so they show up as
+    // addable — a new widget joins the picker without joining everyone's Home.
+    expect(availableLarge(DEFAULT_HOME_LAYOUT)).toEqual(['limits', 'goals', 'debts', 'smallrow'])
     expect(availableLarge(L({ uid: 'smallrow', widget: 'smallrow' })))
-      .toEqual(['networth', 'flow', 'budget', 'limits', 'pool', 'goals', 'accounts', 'smallrow'])
+      .toEqual(['networth', 'flow', 'budget', 'limits', 'pool', 'goals', 'accounts', 'debts', 'smallrow'])
   })
 })
 

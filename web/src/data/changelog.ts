@@ -34,6 +34,22 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.6.0',
+    date: '03-08-2026',
+    changes: [
+      { kind: 'new', text: 'Debts: track what you owe in one place — credit cards, loans, anything with a balance and a rate.' },
+      { kind: 'new', text: 'A debt can follow an account you already use, so its balance and every payment come straight from your transactions with nothing to keep up to date. A mortgage you would rather not track transaction by transaction can just hold a figure instead.' },
+      { kind: 'new', text: 'See what share of your income goes out as debt payments, against the lines lenders actually use — 36% comfortable, 50% stretched, 70% the ceiling in Thailand.' },
+      { kind: 'new', text: 'Each debt shows how much of it you have already paid off, how close a card is to its limit, and where it sits in the payoff order.' },
+      { kind: 'new', text: 'Payoff plan: choose highest-rate-first or smallest-balance-first, add whatever you can spare each month, and see the date you become debt-free and what the interest costs. It also shows what the other order would cost, so the choice is yours to make.' },
+      { kind: 'new', text: 'A blunt one worth seeing: what paying only the minimum would take, and what it would cost.' },
+      { kind: 'new', text: 'What-if: enter a loan you are thinking about and watch what it does to your debt-free date, your interest, and the share of your income already spoken for.' },
+      { kind: 'new', text: 'Home widgets for debts — the whole picture, the debt to pay next, or your debt ratio as a ring.' },
+      { kind: 'improved', text: 'Net worth now subtracts debts you entered by hand. A card you track as an account was always counted; a loan that lives outside your transactions was not, and now it is — so the figure may drop the first time you open the app.' },
+      { kind: 'improved', text: 'Backups include your debts.' },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '28-07-2026',
     changes: [

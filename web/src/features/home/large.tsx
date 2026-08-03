@@ -10,6 +10,7 @@ import { useCensor } from '../../prefs'
 import { currentMonthKey } from '../transactions/month'
 import { accountBalances } from '../../lib/balances'
 import { netWorth } from '../../lib/analytics/networth'
+import { hiddenLiabilities } from '../../lib/analytics/debt'
 import { monthBudgetSummary } from '../../lib/analytics/budget'
 import { useMoneyFlow, FLOW_PLOT_CONFIG } from '../flow/useMoneyFlow'
 import { ThisPeriodBudget } from '../budget/ThisPeriodBudget'
@@ -18,6 +19,8 @@ import { Plot } from '../../components/Plot'
 import { compactAmount } from '../../lib/format'
 import { useLimits } from './useLimits'
 import { useGoalSavings } from './useGoalSavings'
+import { useDebts } from '../debts/useDebts'
+import { DsrMeter } from '../debts/DsrMeter'
 import { TONE_COLOR } from '../budget/tone'
 import { Ring } from './small/Ring'
 import { EMERGENCY_FUND } from '../../data/defaults'
@@ -29,7 +32,14 @@ export const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionD
 export function NetWorthHero() {
   const all = useLiveTxns()
   const currency = useBaseCurrency()
-  const nw = useMemo(() => netWorth(all), [all])
+  const debts = useDebts()
+  // A linked debt is an account and is already in `netWorth` as a negative
+  // balance; only standalone debts have to be taken off by hand. See
+  // hiddenLiabilities — subtracting the linked ones too would double-count them.
+  const nw = useMemo(
+    () => netWorth(all) - hiddenLiabilities(debts?.standings ?? []),
+    [all, debts],
+  )
   return (
     <>
       <div className="nw-label">{t('Net worth')}</div>
@@ -185,6 +195,46 @@ export function GoalSavingsWidget() {
           {money(data.unallocated)} {currency}
         </span>
       </div>
+    </>
+  )
+}
+
+// Debts: what is owed, what share of income it takes, and what to pay next.
+// Three lines rather than a chart — on Home the question is "am I all right?",
+// and the page itself is one tap away for the answer to "what should I do?".
+export function DebtsWidget() {
+  const view = useDebts()
+  const [censor] = useCensor()
+  if (!view) return null
+
+  if (view.standings.length === 0) {
+    return <span className="muted" style={{ fontSize: 12 }}>{t('No debts tracked.')}</span>
+  }
+
+  const next = view.ranked.find((s) => s.balance > 0)
+  const money = (n: number) => (censor ? '•••' : `${fmt(n)} ${view.currency}`)
+
+  return (
+    <>
+      <div className="debt-owed">
+        <span className="debt-owed-amount money">{money(view.owed)}</span>
+        <span className="muted debt-owed-note">{t('owed')}</span>
+      </div>
+      {view.income > 0 && (
+        <>
+          <div className="debt-dsr-line">
+            <span className="muted">{t('Debt payments')}</span>
+            <span>{t('{pct}% of income', { pct: view.dsr.toFixed(0) })}</span>
+          </div>
+          <DsrMeter pct={view.dsr} tone={view.tone} />
+        </>
+      )}
+      {next && (
+        <div className="debt-dsr-line">
+          <span className="muted">{t('Pay next')}</span>
+          <span>{next.debt.name}</span>
+        </div>
+      )}
     </>
   )
 }
