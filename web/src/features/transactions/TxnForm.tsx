@@ -11,6 +11,8 @@ import { CategoryPicker } from './CategoryPicker'
 import { Modal } from '../../components/Modal'
 import { dateStatus, isOldDateWarningSnoozed, snoozeOldDateWarning, type DateStatus } from './dateWarn'
 import { kindOf, txnChanged, type Kind } from './txnDirty'
+import { parseAmountExpr } from './amountExpr'
+import { setCarry, revealCarry, registerCarryFill } from './carryNote'
 import { t, getLang } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
@@ -19,6 +21,18 @@ import { t, getLang } from '../../i18n'
 const KINDS: Kind[] = ['Expense', 'Income', 'Transfer']
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+// Money as it reads on a receipt; terms keep their typed shape (500, not 500.00)
+// so the breakdown looks like what was actually entered.
+const fmt = (n: number) =>
+  n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const term = (n: number) => Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
+
+// The typed sum played back for the confirmation: "500 − 75 + 25 − 12 − 5 + 33".
+const exprText = (terms: number[]) =>
+  terms
+    .map((n, i) => (i === 0 ? `${n < 0 ? '−' : ''}${term(n)}` : `${n < 0 ? '−' : '+'} ${term(n)}`))
+    .join(' ')
 
 // Values to pre-fill a fresh (non-editing) form — e.g. from an AI receipt scan.
 // Everything is optional; a missing field just starts blank/default. `account`
@@ -117,14 +131,29 @@ export function TxnForm({
     }
   }, [kind, catNames, category])
 
+  // ── Amount as a mini calculator ───────────────────────────────────────────
+  // The field takes several amounts ("500 - 75 + 25"); the net is what's saved and
+  // whatever was subtracted is carried out to the note after a successful save.
+  const expr = useMemo(() => parseAmountExpr(amount), [amount])
+  const amountNum = expr.net
+  // Drives the hint under the field: the tip while the box is empty-ish and
+  // focused, the running total once there's arithmetic to check.
+  const [amountFocus, setAmountFocus] = useState(false)
+
+  // Let a tap on the floating note land in this form rather than opening another
+  // one. Appended as a new term instead of replacing, so a tap can never wipe out
+  // something half-typed — and the preview line shows the result immediately.
+  useEffect(() => registerCarryFill((n) => {
+    setAmount((a) => (a.trim() ? `${a.trim()} + ${n}` : String(n)))
+  }), [])
+
   // Required-field validation. `attempted` flips on the first Save press, so the
   // red outlines appear only after the user tries to save; they then clear live as
   // each field is corrected. Note is optional (blank → "-" in the list).
   const [attempted, setAttempted] = useState(false)
-  const amountNum = parseFloat(amount)
   const errors = {
     date: !period,
-    amount: !(amountNum > 0),
+    amount: !(expr.valid && amountNum > 0),
     account: kind !== 'Transfer' && !account,
     category: kind !== 'Transfer' && !category,
     from: kind === 'Transfer' && !from,
@@ -141,8 +170,10 @@ export function TxnForm({
   // Unusual-date safeguard: which confirmation (if any) is currently blocking the
   // save — 'future' or 'old'. Null means no confirmation is showing.
   const [dateWarn, setDateWarn] = useState<DateStatus | null>(null)
-  // Accidental-edit safeguard, shown only when an edit actually changed something.
-  const [confirmEdit, setConfirmEdit] = useState(false)
+  // The last gate before the write, covering two separate safeguards in one dialog
+  // so they can't stack: `amount` shows the arithmetic that's about to be saved,
+  // `edit` warns that an existing row is being overwritten. Null means no dialog.
+  const [confirmSave, setConfirmSave] = useState<{ amount: boolean; edit: boolean } | null>(null)
 
   // Write the row(s) and close. Called once validation (and any date confirmation)
   // has passed.
@@ -167,19 +198,25 @@ export function TxnForm({
       if (editing) await updateTxn(editing.id, row)
       else await addTxn(row)
     }
+    // Hand whatever was subtracted to the floating note — and clear a previous
+    // one when there's nothing left over. Only a completed save touches it, so
+    // opening a form and thinking better of it leaves the reminder standing.
+    setCarry(expr.negative > 0 ? expr.negative : null)
     onClose()
   }
 
-  // Last gate before the write: an edit that changed something asks first, so a
-  // row opened by a stray tap can't be overwritten without a deliberate yes. An
-  // untouched edit saves straight through — there is nothing to confirm.
+  // Last gate before the write. An edit that changed something asks first, so a
+  // row opened by a stray tap can't be overwritten without a deliberate yes; and
+  // an amount that was typed as a sum shows its arithmetic, since that's the one
+  // case where what's saved isn't simply what's on screen. Neither applies to a
+  // plain new transaction, which still saves in one tap.
   function requestSave() {
     const changed = editing && txnChanged(editing, {
       kind, period, amount: amountNum, note,
       account, category, subcategory, from, to,
       goal: crossesPool ? goal : '',
     }, storedGoal ?? '')
-    if (changed) setConfirmEdit(true)
+    if (expr.multi || changed) setConfirmSave({ amount: expr.multi, edit: !!changed })
     else void commit()
   }
 
@@ -242,9 +279,36 @@ export function TxnForm({
         </div>
         <div className={`field${invalid('amount') ? ' is-invalid' : ''}`} style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Amount')} ({currency})</label>
-          <input inputMode="decimal" value={amount} aria-invalid={invalid('amount') || undefined} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
+          <input
+            inputMode="decimal"
+            value={amount}
+            aria-invalid={invalid('amount') || undefined}
+            onChange={(e) => setAmount(e.target.value)}
+            // Going to type an amount is exactly when a dismissed leftover is
+            // worth seeing again, so reaching for the field un-hides it.
+            onFocus={() => { setAmountFocus(true); revealCarry() }}
+            onBlur={() => setAmountFocus(false)}
+            placeholder="0"
+          />
         </div>
       </div>
+
+      {/* Always rendered, height reserved in CSS, so the form doesn't jump when
+          the tip appears on focus or gives way to the running total. */}
+      <p className="amount-hint" aria-live="polite">
+        {expr.multi && expr.valid ? (
+          <>
+            <span className="amount-hint-net">= {fmt(amountNum)} {currency}</span>
+            {expr.negative > 0 && (
+              <span className="amount-hint-aside">
+                {' · '}{t('{amount} set aside', { amount: fmt(expr.negative) })}
+              </span>
+            )}
+          </>
+        ) : amountFocus && !expr.multi ? (
+          t('Tip: type several amounts, e.g. 500 - 75 + 25')
+        ) : null}
+      </p>
 
       {kind === 'Transfer' ? (
         <>
@@ -352,16 +416,36 @@ export function TxnForm({
       </Modal>
     )}
 
-    {/* Accidental-edit safeguard. Only reachable when this form was opened on an
-        existing row AND a field actually differs, so an edit sheet opened by a
-        stray tap and saved untouched still closes without a dialog. */}
-    {confirmEdit && (
-      <Modal title={t('Save changes?')} onClose={() => setConfirmEdit(false)}>
-        <p className="txn-warn-msg">{t('This will update the saved transaction.')}</p>
+    {/* Two safeguards sharing one dialog so they can never stack. `amount` plays
+        the typed sum back before it's saved; `edit` is the accidental-overwrite
+        guard, reachable only when this form was opened on an existing row AND a
+        field actually differs — so an edit sheet opened by a stray tap and saved
+        untouched still closes without a dialog. */}
+    {confirmSave && (
+      <Modal
+        title={confirmSave.amount ? t('Save this amount?') : t('Save changes?')}
+        onClose={() => setConfirmSave(null)}
+      >
+        {confirmSave.amount && (
+          <>
+            <div className="amount-confirm">
+              <span className="amount-confirm-expr">{exprText(expr.terms)}</span>
+              <strong className="amount-confirm-net">{fmt(amountNum)} {currency}</strong>
+            </div>
+            {expr.negative > 0 && (
+              <p className="txn-warn-msg amount-confirm-aside">
+                {t('{amount} will be kept as a note, still to record.', {
+                  amount: `${fmt(expr.negative)} ${currency}`,
+                })}
+              </p>
+            )}
+          </>
+        )}
+        {confirmSave.edit && <p className="txn-warn-msg">{t('This will update the saved transaction.')}</p>}
         <div className="row" style={{ gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-          <button type="button" className="btn" onClick={() => setConfirmEdit(false)}>{t('Go back')}</button>
-          <button type="button" className="btn btn-accent" onClick={() => { setConfirmEdit(false); void commit() }}>
-            {t('Save changes')}
+          <button type="button" className="btn" onClick={() => setConfirmSave(null)}>{t('Go back')}</button>
+          <button type="button" className="btn btn-accent" onClick={() => { setConfirmSave(null); void commit() }}>
+            {confirmSave.edit ? t('Save changes') : t('Save')}
           </button>
         </div>
       </Modal>

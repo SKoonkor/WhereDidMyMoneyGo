@@ -449,6 +449,13 @@ const TH: Record<string, string> = {
   'Save changes?': 'บันทึกการแก้ไข?',
   'This will update the saved transaction.': 'รายการที่บันทึกไว้จะถูกแก้ไข',
   'Save changes': 'บันทึกการแก้ไข',
+  // --- Amount mini-calculator & the carry-over note ---
+  'Tip: type several amounts, e.g. 500 - 75 + 25': 'พิมพ์หลายจำนวนได้ เช่น 500 - 75 + 25',
+  '{amount} set aside': 'แยกไว้ {amount}',
+  'Save this amount?': 'บันทึกจำนวนนี้?',
+  '{amount} will be kept as a note, still to record.': 'จะจดไว้ {amount} เป็นยอดที่ยังไม่ได้บันทึก',
+  'Still to record from your last transaction': 'ยอดที่ยังไม่ได้บันทึกจากรายการล่าสุด',
+  Dismiss: 'ปิด',
   Accounts: 'บัญชี',
   Categories: 'หมวดหมู่',
   Rename: 'เปลี่ยนชื่อ',

@@ -34,6 +34,19 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.7.0',
+    date: '07-08-2026',
+    changes: [
+      { kind: 'new', text: 'The Amount box now adds up. Type several amounts in one go — 500 - 75 + 25 - 12 - 5 + 33 — and the total is what gets saved. Works the same for expenses, income and transfers.' },
+      { kind: 'new', text: 'A running total appears under the box as you type, so you can check the sum before you commit to it.' },
+      { kind: 'new', text: 'Save a sum and you are asked to confirm it first, with the arithmetic laid out. A single plain amount still saves in one tap, as before.' },
+      { kind: 'new', text: 'Whatever you subtracted is remembered for you. It floats above the screen as "still to record" — the part of the receipt that belongs somewhere else and is easy to forget once the paper is in the bin.' },
+      { kind: 'new', text: 'Tap that note to carry the amount into a transaction: it fills the Amount box if a form is open, or opens a new one with the figure already in. Close it with the ×, and it comes back the moment you tap an Amount box again.' },
+      { kind: 'improved', text: 'The note clears itself once you save your next transaction, and never survives a restart.' },
+      { kind: 'fixed', text: 'An amount with a space in it used to be read wrong — "500 - 75" quietly saved 500. It now either adds up properly or asks you to fix it.' },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '03-08-2026',
     changes: [

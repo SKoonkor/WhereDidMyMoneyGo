@@ -32,6 +32,8 @@ import { ReconcilePage } from './features/reconcile/ReconcilePage'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
 import { Toast } from './components/Toast'
+import { CarryNote } from './components/CarryNote'
+import { useCarry, dismissCarry, carryFiller } from './features/transactions/carryNote'
 import { OnboardingHost } from './features/onboarding/OnboardingHost'
 import { TxnForm } from './features/transactions/TxnForm'
 import './App.css'
@@ -99,6 +101,9 @@ function Header() {
 export default function App() {
   // The ＋ in the bottom bar opens the Add-transaction sheet over any screen.
   const [adding, setAdding] = useState(false)
+  // Seeds that sheet when it's opened by something other than the ＋ — currently
+  // the carry note, which hands over the amount still to be recorded.
+  const [addPrefill, setAddPrefill] = useState<TxnPrefill | undefined>()
   // Holding ＋ opens the AI receipt scanner when scanning is enabled and a key is
   // set; otherwise the hold nudges the user to turn it on (a plain tap always
   // opens the manual Add sheet either way).
@@ -161,6 +166,17 @@ export default function App() {
     message,
     action: { label: t('View'), onClick: () => { window.location.hash = '#/limits' } },
   }))
+  // What's left to record after the last save, floated over everything (see
+  // CarryNote). Mirrored onto <html data-carry> — the same scheme as data-theme /
+  // data-censor — so App.css can make room for it at the top of an open modal
+  // without React having to reach into the sheet.
+  const carry = useCarry()
+  const carryShown = !!carry && !carry.hidden
+  useEffect(() => {
+    const html = document.documentElement
+    if (carryShown) html.setAttribute('data-carry', 'on')
+    else html.removeAttribute('data-carry')
+  }, [carryShown])
   return (
     <HashRouter>
       <div className="app">
@@ -202,8 +218,8 @@ export default function App() {
           }}
         />
         {adding && (
-          <Modal title={t('Add transaction')} onClose={() => setAdding(false)}>
-            <TxnForm onClose={() => setAdding(false)} />
+          <Modal title={t('Add transaction')} onClose={() => { setAdding(false); setAddPrefill(undefined) }}>
+            <TxnForm prefill={addPrefill} onClose={() => { setAdding(false); setAddPrefill(undefined) }} />
           </Modal>
         )}
         {capturing && (
@@ -222,6 +238,19 @@ export default function App() {
             message={toast.message}
             action={toast.action}
             onClose={() => setToast(null)}
+          />
+        )}
+        {carryShown && carry && (
+          <CarryNote
+            amount={carry.amount}
+            // A form already open takes the tap itself (it fills its own Amount
+            // field); otherwise this opens Add with the amount waiting.
+            onUse={() => {
+              const fill = carryFiller()
+              if (fill) fill(carry.amount)
+              else { setAddPrefill({ amount: carry.amount }); setAdding(true) }
+            }}
+            onClose={dismissCarry}
           />
         )}
         <OnboardingHost />
