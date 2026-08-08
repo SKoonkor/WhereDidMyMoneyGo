@@ -816,7 +816,6 @@ const TH: Record<string, string> = {
   // these are read aloud rather than shown — full words, not the glyphs.
   OK: 'ตกลง',
   'Number pad': 'แป้นตัวเลข',
-  'Use keyboard': 'ใช้แป้นพิมพ์',
   Plus: 'บวก',
   Minus: 'ลบ',
   Times: 'คูณ',

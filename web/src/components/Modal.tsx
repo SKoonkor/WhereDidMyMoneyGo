@@ -40,6 +40,17 @@ export function Modal({
   children: ReactNode
 }) {
   const backdropRef = useRef<HTMLDivElement>(null)
+  // Did the press that is about to become a click START on the dimmed area?
+  //
+  // A click alone is not enough to mean "dismiss". Anything that changes the
+  // sheet's height between press and release — above all the number pad closing,
+  // which hands ~270px of room back and drops the sheet by that much — moves the
+  // control out from under the finger, and the release then lands on the backdrop.
+  // The browser fires the click on the nearest common ancestor of the two, which
+  // is this backdrop, and the whole form used to vanish on what the user
+  // experienced as a tap on the date field. Requiring the press to have begun on
+  // the backdrop as well makes dismissal mean what it looks like.
+  const pressedBackdrop = useRef(false)
 
   // Freeze the page behind the sheet. Every modal in the app comes through here,
   // and the lock is reference-counted, so a picker opening inside another sheet
@@ -121,8 +132,13 @@ export function Modal({
   // keyboard and could end up hidden behind it. Rendering every modal as a sibling of
   // its parent at the document root keeps each one independently viewport-fixed.
   return createPortal(
-    <div className="modal-backdrop" ref={backdropRef} onClick={onClose}>
-      <div className="modal-sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+    <div
+      className="modal-backdrop"
+      ref={backdropRef}
+      onPointerDown={(e) => { pressedBackdrop.current = e.target === e.currentTarget }}
+      onClick={(e) => { if (e.target === e.currentTarget && pressedBackdrop.current) onClose() }}
+    >
+      <div className="modal-sheet" role="dialog" aria-label={title}>
         <div className="modal-head">
           <h2 className="modal-title">{title}</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>

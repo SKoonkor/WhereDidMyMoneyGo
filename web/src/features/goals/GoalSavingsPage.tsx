@@ -257,7 +257,7 @@ function MoveForm({ endpoints, currency, editing, onClose }: {
           <div className={`field${invalid('amount') ? ' is-invalid' : ''}`} style={{ flex: '1 1 0', minWidth: 0 }}>
             <label>{t('Amount')} ({currency})</label>
             <NumberField
-              mode="calc" autoOpen
+              mode="calc"
               label={`${t('Amount')} (${currency})`}
               value={amount}
               aria-invalid={invalid('amount') || undefined}

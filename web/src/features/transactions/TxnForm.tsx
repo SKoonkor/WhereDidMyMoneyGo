@@ -279,7 +279,7 @@ export function TxnForm({
           <NumberField
             mode="calc"
             label={`${t('Amount')} (${currency})`}
-            autoOpen
+           
             value={amount}
             aria-invalid={invalid('amount') || undefined}
             onChange={setAmount}

@@ -341,7 +341,7 @@ function AmountModal({ target, current, currency, onSave, onClose }: {
       <div className="set-field">
         <label htmlFor="limit-amt">{t('Monthly limit')} ({currency})</label>
         <NumberField
-          id="limit-amt" mode="calc" autoOpen
+          id="limit-amt" mode="calc"
           label={`${t('Monthly limit')} (${currency})`}
           value={val}
           onChange={setVal}

@@ -3133,8 +3133,7 @@ a.pick-summary {
   .kp-panel { animation: none; }
 }
 
-/* Header strip: which field is being typed, the way back to the OS keyboard,
-   and a close button — mirroring the reference layout. */
+/* Header strip: which field is being typed, and a close button. */
 .kp-head {
   display: flex;
   align-items: center;
@@ -3246,6 +3245,17 @@ html[data-keypad] .modal-backdrop {
 /* On a page, the pad covers the bottom of the content instead. */
 html[data-keypad] .app-main {
   padding-bottom: calc(var(--keypad-h, 0px) + 24px);
+}
+/* Glide rather than jump when the room is handed back. The transition lives on
+   the base rules, not the [data-keypad] ones — by the time the space is being
+   released the attribute is already gone, so a transition scoped to it would
+   never run. Keypad.tsx also holds the release for a beat so the tap that closed
+   the pad still lands on what it was aimed at. */
+.modal-backdrop { transition: height 180ms ease; }
+.app-main { transition: padding-bottom 180ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .app-main { transition: none; }
 }
 /* The bottom tab bar is behind the pad and unreachable — hide it rather than
    leaving a strip of it peeking out at the edges on a wide screen. */

@@ -209,7 +209,7 @@ export function PayoffPlan({ view }: { view: DebtsView }) {
           <div className="debt-form">
             <div className="set-field">
               <label>{t('Amount')} ({currency})</label>
-              <NumberField mode="calc" label={`${t('Amount')} (${currency})`} value={amount} onChange={setAmount} autoOpen />
+              <NumberField mode="calc" label={`${t('Amount')} (${currency})`} value={amount} onChange={setAmount} />
             </div>
             <div className="set-field">
               <label>{t('Interest rate (% a year)')}</label>

@@ -12,17 +12,20 @@ import { t } from '../i18n'
 // keyboard buried `-` and `+` behind a symbols page — a two-tap detour in front
 // of every sum. Here they are four of the first five keys.
 
+// Giving the room back is deferred, and this is the timer that does it.
+//
+// The pad closes the instant the field loses focus — which is the very tap that
+// is trying to reach the date field or the account picker. Handing ~270px back
+// right then drops the sheet out from under the finger, and the click that
+// follows the press lands on nothing: the tap is swallowed and has to be made
+// twice. Holding the space for a beat lets the press it belongs to finish first,
+// after which the sheet glides down (App.css transitions the height).
+let releaseRoom: number | undefined
+
 const BackspaceIcon = () => (
   <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
     <path d="M9 5h11a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H9l-6-7z" strokeLinejoin="round" />
     <path d="M13 10l4 4M17 10l-4 4" strokeLinecap="round" />
-  </svg>
-)
-
-const KeyboardIcon = () => (
-  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-    <rect x="2" y="6" width="20" height="12" rx="2" />
-    <path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M6 14h.01M18 14h.01M9 14h6" strokeLinecap="round" />
   </svg>
 )
 
@@ -32,7 +35,6 @@ export function Keypad({
   allowDecimal = true,
   onKey,
   onDone,
-  onUseKeyboard,
 }: {
   mode: KeypadMode
   label: string // the field's own label, echoed in the pad's header
@@ -43,7 +45,6 @@ export function Keypad({
   // re-rendered would both act on the older text and one of them would be lost.
   onKey: (key: Key) => void
   onDone: () => void
-  onUseKeyboard?: () => void // the escape hatch back to the OS keyboard
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const holdTimer = useRef<number | null>(null)
@@ -58,14 +59,18 @@ export function Keypad({
     if (!el) return
     const html = document.documentElement
     const publish = () => html.style.setProperty('--keypad-h', `${Math.round(el.offsetHeight)}px`)
+    // Moving between two numeric fields must not flash the room away and back.
+    clearTimeout(releaseRoom)
     publish()
     html.setAttribute('data-keypad', 'on')
     const ro = new ResizeObserver(publish)
     ro.observe(el)
     return () => {
       ro.disconnect()
-      html.removeAttribute('data-keypad')
-      html.style.removeProperty('--keypad-h')
+      releaseRoom = window.setTimeout(() => {
+        html.removeAttribute('data-keypad')
+        html.style.removeProperty('--keypad-h')
+      }, 260)
     }
   }, [])
 
@@ -146,17 +151,6 @@ export function Keypad({
     <div className={`kp-panel kp-${mode}`} ref={panelRef} role="group" aria-label={t('Number pad')}>
       <div className="kp-head">
         <span className="kp-label">{label}</span>
-        {onUseKeyboard && (
-          <button
-            type="button"
-            className="kp-head-btn"
-            aria-label={t('Use keyboard')}
-            title={t('Use keyboard')}
-            onPointerDown={(e) => { e.preventDefault(); onUseKeyboard() }}
-          >
-            <KeyboardIcon />
-          </button>
-        )}
         <button
           type="button"
           className="kp-head-btn kp-close"

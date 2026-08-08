@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Keypad } from './Keypad'
 import {
   pressKey, keyFromEvent, nextKeypadId, openKeypad, closeKeypad, useKeypadOwner,
@@ -20,7 +20,6 @@ export function NumberField({
   onChange,
   label,
   allowDecimal = mode === 'calc',
-  autoOpen = false,
   className,
   placeholder,
   style,
@@ -35,7 +34,6 @@ export function NumberField({
   onChange: (next: string) => void
   label: string // shown in the pad's header, so it is clear what is being typed
   allowDecimal?: boolean
-  autoOpen?: boolean // raise the pad as soon as the field mounts
   className?: string
   placeholder?: string
   style?: React.CSSProperties
@@ -55,12 +53,7 @@ export function NumberField({
   if (idRef.current === null) idRef.current = nextKeypadId()
   const fieldId = idRef.current
 
-  // The escape hatch: one tap on the pad's keyboard icon hands this field back to
-  // the OS keyboard. Deliberately per-instance and not persisted — it lasts as
-  // long as the field is on screen, so there is no app-wide state to get stuck in
-  // and nothing to go looking for in Settings to undo.
-  const [osKeyboard, setOsKeyboard] = useState(false)
-  const open = useKeypadOwner() === fieldId && !osKeyboard
+  const open = useKeypadOwner() === fieldId
 
   // The text as it stands RIGHT NOW, not as of the last render. Two keys tapped
   // in quick succession arrive as two separate events, and the second one would
@@ -75,12 +68,6 @@ export function NumberField({
     valueRef.current = next
     onChange(next)
   }
-
-  useEffect(() => {
-    if (!autoOpen) return
-    openKeypad(fieldId)
-    inputRef.current?.focus()
-  }, [autoOpen, fieldId])
 
   // Release the pad if this field is unmounted while holding it (a sheet closing
   // mid-edit). closeKeypad is a no-op unless we are still the owner.
@@ -115,15 +102,14 @@ export function NumberField({
         // `readOnly` is what actually suppresses the keyboard on iOS;
         // `inputMode="none"` is what does it on Android. Both, or one of the two
         // platforms still pops a keyboard over the pad.
-        readOnly={!osKeyboard}
-        inputMode={osKeyboard ? 'decimal' : 'none'}
+        readOnly
+        inputMode="none"
         onChange={(e) => onChange(e.target.value)}
-        onFocus={(e) => { if (!osKeyboard) openKeypad(fieldId); onFocus?.(e) }}
+        onFocus={(e) => { openKeypad(fieldId); onFocus?.(e) }}
         onBlur={(e) => { closeKeypad(fieldId); onBlur?.(e) }}
         onKeyDown={(e) => {
           onKeyDown?.(e)
           if (e.defaultPrevented) return // the call site claimed this key
-          if (osKeyboard) return // an ordinary input again; leave it alone
           const k = keyFromEvent(e.key)
           if (k === null) return // Tab, Escape and the arrows still reach the browser
           e.preventDefault()
@@ -138,13 +124,6 @@ export function NumberField({
           allowDecimal={allowDecimal}
           onKey={apply}
           onDone={done}
-          onUseKeyboard={() => {
-            setOsKeyboard(true)
-            closeKeypad(fieldId)
-            // Re-focus so the OS keyboard comes up straight away, rather than
-            // asking for a second tap on a field that is already focused.
-            setTimeout(() => inputRef.current?.focus(), 0)
-          }}
         />
       )}
     </>
