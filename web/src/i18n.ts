@@ -811,6 +811,19 @@ const TH: Record<string, string> = {
   'Nothing on this account yet.': 'ยังไม่มีรายการในบัญชีนี้',
   'No payments tagged to this debt yet. Tag one when you add the transaction.': 'ยังไม่มีรายการที่กำกับไว้กับหนี้ก้อนนี้ กำกับได้ตอนเพิ่มรายการ',
   'Showing the latest {n}.': 'แสดง {n} รายการล่าสุด',
+
+  // On-screen number pad. Everything but OK is an aria-label on a key cap, so
+  // these are read aloud rather than shown — full words, not the glyphs.
+  OK: 'ตกลง',
+  'Number pad': 'แป้นตัวเลข',
+  'Use keyboard': 'ใช้แป้นพิมพ์',
+  Plus: 'บวก',
+  Minus: 'ลบ',
+  Times: 'คูณ',
+  Divide: 'หาร',
+  Equals: 'เท่ากับ',
+  'Decimal point': 'จุดทศนิยม',
+  Backspace: 'ลบย้อนกลับ',
 }
 
 export function getLang(): Lang {

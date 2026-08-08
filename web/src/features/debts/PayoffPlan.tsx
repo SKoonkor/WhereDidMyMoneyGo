@@ -15,6 +15,7 @@ import { buildDebtFigure } from './debtFigure'
 import type { DebtsView } from './useDebts'
 import type { PayoffStrategy } from '../../data/defaults'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 
@@ -151,12 +152,12 @@ export function PayoffPlan({ view }: { view: DebtsView }) {
 
         <div className="set-field" style={{ marginTop: 10 }}>
           <label>{t('Extra each month, on top of the minimums')}</label>
-          <input
-            type="number"
-            inputMode="decimal"
+          <NumberField
+            mode="calc"
+            label={t('Extra each month, on top of the minimums')}
             value={extra}
             style={{ maxWidth: 160 }}
-            onChange={(e) => setExtra(e.target.value)}
+            onChange={setExtra}
             onBlur={() => { setExtra(extraNum ? String(extraNum) : ''); void patch({ extraPayment: extraNum }) }}
           />
           <span className="set-hint">
@@ -208,15 +209,15 @@ export function PayoffPlan({ view }: { view: DebtsView }) {
           <div className="debt-form">
             <div className="set-field">
               <label>{t('Amount')} ({currency})</label>
-              <input type="number" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+              <NumberField mode="calc" label={`${t('Amount')} (${currency})`} value={amount} onChange={setAmount} autoOpen />
             </div>
             <div className="set-field">
               <label>{t('Interest rate (% a year)')}</label>
-              <input type="number" inputMode="decimal" step="any" value={rate} onChange={(e) => setRate(e.target.value)} />
+              <NumberField mode="digits" allowDecimal label={t('Interest rate (% a year)')} value={rate} onChange={setRate} />
             </div>
             <div className="set-field">
               <label>{t('Over how many months')}</label>
-              <input type="number" inputMode="numeric" value={term} onChange={(e) => setTerm(e.target.value)} />
+              <NumberField mode="digits" label={t('Over how many months')} value={term} onChange={setTerm} />
             </div>
 
             {scenario && (

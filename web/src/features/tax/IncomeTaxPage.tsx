@@ -8,6 +8,7 @@ import {
   ledgerYears, type TaxCfg, type AllowanceDef, type AllowanceValues,
 } from '../../lib/analytics/income_tax'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 const fmt = (n: number) => Math.round(n).toLocaleString(undefined, { maximumFractionDigits: 0 })
 const num = (s: string) => (Number.isFinite(Number(s)) ? Number(s) : 0)
@@ -81,7 +82,7 @@ export function IncomeTaxPage() {
         <div className="dash-title">{t('Assessable income')}</div>
         <label className="calc-field" style={{ marginTop: 8 }}>
           <span>{t('Gross income ({currency})', { currency })}</span>
-          <input value={grossStr} onChange={(e) => setGrossStr(e.target.value)} type="number" inputMode="decimal" />
+          <NumberField mode="calc" label={t('Gross income ({currency})', { currency })} value={grossStr} onChange={setGrossStr} />
         </label>
         <button type="button" className="inline-link tax-refill" onClick={() => setGrossStr(String(Math.round(ledgerGross)))}>
           {t('↻ From ledger ({year}): {amount} {currency}', { year, amount: fmt(ledgerGross), currency })}
@@ -188,11 +189,11 @@ function AllowanceInput({ def, values, currency, onChange }: { def: AllowanceDef
   return (
     <label className="tax-allow amount">
       <span className="tax-allow-label">{t(def.label)}{isCount && def.unit ? ` (${t(def.unit)})` : ''}</span>
-      <input
+      <NumberField
+        mode={isCount ? 'digits' : 'calc'}
+        label={t(def.label)}
         value={v == null || v === 0 ? '' : String(v)}
-        onChange={(e) => onChange(num(e.target.value))}
-        type="number"
-        inputMode={isCount ? 'numeric' : 'decimal'}
+        onChange={(s) => onChange(num(s))}
         placeholder={isCount ? '0' : `0 ${currency}`}
       />
       <span className="set-hint">{t(def.hint)}</span>

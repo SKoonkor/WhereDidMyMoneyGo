@@ -10,6 +10,7 @@ import type { BudgetCfg, SpendingLimits } from '../../data/defaults'
 import { useHold } from '../../lib/useHold'
 import { Modal } from '../../components/Modal'
 import { t, tBilingual } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 
@@ -161,10 +162,11 @@ function WarnAtField({ cfg, save, currency }: {
       <div className="dash-title">{t('Alert threshold')}</div>
       <div className="set-field">
         <label htmlFor="warn-at">{t('Warn me when a limit has this much left')} ({currency})</label>
-        <input
-          id="warn-at" type="number" inputMode="numeric" min={0}
+        <NumberField
+          id="warn-at" mode="calc"
+          label={`${t('Warn me when a limit has this much left')} (${currency})`}
           value={val}
-          onChange={(e) => setVal(e.target.value)}
+          onChange={setVal}
           onBlur={commit}
           style={{ maxWidth: 120 }}
         />
@@ -338,11 +340,13 @@ function AmountModal({ target, current, currency, onSave, onClose }: {
     <Modal title={t('Limit for {name}', { name })} onClose={onClose}>
       <div className="set-field">
         <label htmlFor="limit-amt">{t('Monthly limit')} ({currency})</label>
-        <input
-          id="limit-amt" autoFocus type="number" inputMode="decimal" min={0}
+        <NumberField
+          id="limit-amt" mode="calc" autoOpen
+          label={`${t('Monthly limit')} (${currency})`}
           value={val}
-          onChange={(e) => setVal(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), commit())}
+          onChange={setVal}
+          // Claimed before the pad can read Enter as `=`.
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
           placeholder="0"
         />
       </div>

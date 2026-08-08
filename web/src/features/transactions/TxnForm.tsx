@@ -9,9 +9,10 @@ import { useAccounts, useCategories, useBaseCurrency, useSettings } from './useC
 import { ChipPicker } from './ChipPicker'
 import { CategoryPicker } from './CategoryPicker'
 import { Modal } from '../../components/Modal'
+import { NumberField } from '../../components/NumberField'
 import { dateStatus, isOldDateWarningSnoozed, snoozeOldDateWarning, type DateStatus } from './dateWarn'
 import { kindOf, txnChanged, type Kind } from './txnDirty'
-import { parseAmountExpr } from './amountExpr'
+import { parseAmountExpr, exprText } from './amountExpr'
 import { setCarry, revealCarry, registerCarryFill } from './carryNote'
 import { t, getLang } from '../../i18n'
 
@@ -22,17 +23,11 @@ const KINDS: Kind[] = ['Expense', 'Income', 'Transfer']
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-// Money as it reads on a receipt; terms keep their typed shape (500, not 500.00)
-// so the breakdown looks like what was actually entered.
+// Money as it reads on a receipt. The typed sum is played back by exprText, which
+// lives in amountExpr.ts so it can render × and ÷ from the same token stream the
+// parser produced.
 const fmt = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const term = (n: number) => Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
-
-// The typed sum played back for the confirmation: "500 − 75 + 25 − 12 − 5 + 33".
-const exprText = (terms: number[]) =>
-  terms
-    .map((n, i) => (i === 0 ? `${n < 0 ? '−' : ''}${term(n)}` : `${n < 0 ? '−' : '+'} ${term(n)}`))
-    .join(' ')
 
 // Values to pre-fill a fresh (non-editing) form — e.g. from an AI receipt scan.
 // Everything is optional; a missing field just starts blank/default. `account`
@@ -279,11 +274,15 @@ export function TxnForm({
         </div>
         <div className={`field${invalid('amount') ? ' is-invalid' : ''}`} style={{ flex: '1 1 0', minWidth: 0 }}>
           <label>{t('Amount')} ({currency})</label>
-          <input
-            inputMode="decimal"
+          {/* The pad is up as soon as the sheet is: an amount is the first thing
+              anyone types here, and the arithmetic keys are the whole point. */}
+          <NumberField
+            mode="calc"
+            label={`${t('Amount')} (${currency})`}
+            autoOpen
             value={amount}
             aria-invalid={invalid('amount') || undefined}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={setAmount}
             // Going to type an amount is exactly when a dismissed leftover is
             // worth seeing again, so reaching for the field un-hides it.
             onFocus={() => { setAmountFocus(true); revealCarry() }}

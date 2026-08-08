@@ -13,6 +13,7 @@ import type { CompoundGoal } from '../../lib/analytics/compound'
 import { buildRetirementFigure, buildRetirementMcFigure, type RetUi, type RetLabels } from './retirementFigure'
 import { Plot } from '../../components/Plot'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -511,7 +512,17 @@ function Field({ label, value, set, numeric, wide, unit }: { label: string; valu
   return (
     <label className={`calc-field${wide ? ' wide' : ''}`}>
       <span>{label}{unit ? <span className="calc-unit"> ({unit})</span> : null}</span>
-      <input value={value} onChange={(e) => set(e.target.value)} type="number" inputMode={numeric ? 'numeric' : 'decimal'} />
+      {/* Only the money fields get the arithmetic keys, and they are exactly the
+          ones carrying the currency as their unit — `numeric` marks the whole
+          numbers (ages, years), and a percentage has neither, so it lands on the
+          plain decimal pad. */}
+      <NumberField
+        mode={!numeric && unit ? 'calc' : 'digits'}
+        allowDecimal={!numeric}
+        label={label}
+        value={value}
+        onChange={set}
+      />
     </label>
   )
 }

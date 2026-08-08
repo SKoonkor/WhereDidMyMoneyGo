@@ -34,6 +34,20 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.8.0',
+    date: '08-08-2026',
+    changes: [
+      { kind: 'new', text: 'Tap any box that takes a number and a keypad comes up in the app instead of your phone keyboard. No more hunting for the minus sign behind a symbols page.' },
+      { kind: 'new', text: 'Money boxes get the full calculator: + − × ÷ and =. So "1200 ÷ 4" for your share of a bill, or "500 + 200 + 20" for the notes in your wallet.' },
+      { kind: 'new', text: 'It does the multiplication first, the way you would on paper: 500 − 3 × 45 is 365.' },
+      { kind: 'new', text: 'Boxes that only take a whole number — months, percentages, the day of the month — get a plain digit pad, with no arithmetic to mis-tap.' },
+      { kind: 'improved', text: 'Hold the backspace key to clear the box in one go.' },
+      { kind: 'improved', text: 'Prefer your own keyboard? Tap the keyboard icon on the pad and it hands the box back, just for that one field.' },
+      { kind: 'improved', text: 'Reconcile now adds up too, so you can count cash into it rather than working the total out first.' },
+      { kind: 'improved', text: 'The "still to record" note from 0.7.0 works exactly as before for a + and − sum. Once you multiply or divide there is no honest answer to what was set aside, so it stays out of the way.' },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '07-08-2026',
     changes: [

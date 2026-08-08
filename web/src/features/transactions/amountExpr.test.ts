@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseAmountExpr } from './amountExpr'
+import { parseAmountExpr, exprText } from './amountExpr'
 
 describe('parseAmountExpr', () => {
   it('reads a plain amount as a single term', () => {
@@ -11,7 +11,7 @@ describe('parseAmountExpr', () => {
 
   it('splits the worked example into net and set-aside', () => {
     const e = parseAmountExpr('500 - 75 + 25 - 12 - 5 + 33')
-    expect(e.terms).toEqual([500, -75, 25, -12, -5, 33])
+    expect(e.terms).toEqual([500, '-', 75, '+', 25, '-', 12, '-', 5, '+', 33])
     expect(e.positive).toBe(558)
     expect(e.negative).toBe(92)
     expect(e.net).toBe(466)
@@ -51,7 +51,9 @@ describe('parseAmountExpr', () => {
   })
 
   it('rejects anything it cannot read', () => {
-    for (const bad of ['', '   ', '-', '+', 'abc', '500x', '500 75', '500 -- 75', '500 * 2', '.', '5..5']) {
+    // "500x" and "500 * 2" used to live here; × and ÷ arrived in 0.8.0, so the
+    // first is now a trailing operator mid-typing and the second is 1000.
+    for (const bad of ['', '   ', '-', '+', 'abc', '500y', '500 75', '500 -- 75', '× 5', '.', '5..5']) {
       expect(parseAmountExpr(bad)).toMatchObject({ net: 0, valid: false, multi: false })
     }
   })
@@ -64,6 +66,84 @@ describe('parseAmountExpr', () => {
   it('keeps the breakdown self-consistent to the satang', () => {
     const e = parseAmountExpr('10.005 + 10.005 - 0.001')
     expect(e.net).toBe(round(e.positive - e.negative))
+  })
+})
+
+describe('parseAmountExpr — × and ÷ (0.8.0)', () => {
+  it('multiplies before it adds', () => {
+    expect(parseAmountExpr('500 - 3 × 45').net).toBe(365)
+    expect(parseAmountExpr('3 × 45 + 20').net).toBe(155)
+    // Not 22,275: the whole point of the two-pass evaluator.
+    expect(parseAmountExpr('500 - 3 × 45').net).not.toBe(22275)
+  })
+
+  it('chains × and ÷ left to right', () => {
+    expect(parseAmountExpr('2 × 3 × 4').net).toBe(24)
+    expect(parseAmountExpr('100 ÷ 4 ÷ 5').net).toBe(5)
+    expect(parseAmountExpr('100 ÷ 4 × 3').net).toBe(75)
+  })
+
+  it('splits a bill the way people actually type it', () => {
+    expect(parseAmountExpr('1200 ÷ 4').net).toBe(300)
+    expect(parseAmountExpr('89.50 × 3').net).toBe(268.5)
+  })
+
+  it('reads ×, x, X and * as the same operator', () => {
+    for (const s of ['3 × 45', '3 x 45', '3X45', '3 * 45']) {
+      expect(parseAmountExpr(s)).toMatchObject({ net: 135, hasMulDiv: true, valid: true })
+    }
+    expect(parseAmountExpr('100 / 4').net).toBe(parseAmountExpr('100 ÷ 4').net)
+  })
+
+  it('refuses to divide by zero rather than saving Infinity', () => {
+    expect(parseAmountExpr('100 ÷ 0').valid).toBe(false)
+    expect(parseAmountExpr('100 ÷ 0.0').valid).toBe(false)
+    expect(parseAmountExpr('100 ÷ 0 + 5')).toMatchObject({ net: 0, valid: false })
+  })
+
+  it('stands the carry note down once a product is involved', () => {
+    // Nothing was "set aside" in 3 × 45 — there is no honest answer, so no note.
+    const e = parseAmountExpr('3 × 45')
+    expect(e).toMatchObject({ net: 135, negative: 0, hasMulDiv: true, multi: true })
+    // Even where a minus is present, the split is meaningless once × is too.
+    expect(parseAmountExpr('500 - 3 × 45')).toMatchObject({ net: 365, negative: 0, hasMulDiv: true })
+    // …and a pure +/- sum is untouched: 0.7.0 behaviour stands.
+    expect(parseAmountExpr('500 - 75 + 25')).toMatchObject({ net: 450, negative: 75, hasMulDiv: false })
+  })
+
+  it('keeps a trailing × alive while it is being typed', () => {
+    expect(parseAmountExpr('3 ×')).toMatchObject({ net: 3, valid: true })
+    expect(parseAmountExpr('500 - 3 ×')).toMatchObject({ net: 497, valid: true })
+  })
+
+  it('rejects an operator with nothing on its left', () => {
+    for (const bad of ['× 5', '÷ 5', '* 5', '/ 5']) {
+      expect(parseAmountExpr(bad).valid).toBe(false)
+    }
+  })
+})
+
+describe('exprText', () => {
+  it('plays a sum back with typographic operators', () => {
+    expect(exprText(parseAmountExpr('500 - 75 + 25').terms)).toBe('500 − 75 + 25')
+  })
+
+  it('renders × and ÷ rather than the ASCII the parser accepts', () => {
+    expect(exprText(parseAmountExpr('500 - 3 * 45').terms)).toBe('500 − 3 × 45')
+    // Grouped for reading, as every other amount in the app is.
+    expect(exprText(parseAmountExpr('1200 / 4').terms)).toBe('1,200 ÷ 4')
+  })
+
+  it('keeps a leading minus on the first term', () => {
+    expect(exprText(parseAmountExpr('-500 + 25').terms)).toBe('−500 + 25')
+  })
+
+  it('shows terms as typed, not padded to two decimals', () => {
+    expect(exprText(parseAmountExpr('500 - 12.5').terms)).toBe('500 − 12.5')
+  })
+
+  it('is empty for an unparseable expression', () => {
+    expect(exprText(parseAmountExpr('abc').terms)).toBe('')
   })
 })
 

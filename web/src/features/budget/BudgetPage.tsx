@@ -16,6 +16,7 @@ import { ThisPeriodBudget } from './ThisPeriodBudget'
 import { Plot } from '../../components/Plot'
 import { useHold } from '../../lib/useHold'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -254,13 +255,12 @@ function MonthStartField() {
   return (
     <div className="budget-subsection set-field">
       <label>{t('Month start day')}</label>
-      <input
-        type="number"
-        min={1}
-        max={28}
+      <NumberField
+        mode="digits"
+        label={t('Month start day')}
         value={val}
         style={{ maxWidth: 90 }}
-        onChange={(e) => setVal(e.target.value)}
+        onChange={setVal}
         onBlur={commit}
       />
       <span className="set-hint">{t('The day each budgeting month begins (1–28).')}</span>
@@ -292,9 +292,9 @@ function IncomeSplitCard({ cfg, save }: { cfg: BudgetCfg; save: (p: Partial<Budg
       {cfg.mode === 'fixed' && (
         <label className="budget-field">
           <span className="muted">{t('Monthly income')}</span>
-          <input
-            type="number" inputMode="decimal" value={fixed}
-            onChange={(e) => setFixed(e.target.value)}
+          <NumberField
+            mode="calc" label={t('Monthly income')} value={fixed}
+            onChange={setFixed}
             onBlur={() => save({ fixedIncome: Number(fixed) || 0 })}
           />
         </label>
@@ -307,7 +307,7 @@ function IncomeSplitCard({ cfg, save }: { cfg: BudgetCfg; save: (p: Partial<Budg
         {BUCKET_ORDER.map((b) => (
           <label key={b} className="budget-pct">
             <span className="muted" style={{ fontSize: 12 }}>{t(b)}</span>
-            <input type="number" inputMode="numeric" min={0} max={100} value={cfg.percentages[b]} onChange={(e) => setPct(b, Number(e.target.value))} />
+            <NumberField mode="digits" label={t(b)} value={String(cfg.percentages[b])} onChange={(v) => setPct(b, Number(v))} />
           </label>
         ))}
         <span className={total === 100 ? 'amt-income' : 'amt-expense'} style={{ alignSelf: 'end', paddingBottom: 8, fontSize: 13 }}>

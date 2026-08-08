@@ -7,6 +7,7 @@ import {
   type MinPayment,
 } from '../../data/defaults'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 // Add or edit one debt. Everything the simulator needs and nothing it doesn't —
 // the balance is the one field that is deliberately absent for a linked debt,
@@ -123,11 +124,11 @@ export function DebtForm({ debt, taken, currency, onSave, onClose }: {
         <>
           <div className="set-field">
             <label>{t('What you owe now')} ({currency})</label>
-            <input
+            <NumberField
+              mode="calc"
+              label={`${t('What you owe now')} (${currency})`}
               value={opening}
-              onChange={(e) => setOpening(e.target.value)}
-              type="number"
-              inputMode="decimal"
+              onChange={setOpening}
             />
           </div>
           <div className="set-field">
@@ -140,12 +141,11 @@ export function DebtForm({ debt, taken, currency, onSave, onClose }: {
 
       <div className="set-field">
         <label>{t('Interest rate (% a year)')}</label>
-        <input
+        <NumberField
+          mode="digits" allowDecimal
+          label={t('Interest rate (% a year)')}
           value={apr}
-          onChange={(e) => setApr(e.target.value)}
-          type="number"
-          inputMode="decimal"
-          step="any"
+          onChange={setApr}
         />
       </div>
 
@@ -159,12 +159,14 @@ export function DebtForm({ debt, taken, currency, onSave, onClose }: {
             {t('Fixed amount')}
           </button>
         </div>
-        <input
+        {/* A percentage is one number; a fixed installment is money, and money is
+            where the calculator earns its keep. */}
+        <NumberField
+          mode={minMode === 'percent' ? 'digits' : 'calc'}
+          allowDecimal
+          label={t('Minimum payment')}
           value={minValue}
-          onChange={(e) => setMinValue(e.target.value)}
-          type="number"
-          inputMode="decimal"
-          step="any"
+          onChange={setMinValue}
           placeholder={minMode === 'percent' ? '8' : currency}
         />
         <span className="set-hint">
@@ -177,11 +179,11 @@ export function DebtForm({ debt, taken, currency, onSave, onClose }: {
       {kind === 'revolving' && (
         <div className="set-field">
           <label>{t('Credit limit (optional)')} ({currency})</label>
-          <input
+          <NumberField
+            mode="calc"
+            label={`${t('Credit limit (optional)')} (${currency})`}
             value={limit}
-            onChange={(e) => setLimit(e.target.value)}
-            type="number"
-            inputMode="decimal"
+            onChange={setLimit}
           />
           <span className="set-hint">{t('Lets the page show how much of the card you are using.')}</span>
         </div>
@@ -189,13 +191,11 @@ export function DebtForm({ debt, taken, currency, onSave, onClose }: {
 
       <div className="set-field">
         <label>{t('Day of the month it is due (optional)')}</label>
-        <input
+        <NumberField
+          mode="digits"
+          label={t('Day of the month it is due (optional)')}
           value={dueDay}
-          onChange={(e) => setDueDay(e.target.value)}
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={31}
+          onChange={setDueDay}
         />
       </div>
 

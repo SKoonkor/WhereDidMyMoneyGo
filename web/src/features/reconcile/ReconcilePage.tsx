@@ -6,6 +6,8 @@ import { useLiveTxns } from '../useLiveTxns'
 import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
 import { useCensor } from '../../prefs'
 import { trackedBalances, hiddenCostTotal, isReminderDue } from '../../lib/analytics/reconcile'
+import { parseAmountExpr } from '../transactions/amountExpr'
+import { NumberField } from '../../components/NumberField'
 import { t } from '../../i18n'
 
 const EPS = 0.005 // ignore sub-cent discrepancies
@@ -13,20 +15,8 @@ const money2 = (n: number) => n.toLocaleString(undefined, { minimumFractionDigit
 const signed2 = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + money2(Math.abs(n))
 const toneClass = (n: number) => (n > 0 ? 'amt-income' : n < 0 ? 'amt-expense' : '')
 
-// Keep only a valid signed decimal: an optional leading '-', digits, one dot.
-// (The field is type=text so the mobile decimal pad — which has no minus key —
-// can still hold a negative typed via the ± button.)
-function sanitizeNum(s: string): string {
-  // Negative if a '-' appears anywhere (the caret may sit before or after it),
-  // and it's cleared by deleting the '-'. Digits + a single dot otherwise.
-  const neg = s.includes('-')
-  let digits = s.replace(/[^0-9.]/g, '')
-  const dot = digits.indexOf('.')
-  if (dot !== -1) digits = digits.slice(0, dot + 1) + digits.slice(dot + 1).replace(/\./g, '')
-  return (neg ? '-' : '') + digits
-}
 // Flip the sign of the current entry ('' → '-', '12' ↔ '-12'), so liabilities
-// like a credit card can be entered negative without a minus key.
+// like a credit card can be entered negative in one tap.
 const flipSign = (v: string) => (v.startsWith('-') ? v.slice(1) : '-' + v)
 
 export function ReconcilePage() {
@@ -46,11 +36,17 @@ export function ReconcilePage() {
 
   const order = Object.keys(tracked)
   // Per row: whether a balance was entered, and its rounded delta (new − tracked).
+  // The entry is read as an expression, because the balance you are reconciling to
+  // is often something you have to add up — the notes in a wallet, two envelopes,
+  // a bank balance less a pending charge. (0.7.0 sanitised the text down to a
+  // single signed decimal; the on-screen pad constrains the input now, and
+  // stripping the operators here would turn "500 + 200" into 500200.)
   const rows = order.map((a) => {
     const raw = adjust[a]
     if (raw == null || raw.trim() === '') return { entered: false, delta: 0, next: tracked[a] }
-    const num = Number(raw)
-    if (!Number.isFinite(num)) return { entered: false, delta: 0, next: tracked[a] }
+    const expr = parseAmountExpr(raw)
+    const num = expr.net
+    if (!expr.valid || !Number.isFinite(num)) return { entered: false, delta: 0, next: tracked[a] }
     return { entered: true, delta: Math.round((num - tracked[a]) * 100) / 100, next: num }
   })
   const totalDiff = rows.reduce((s, r) => s + (r.entered ? r.delta : 0), 0)
@@ -116,13 +112,16 @@ export function ReconcilePage() {
               >
                 ±
               </button>
-              <input
+              {/* The ± button stays: the pad writes a leading minus too, but
+                  flipping the sign of what is already there is one tap rather
+                  than a retype. */}
+              <NumberField
                 className="recon-input"
-                type="text"
-                inputMode="decimal"
+                mode="calc"
+                label={`${a} — ${t('Adjust')}`}
                 placeholder=""
                 value={adjust[a] ?? ''}
-                onChange={(e) => setAdjust((p) => ({ ...p, [a]: sanitizeNum(e.target.value) }))}
+                onChange={(v) => setAdjust((p) => ({ ...p, [a]: v }))}
               />
             </span>
           </div>

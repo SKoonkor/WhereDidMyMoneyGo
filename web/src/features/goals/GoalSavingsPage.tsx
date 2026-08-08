@@ -13,6 +13,7 @@ import {
   UNALLOCATED, savingsActivity, type ActivityRow, type GoalMove,
 } from '../../lib/analytics/goalSavings'
 import { t, tBilingual } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 const today = () => new Date().toISOString().slice(0, 10)
@@ -255,7 +256,14 @@ function MoveForm({ endpoints, currency, editing, onClose }: {
           </div>
           <div className={`field${invalid('amount') ? ' is-invalid' : ''}`} style={{ flex: '1 1 0', minWidth: 0 }}>
             <label>{t('Amount')} ({currency})</label>
-            <input inputMode="decimal" value={amount} placeholder="0" onChange={(e) => setAmount(e.target.value)} />
+            <NumberField
+              mode="calc" autoOpen
+              label={`${t('Amount')} (${currency})`}
+              value={amount}
+              aria-invalid={invalid('amount') || undefined}
+              onChange={setAmount}
+              placeholder="0"
+            />
           </div>
         </div>
 

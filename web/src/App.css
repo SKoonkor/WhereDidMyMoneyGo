@@ -3100,3 +3100,153 @@ a.pick-summary {
 
 /* Language switch inside the install guide (top of the sheet). */
 .ig-lang { align-self: flex-start; max-width: 200px; }
+
+/* ── On-screen number pad (0.8.0) ─────────────────────────────────────────────
+   Replaces the OS keyboard on numeric fields — see components/Keypad.tsx. It is
+   pinned to the bottom and floats over everything, because that is what the
+   keyboard it stands in for does.
+
+   z-index 46 sits above .modal-backdrop (40) and .carry-note (45), so the pad
+   works over an open Add sheet; and below .tour-backdrop (50), so first-run
+   onboarding is never covered by it. */
+.kp-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 46;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
+  padding-bottom: env(safe-area-inset-bottom);
+  /* A pad is tapped, never dragged or selected. */
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  animation: kp-rise 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+@keyframes kp-rise {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kp-panel { animation: none; }
+}
+
+/* Header strip: which field is being typed, the way back to the OS keyboard,
+   and a close button — mirroring the reference layout. */
+.kp-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 6px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+.kp-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kp-head-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 34px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.kp-head-btn:hover { color: var(--ink); }
+
+/* The 1px gap over a --border ground is what draws the hairline separators
+   between keys, so no key needs a border of its own. */
+.kp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: var(--border-soft);
+}
+.kp-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  background: var(--surface);
+  border: none;
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+}
+.kp-key:active { background: var(--surface-2); }
+.kp-op {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+.kp-op:active { background: var(--border-soft); }
+.kp-back { color: var(--muted); }
+.kp-ok {
+  background: var(--accent);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+}
+.kp-ok:active { filter: brightness(0.92); }
+/* Unused cells in the reference layout — ground, not buttons. */
+.kp-blank { background: var(--surface); }
+
+/* Whole-number and percentage fields get no operators and no `=`, so the digits
+   take three columns and OK becomes the tall action key beside them. */
+.kp-digits .kp-ok {
+  grid-column: 4;
+  grid-row: 2 / span 3;
+}
+
+/* Short screens (a landscape phone): keep the whole pad reachable. */
+@media (max-height: 560px) {
+  .kp-key { min-height: 42px; font-size: 19px; }
+}
+/* Tablets and desktop: a full-width pad would be absurd, so centre it. */
+@media (min-width: 620px) {
+  .kp-panel {
+    left: 50%;
+    right: auto;
+    width: min(420px, 100vw);
+    transform: translateX(-50%);
+    border: 1px solid var(--border);
+    border-radius: 14px 14px 0 0;
+  }
+  @keyframes kp-rise {
+    from { transform: translate(-50%, 100%); }
+    to { transform: translate(-50%, 0); }
+  }
+}
+
+/* Make room for it, the same way data-carry makes room at the top.
+
+   In a sheet: shrink the BACKDROP, and .modal-sheet's existing
+   `max-height: min(92vh, 100%)` resolves against the smaller box on its own — so
+   the Save button stays reachable and the data-carry 80vh cap still composes.
+   Safe to do in CSS because no OS keyboard is open while the pad is, so
+   viewportFit() returns null and Modal.tsx removes its inline height. */
+html[data-keypad] .modal-backdrop {
+  height: calc(100% - var(--keypad-h, 0px));
+}
+/* On a page, the pad covers the bottom of the content instead. */
+html[data-keypad] .app-main {
+  padding-bottom: calc(var(--keypad-h, 0px) + 24px);
+}
+/* The bottom tab bar is behind the pad and unreachable — hide it rather than
+   leaving a strip of it peeking out at the edges on a wide screen. */
+html[data-keypad] .bottom-nav { visibility: hidden; }

@@ -9,6 +9,7 @@ import { computeSchedule, COMPOUNDING, type CompoundGoal } from '../../lib/analy
 import { buildCompoundFigure, type UiColors, type CompoundLabels } from './figure'
 import { Plot } from '../../components/Plot'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 function cssVar(name: string, fallback: string): string {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
@@ -83,19 +84,19 @@ export function CompoundPage() {
         <div className="calc-form">
           <label className="calc-field">
             <span>{t('Principal Amount')}</span>
-            <input value={principal} onChange={(e) => setPrincipal(e.target.value)} type="number" inputMode="decimal" />
+            <NumberField mode="calc" label={t('Principal Amount')} value={principal} onChange={setPrincipal} />
           </label>
           <label className="calc-field">
             <span>{t('Monthly Deposit')}</span>
-            <input value={deposit} onChange={(e) => setDeposit(e.target.value)} type="number" inputMode="decimal" />
+            <NumberField mode="calc" label={t('Monthly Deposit')} value={deposit} onChange={setDeposit} />
           </label>
           <label className="calc-field">
             <span>{t('Period (months)')}</span>
-            <input value={period} onChange={(e) => setPeriod(e.target.value)} type="number" inputMode="numeric" min={1} />
+            <NumberField mode="digits" label={t('Period (months)')} value={period} onChange={setPeriod} />
           </label>
           <label className="calc-field">
             <span>{t('Annual Interest Rate (%)')}</span>
-            <input value={rate} onChange={(e) => setRate(e.target.value)} type="number" inputMode="decimal" />
+            <NumberField mode="digits" allowDecimal label={t('Annual Interest Rate (%)')} value={rate} onChange={setRate} />
           </label>
           <label className="calc-field">
             <span>{t('Compounding')}</span>

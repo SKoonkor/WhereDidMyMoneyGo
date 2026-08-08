@@ -12,6 +12,7 @@ import { TONE_COLOR } from '../budget/tone'
 import { SavingsPoolGauge } from './SavingsPoolGauge'
 import { Modal } from '../../components/Modal'
 import { t } from '../../i18n'
+import { NumberField } from '../../components/NumberField'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 // Compact target: 1.23M / 4.56k / 780.
@@ -182,12 +183,12 @@ function PoolSettings() {
 
             <div className="set-field">
               <label>{t('Monthly required expenses')}</label>
-              <input
-                type="number"
-                inputMode="decimal"
+              <NumberField
+                mode="calc"
+                label={t('Monthly required expenses')}
                 value={monthly}
                 style={{ maxWidth: 160 }}
-                onChange={(e) => setMonthly(e.target.value)}
+                onChange={setMonthly}
                 onBlur={commitMonthly}
               />
               <span className="set-hint">{t('Your baseline monthly spending — used to size the Emergency Fund.')}</span>
@@ -195,12 +196,12 @@ function PoolSettings() {
 
             <div className="set-field">
               <label>{t('Target months')}</label>
-              <input
-                type="number"
-                inputMode="numeric"
+              <NumberField
+                mode="digits"
+                label={t('Target months')}
                 value={months}
                 style={{ maxWidth: 90 }}
-                onChange={(e) => setMonths(e.target.value)}
+                onChange={setMonths}
                 onBlur={commitMonths}
               />
               <span className="set-hint">
@@ -328,8 +329,8 @@ function GoalForm({ cfg, save, currency, onClose }: {
   return (
     <form className="goal-add goal-form" onSubmit={add}>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Goal name')} autoFocus />
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" inputMode="decimal" placeholder={`${t('Target')} (${currency})`} />
-      <input value={factor} onChange={(e) => setFactor(e.target.value)} type="number" inputMode="decimal" min={1} step="any" placeholder={t('xTimes rule (≥1, optional)')} />
+      <NumberField mode="calc" label={`${t('Target')} (${currency})`} value={amount} onChange={setAmount} placeholder={`${t('Target')} (${currency})`} />
+      <NumberField mode="digits" allowDecimal label={t('xTimes rule (≥1, optional)')} value={factor} onChange={setFactor} placeholder={t('xTimes rule (≥1, optional)')} />
       <span className="set-hint">{t('The pool needs the highest of your ticked goals; the factor scales a goal before it counts.')}</span>
       <div className="row" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
         <button type="button" className="btn" onClick={onClose}>{t('Cancel')}</button>
