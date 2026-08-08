@@ -14,12 +14,12 @@ import { t } from '../i18n'
 
 // Giving the room back is deferred, and this is the timer that does it.
 //
-// The pad closes the instant the field loses focus — which is the very tap that
-// is trying to reach the date field or the account picker. Handing ~270px back
-// right then drops the sheet out from under the finger, and the click that
-// follows the press lands on nothing: the tap is swallowed and has to be made
-// twice. Holding the space for a beat lets the press it belongs to finish first,
-// after which the sheet glides down (App.css transitions the height).
+// Over a sheet the pad reserves no room at all, so nothing there can move. On a
+// PAGE it does pad the scroll area, and the pad closes the instant the field
+// loses focus — which is the very tap trying to reach whatever is underneath.
+// Releasing the padding right then can shift a scrolled-to-bottom page out from
+// under the finger, and the click that follows the press is then swallowed.
+// Holding it for a beat lets the press it belongs to finish first.
 let releaseRoom: number | undefined
 
 const BackspaceIcon = () => (

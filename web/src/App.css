@@ -3232,29 +3232,28 @@ a.pick-summary {
   }
 }
 
-/* Make room for it, the same way data-carry makes room at the top.
+/* Over a sheet the pad makes NO room: it simply floats in front, the way the
+   account picker does. An earlier version shrank the backdrop so the sheet rode
+   above the pad, and every open and close then slid the whole form up and down —
+   which looked wrong and, worse, moved controls out from under the finger. A
+   sheet that stays exactly where it was is both calmer and more predictable; the
+   pad covers its lower part, and OK or ✕ gives it back.
 
-   In a sheet: shrink the BACKDROP, and .modal-sheet's existing
-   `max-height: min(92vh, 100%)` resolves against the smaller box on its own — so
-   the Save button stays reachable and the data-carry 80vh cap still composes.
-   Safe to do in CSS because no OS keyboard is open while the pad is, so
-   viewportFit() returns null and Modal.tsx removes its inline height. */
-html[data-keypad] .modal-backdrop {
-  height: calc(100% - var(--keypad-h, 0px));
-}
-/* On a page, the pad covers the bottom of the content instead. */
+   Deliberately no padding on .modal-sheet either: padding would grow the sheet,
+   and a bottom-anchored sheet that grows moves its own top edge — the same shift
+   by another route.
+
+   On a PAGE there is no sheet to hide behind, so the pad does reserve room at
+   the bottom of the scrollable content. Nothing jumps there: extra padding below
+   the last card only extends the scroll range. */
 html[data-keypad] .app-main {
   padding-bottom: calc(var(--keypad-h, 0px) + 24px);
 }
-/* Glide rather than jump when the room is handed back. The transition lives on
-   the base rules, not the [data-keypad] ones — by the time the space is being
-   released the attribute is already gone, so a transition scoped to it would
-   never run. Keypad.tsx also holds the release for a beat so the tap that closed
-   the pad still lands on what it was aimed at. */
-.modal-backdrop { transition: height 180ms ease; }
+/* The transition lives on the base rule, not the [data-keypad] one — by the time
+   the space is being released the attribute is already gone, so a transition
+   scoped to it would never run. */
 .app-main { transition: padding-bottom 180ms ease; }
 @media (prefers-reduced-motion: reduce) {
-  .modal-backdrop,
   .app-main { transition: none; }
 }
 /* The bottom tab bar is behind the pad and unreachable — hide it rather than
