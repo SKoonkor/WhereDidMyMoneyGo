@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { Key, KeypadMode } from '../lib/keypad'
 import { t } from '../i18n'
@@ -29,7 +29,11 @@ const BackspaceIcon = () => (
   </svg>
 )
 
-export function Keypad({
+// memo, and NumberField keeps `onKey`/`onDone` identity-stable: nothing here
+// depends on the field's text, so re-rendering twenty buttons and re-binding the
+// Escape listener on every key press was pure waste on the one code path that has
+// to feel instant.
+export const Keypad = memo(function Keypad({
   mode,
   label,
   allowDecimal = true,
@@ -148,7 +152,21 @@ export function Keypad({
     : <span className="kp-blank" />
 
   return createPortal(
-    <div className={`kp-panel kp-${mode}`} ref={panelRef} role="group" aria-label={t('Number pad')}>
+    <div
+      className={`kp-panel kp-${mode}`}
+      ref={panelRef}
+      role="group"
+      aria-label={t('Number pad')}
+      // The whole panel refuses to take focus, not just the keys. A pad is a
+      // grid of buttons separated by 1px hairlines, with two unused cells, a
+      // header strip and — on a notched phone — a safe-area band right under the
+      // bottom row. Every one of those is a surface a finger can land on while
+      // tapping quickly, and a press on any of them used to blur the field,
+      // which closed the pad. Tapping again re-ran the 200ms slide-up, so the
+      // whole thing felt slow as well as fragile. The keys preventDefault too;
+      // this catches everything between them.
+      onPointerDown={(e) => e.preventDefault()}
+    >
       <div className="kp-head">
         <span className="kp-label">{label}</span>
         <button
@@ -202,4 +220,4 @@ export function Keypad({
     </div>,
     document.body,
   )
-}
+})

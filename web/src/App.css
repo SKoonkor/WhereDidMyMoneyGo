@@ -3119,10 +3119,15 @@ a.pick-summary {
   border-top: 1px solid var(--border);
   box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
   padding-bottom: env(safe-area-inset-bottom);
-  /* A pad is tapped, never dragged or selected. */
+  /* A pad is tapped, never dragged or selected. `manipulation` also drops the
+     wait-and-see for a double-tap zoom, which is what makes quick repeated taps
+     on one key register as quick repeated taps. */
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+  /* Our own :active is the feedback; the grey wash Safari paints over a tapped
+     control lags a fast sequence and reads as the pad being slow. */
+  -webkit-tap-highlight-color: transparent;
   animation: kp-rise 0.2s cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 @keyframes kp-rise {
@@ -3138,7 +3143,9 @@ a.pick-summary {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 8px 6px 14px;
+  /* The extra room underneath keeps ✕ clear of the ÷ key directly below it —
+     a tap that drifts up off the top key row must not dismiss the pad. */
+  padding: 6px 8px 12px 14px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
 }
@@ -3187,6 +3194,7 @@ a.pick-summary {
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
+  touch-action: manipulation;
 }
 .kp-key:active { background: var(--surface-2); }
 .kp-op {

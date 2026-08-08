@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Keypad } from './Keypad'
 import {
   pressKey, keyFromEvent, nextKeypadId, openKeypad, closeKeypad, useKeypadOwner,
@@ -63,11 +63,19 @@ export function NumberField({
   // the parent ever declines a change.
   const valueRef = useRef(value)
   valueRef.current = value
-  const apply = (k: Key) => {
+  // Everything a key press needs, read at press time rather than captured. That
+  // is what lets `apply` keep one identity for the life of the field, which in
+  // turn lets the pad be memo'd — otherwise every keystroke handed it a new
+  // callback and re-rendered the whole grid.
+  const latest = useRef({ mode, allowDecimal, onChange })
+  latest.current = { mode, allowDecimal, onChange }
+
+  const apply = useCallback((k: Key) => {
+    const { mode, allowDecimal, onChange } = latest.current
     const next = pressKey(valueRef.current, k, mode, allowDecimal)
     valueRef.current = next
     onChange(next)
-  }
+  }, [])
 
   // Release the pad if this field is unmounted while holding it (a sheet closing
   // mid-edit). closeKeypad is a no-op unless we are still the owner.
@@ -82,12 +90,12 @@ export function NumberField({
     return () => clearTimeout(timer)
   }, [open])
 
-  const done = () => {
+  const done = useCallback(() => {
     closeKeypad(fieldId)
     // Blur so that call sites which commit on blur (Budget, Goals, Reconcile)
     // still fire exactly as they did with the OS keyboard.
     inputRef.current?.blur()
-  }
+  }, [fieldId])
 
   return (
     <>
@@ -106,7 +114,15 @@ export function NumberField({
         inputMode="none"
         onChange={(e) => onChange(e.target.value)}
         onFocus={(e) => { openKeypad(fieldId); onFocus?.(e) }}
-        onBlur={(e) => { closeKeypad(fieldId); onBlur?.(e) }}
+        // Focus landing inside the pad is not the field being left — the pad IS
+        // the field's keyboard. It should never happen (the panel refuses focus
+        // outright), but if a browser ever hands focus to a key anyway, putting
+        // the pad away mid-sum is the worst possible response.
+        onBlur={(e) => {
+          if (e.relatedTarget instanceof Element && e.relatedTarget.closest('.kp-panel')) return
+          closeKeypad(fieldId)
+          onBlur?.(e)
+        }}
         onKeyDown={(e) => {
           onKeyDown?.(e)
           if (e.defaultPrevented) return // the call site claimed this key
