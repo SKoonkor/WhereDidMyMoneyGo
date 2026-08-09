@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Keypad } from './Keypad'
 import {
-  pressKey, keyFromEvent, nextKeypadId, openKeypad, closeKeypad, useKeypadOwner,
+  pressKey, keyFromEvent, nextKeypadId, openKeypad, closeKeypad, keypadOwner, useKeypadOwner,
   type Key, type KeypadMode,
 } from '../lib/keypad'
 
@@ -114,12 +114,22 @@ export function NumberField({
         inputMode="none"
         onChange={(e) => onChange(e.target.value)}
         onFocus={(e) => { openKeypad(fieldId); onFocus?.(e) }}
-        // Focus landing inside the pad is not the field being left — the pad IS
-        // the field's keyboard. It should never happen (the panel refuses focus
-        // outright), but if a browser ever hands focus to a key anyway, putting
-        // the pad away mid-sum is the worst possible response.
+        // Losing focus while the pad is still up is not the field being left —
+        // the pad IS this field's keyboard, and a key press is not a departure.
+        // Whatever the browser does with focus during a touch sequence, the pad
+        // stays and no commit-on-blur handler fires; taking the field back keeps
+        // the focus ring and physical typing where the user left them.
+        //
+        // Dismissal is Keypad's own outside-pointerdown listener, which has
+        // already run and released the pad by the time a real departure blurs the
+        // field — so `keypadOwner()` is the test for which of the two happened.
+        // Tab-away is the other real departure: focus moves to a genuine element,
+        // no pointerdown involved, and this branch is not taken.
         onBlur={(e) => {
-          if (e.relatedTarget instanceof Element && e.relatedTarget.closest('.kp-panel')) return
+          if (keypadOwner() === fieldId && !(e.relatedTarget instanceof HTMLElement)) {
+            inputRef.current?.focus({ preventScroll: true })
+            return
+          }
           closeKeypad(fieldId)
           onBlur?.(e)
         }}
@@ -138,6 +148,7 @@ export function NumberField({
           mode={mode}
           label={label}
           allowDecimal={allowDecimal}
+          fieldRef={inputRef}
           onKey={apply}
           onDone={done}
         />

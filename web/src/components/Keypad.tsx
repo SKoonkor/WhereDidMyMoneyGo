@@ -37,12 +37,16 @@ export const Keypad = memo(function Keypad({
   mode,
   label,
   allowDecimal = true,
+  fieldRef,
   onKey,
   onDone,
 }: {
   mode: KeypadMode
   label: string // the field's own label, echoed in the pad's header
   allowDecimal?: boolean
+  // The input this pad belongs to. Only used to tell "pressed the field again"
+  // apart from "pressed something else", which is what dismisses the pad.
+  fieldRef?: React.RefObject<HTMLElement | null>
   // Deliberately NOT (value, onChange): the pad reports which key was pressed and
   // NumberField applies it. Holding `value` here meant every key press composed
   // against whatever this render had captured, so two taps landing before React
@@ -51,7 +55,7 @@ export const Keypad = memo(function Keypad({
   onDone: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const holdTimer = useRef<number | null>(null)
+  const repeatTimer = useRef<number | null>(null)
 
   const press = onKey
 
@@ -92,7 +96,47 @@ export const Keypad = memo(function Keypad({
     return () => document.removeEventListener('keydown', onKeyDown, true)
   }, [onDone])
 
-  useEffect(() => () => { if (holdTimer.current !== null) clearTimeout(holdTimer.current) }, [])
+  // Cancel the touch outright, at the source. `preventDefault()` on a React
+  // pointerdown is enough on a desktop browser, but on iOS a canceled pointerdown
+  // does NOT reliably suppress the compatibility mouse events that follow, and it
+  // is `mousedown` that moves focus. Cancelling `touchstart` does suppress them —
+  // and it also removes the double-tap gesture entirely, which is what made a
+  // quick second tap on the same key behave differently from the first.
+  //
+  // Native and non-passive on purpose: React registers touchstart as a passive
+  // listener at the root, and preventDefault does nothing in a passive listener.
+  // Nothing inside the pad scrolls or selects, so there is no default worth
+  // keeping here.
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const swallow = (e: TouchEvent) => { if (e.cancelable) e.preventDefault() }
+    el.addEventListener('touchstart', swallow, { passive: false })
+    return () => el.removeEventListener('touchstart', swallow)
+  }, [])
+
+  // What actually dismisses the pad: a press that lands somewhere else. NOT the
+  // field losing focus.
+  //
+  // Tying dismissal to `blur` made the pad's life depend on the browser keeping
+  // focus on a readOnly input through a touch sequence, and every browser has its
+  // own opinion about that — one stray focus change anywhere in a fast sequence of
+  // taps and the pad vanished mid-sum. A pointerdown outside the panel and outside
+  // the field is unambiguous, fires before any focus change, and means the same
+  // thing everywhere.
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      const t = e.target
+      if (!(t instanceof Node)) return
+      if (panelRef.current?.contains(t)) return
+      if (fieldRef?.current?.contains(t)) return
+      onDone()
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [onDone, fieldRef])
+
+  useEffect(() => () => { if (repeatTimer.current !== null) clearTimeout(repeatTimer.current) }, [])
 
   // Every key acts on pointerdown, and every key preventDefaults it. That is what
   // stops the press from blurring the field (which would close the pad under the
@@ -110,9 +154,28 @@ export const Keypad = memo(function Keypad({
     <button key={k} className="kp-key kp-op" aria-label={aria} {...keyProps(k)}>{glyph}</button>
   )
 
-  // Backspace deletes on press; hold it and it clears the lot. The reference
-  // layout has no room for a Clear key, and holding delete is where everyone
-  // already looks for one.
+  // Backspace deletes one thing per press, and holding it repeats — the way a
+  // key repeats on every keyboard there has ever been. An earlier version wiped
+  // the whole field on a hold instead; that is a different action wearing the
+  // same key, and it is unrecoverable when it fires by accident. Repeating gets
+  // to an empty field just as fast and stops wherever the finger lifts.
+  //
+  // 400ms before the first repeat is long enough that a deliberate single tap
+  // never repeats; 70ms is a comfortable rate, dropping to 35ms once it is clear
+  // this is a hold and not a hesitation.
+  const stopRepeat = () => {
+    if (repeatTimer.current === null) return
+    clearTimeout(repeatTimer.current)
+    repeatTimer.current = null
+  }
+  const startRepeat = () => {
+    const tick = (n: number) => {
+      press('back')
+      repeatTimer.current = window.setTimeout(() => tick(n + 1), n < 8 ? 70 : 35)
+    }
+    repeatTimer.current = window.setTimeout(() => tick(0), 400)
+  }
+
   const backspace = (
     <button
       type="button"
@@ -121,11 +184,12 @@ export const Keypad = memo(function Keypad({
       onPointerDown={(e) => {
         e.preventDefault()
         press('back')
-        holdTimer.current = window.setTimeout(() => press('clear'), 350)
+        stopRepeat()
+        startRepeat()
       }}
-      onPointerUp={() => { if (holdTimer.current !== null) clearTimeout(holdTimer.current) }}
-      onPointerLeave={() => { if (holdTimer.current !== null) clearTimeout(holdTimer.current) }}
-      onPointerCancel={() => { if (holdTimer.current !== null) clearTimeout(holdTimer.current) }}
+      onPointerUp={stopRepeat}
+      onPointerLeave={stopRepeat}
+      onPointerCancel={stopRepeat}
     >
       <BackspaceIcon />
     </button>
