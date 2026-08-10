@@ -3134,8 +3134,23 @@ a.pick-summary {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+/* On its way out. React holds the panel mounted for the length of this (see
+   KEYPAD_ANIM_MS), which is the only way an unmounting element can animate at
+   all — and it is what lets the pad and the sheet it lifted come down together.
+   `forwards` keeps it off-screen for the last frame; pointer-events none because
+   it is scenery by now, not a keypad. */
+.kp-panel.is-exiting {
+  animation: kp-fall 0.2s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+  pointer-events: none;
+}
+@keyframes kp-fall {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
 @media (prefers-reduced-motion: reduce) {
   .kp-panel { animation: none; }
+  /* Nothing to watch, so do not leave it sitting there for the same 200ms. */
+  .kp-panel.is-exiting { animation: none; visibility: hidden; }
 }
 
 /* Header strip: which field is being typed, and a close button. */
@@ -3234,26 +3249,43 @@ a.pick-summary {
     border: 1px solid var(--border);
     border-radius: 14px 14px 0 0;
   }
+  /* The centred panel carries a translateX of its own, so both keyframes have to
+     be restated here or the animation would drop it back to the left edge. */
   @keyframes kp-rise {
     from { transform: translate(-50%, 100%); }
     to { transform: translate(-50%, 0); }
   }
+  @keyframes kp-fall {
+    from { transform: translate(-50%, 0); }
+    to { transform: translate(-50%, 100%); }
+  }
 }
 
-/* Over a sheet the pad makes NO room: it simply floats in front, the way the
-   account picker does. An earlier version shrank the backdrop so the sheet rode
-   above the pad, and every open and close then slid the whole form up and down —
-   which looked wrong and, worse, moved controls out from under the finger. A
-   sheet that stays exactly where it was is both calmer and more predictable; the
-   pad covers its lower part, and OK or ✕ gives it back.
+/* Over a sheet the pad does not shrink the backdrop and does not pad the sheet.
+   Either of those makes room by moving the sheet's TOP edge — a bottom-anchored
+   sheet that loses height or gains padding travels a long way, and an earlier
+   version of this slid the whole form ~270px on every open and close, which took
+   controls out from under the finger.
 
-   Deliberately no padding on .modal-sheet either: padding would grow the sheet,
-   and a bottom-anchored sheet that grows moves its own top edge — the same shift
-   by another route.
+   What happens instead is a translate of exactly the distance needed for the
+   field being typed into (plus one hint line) to clear the pad — usually about
+   60px. keypadLift() in lib/keypad.ts does the arithmetic; Keypad.tsx measures
+   and publishes it as --keypad-lift. The gap it opens under the sheet is covered
+   by the pad, which is many times taller.
 
-   On a PAGE there is no sheet to hide behind, so the pad does reserve room at
-   the bottom of the scrollable content. Nothing jumps there: extra padding below
-   the last card only extends the scroll range. */
+   The timing is the point: the same 200ms and the same easing as kp-rise, so the
+   sheet and the pad read as one movement in both directions.
+
+   On a PAGE there is no sheet to lift, so the pad reserves room at the bottom of
+   the scrollable content instead. Nothing jumps there: extra padding below the
+   last card only extends the scroll range. */
+.modal-sheet { transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.3, 1); }
+html[data-keypad] .modal-sheet {
+  transform: translateY(calc(-1 * var(--keypad-lift, 0px)));
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-sheet { transition: none; }
+}
 html[data-keypad] .app-main {
   padding-bottom: calc(var(--keypad-h, 0px) + 24px);
 }

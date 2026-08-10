@@ -1,6 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import type { Key, KeypadMode } from '../lib/keypad'
+import { keypadLift, type Key, type KeypadMode } from '../lib/keypad'
 import { t } from '../i18n'
 
 // The in-app number pad — the thing that replaces the OS keyboard on a numeric
@@ -12,15 +12,46 @@ import { t } from '../i18n'
 // keyboard buried `-` and `+` behind a symbols page — a two-tap detour in front
 // of every sum. Here they are four of the first five keys.
 
-// Giving the room back is deferred, and this is the timer that does it.
+// ── Letting the sheet back down ──────────────────────────────────────────────
 //
-// Over a sheet the pad reserves no room at all, so nothing there can move. On a
-// PAGE it does pad the scroll area, and the pad closes the instant the field
-// loses focus — which is the very tap trying to reach whatever is underneath.
-// Releasing the padding right then can shift a scrolled-to-bottom page out from
-// under the finger, and the click that follows the press is then swallowed.
-// Holding it for a beat lets the press it belongs to finish first.
-let releaseRoom: number | undefined
+// The sheet settles the moment the pad starts to leave. If what dismissed the pad
+// was a tap on the date field or the account picker, that control slides out from
+// under the finger before the finger lifts: the browser then fires the click on
+// the nearest common ancestor of the press and the release, and the tap is lost.
+// This is the bug that made an earlier version of the pad close the whole form.
+//
+// So a dismissal that came from OUTSIDE the pad waits for its own pointerup —
+// click targets are settled by then — while OK, ✕ and Escape have nothing to wait
+// for and settle at once, which is what keeps the two animations in step.
+
+const dropLiftNow = () => document.documentElement.style.setProperty('--keypad-lift', '0px')
+
+let outsidePressActive = false
+let pendingDrop: (() => void) | null = null
+
+/** Called when the press that is dismissing the pad began somewhere else. */
+function markOutsidePress() {
+  const finish = () => {
+    clearTimeout(cap)
+    document.removeEventListener('pointerup', finish, true)
+    document.removeEventListener('pointercancel', finish, true)
+    outsidePressActive = false
+    const drop = pendingDrop
+    pendingDrop = null
+    drop?.()
+  }
+  // A pointerup that never arrives — a captured pointer, a dropped touch — must
+  // not leave the sheet stuck in the air.
+  const cap = window.setTimeout(finish, 400)
+  document.addEventListener('pointerup', finish, true)
+  document.addEventListener('pointercancel', finish, true)
+  outsidePressActive = true
+}
+
+function dropLift() {
+  if (outsidePressActive) pendingDrop = dropLiftNow
+  else dropLiftNow()
+}
 
 const BackspaceIcon = () => (
   <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -37,6 +68,7 @@ export const Keypad = memo(function Keypad({
   mode,
   label,
   allowDecimal = true,
+  exiting = false,
   fieldRef,
   onKey,
   onDone,
@@ -44,6 +76,9 @@ export const Keypad = memo(function Keypad({
   mode: KeypadMode
   label: string // the field's own label, echoed in the pad's header
   allowDecimal?: boolean
+  // On its way out: still on screen, sliding down, but no longer a control.
+  // NumberField keeps it mounted for KEYPAD_ANIM_MS so it can animate at all.
+  exiting?: boolean
   // The input this pad belongs to. Only used to tell "pressed the field again"
   // apart from "pressed something else", which is what dismisses the pad.
   fieldRef?: React.RefObject<HTMLElement | null>
@@ -59,34 +94,69 @@ export const Keypad = memo(function Keypad({
 
   const press = onKey
 
-  // Publish the pad's height so the page and any open sheet can make room for it,
-  // via <html data-keypad> — the same scheme as data-theme / data-censor /
-  // data-carry, so App.css does the work and React never reaches into a sheet.
+  // Publish the pad's height, and how far the sheet it covers has to rise, via
+  // <html data-keypad> — the same scheme as data-theme / data-censor / data-carry,
+  // so App.css does the work and React never reaches into a sheet.
+  //
+  // Two measurements that are easy to get wrong, in this order:
+  //  · the panel's top comes from `offsetHeight`, not getBoundingClientRect() —
+  //    by the time a layout effect runs, `kp-rise` already has the panel sitting
+  //    at translateY(100%), so its rect is off the bottom of the screen. Height
+  //    ignores transforms.
+  //  · the field is measured BEFORE `data-keypad` goes on. Afterwards the sheet is
+  //    already lifted, and asking how much lift it needs answers "none".
   useLayoutEffect(() => {
     const el = panelRef.current
     if (!el) return
     const html = document.documentElement
     const publish = () => html.style.setProperty('--keypad-h', `${Math.round(el.offsetHeight)}px`)
-    // Moving between two numeric fields must not flash the room away and back.
-    clearTimeout(releaseRoom)
+
+    const field = fieldRef?.current
+    const sheet = field?.closest('.modal-sheet')
+    // On a page there is no sheet to move: App.css pads .app-main instead.
+    const lift = field && sheet
+      ? keypadLift({
+          viewportHeight: window.innerHeight,
+          padHeight: el.offsetHeight,
+          fieldBottom: field.getBoundingClientRect().bottom,
+          sheetTop: sheet.getBoundingClientRect().top,
+        })
+      : 0
+
     publish()
+    html.style.setProperty('--keypad-lift', `${Math.round(lift)}px`)
     html.setAttribute('data-keypad', 'on')
     const ro = new ResizeObserver(publish)
     ro.observe(el)
     return () => {
       ro.disconnect()
-      releaseRoom = window.setTimeout(() => {
-        html.removeAttribute('data-keypad')
-        html.style.removeProperty('--keypad-h')
-      }, 260)
+      // The room is given back only once the pad has finished leaving — a whole
+      // animation after the press that dismissed it, so a page can never shift
+      // under a finger that is still down.
+      html.removeAttribute('data-keypad')
+      html.style.removeProperty('--keypad-h')
+      html.style.removeProperty('--keypad-lift')
     }
-  }, [])
+  }, [fieldRef])
+
+  // Start the sheet down as the pad starts down, so the two read as one motion.
+  // A backspace still repeating when the pad is dismissed stops here too — the
+  // panel is unreachable from now on, so nothing would ever end it.
+  useEffect(() => {
+    if (!exiting) return
+    dropLift()
+    if (repeatTimer.current !== null) {
+      clearTimeout(repeatTimer.current)
+      repeatTimer.current = null
+    }
+  }, [exiting])
 
   // Escape closes the pad, not the sheet behind it. Captured on the way DOWN and
   // stopped there: Modal listens on `document` too, and it mounted first, so a
   // plain bubble-phase listener here would run second — after the sheet had
   // already closed out from under the field.
   useEffect(() => {
+    if (exiting) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       e.stopPropagation()
@@ -94,7 +164,7 @@ export const Keypad = memo(function Keypad({
     }
     document.addEventListener('keydown', onKeyDown, true)
     return () => document.removeEventListener('keydown', onKeyDown, true)
-  }, [onDone])
+  }, [onDone, exiting])
 
   // Cancel the touch outright, at the source. `preventDefault()` on a React
   // pointerdown is enough on a desktop browser, but on iOS a canceled pointerdown
@@ -125,16 +195,19 @@ export const Keypad = memo(function Keypad({
   // the field is unambiguous, fires before any focus change, and means the same
   // thing everywhere.
   useEffect(() => {
+    if (exiting) return
     const onDown = (e: PointerEvent) => {
       const t = e.target
       if (!(t instanceof Node)) return
       if (panelRef.current?.contains(t)) return
       if (fieldRef?.current?.contains(t)) return
+      // This press is aimed at something; hold the sheet still until it lands.
+      markOutsidePress()
       onDone()
     }
     document.addEventListener('pointerdown', onDown, true)
     return () => document.removeEventListener('pointerdown', onDown, true)
-  }, [onDone, fieldRef])
+  }, [onDone, fieldRef, exiting])
 
   useEffect(() => () => { if (repeatTimer.current !== null) clearTimeout(repeatTimer.current) }, [])
 
@@ -217,9 +290,10 @@ export const Keypad = memo(function Keypad({
 
   return createPortal(
     <div
-      className={`kp-panel kp-${mode}`}
+      className={`kp-panel kp-${mode}${exiting ? ' is-exiting' : ''}`}
       ref={panelRef}
       role="group"
+      aria-hidden={exiting || undefined}
       aria-label={t('Number pad')}
       // The whole panel refuses to take focus, not just the keys. A pad is a
       // grid of buttons separated by 1px hairlines, with two unused cells, a

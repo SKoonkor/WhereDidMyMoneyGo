@@ -110,6 +110,42 @@ export function keyFromEvent(k: string): Key | null {
   return null
 }
 
+// ── Making a sheet clear the pad ────────────────────────────────────────────
+// The pad floats in front of an open sheet rather than shrinking it, which keeps
+// the sheet from sliding around under the finger — but a bottom-anchored sheet
+// puts its last rows exactly where the pad lands, and the Amount box was ending
+// up behind it. So the sheet rises, by the smallest amount that works and no
+// more. The arithmetic lives here, away from the DOM, so it can be reasoned
+// about and tested; Keypad.tsx only measures and applies the answer.
+
+/** How long the pad takes to arrive or leave. Matches kp-rise/kp-fall in App.css. */
+export const KEYPAD_ANIM_MS = 200
+
+// Room to leave under the field: enough for one `.amount-hint` line (16px tall,
+// with -6px/10px margins) plus a little air, so the running total and the
+// "type several amounts" tip stay readable while typing.
+const FIELD_CLEARANCE = 34
+// A tall sheet must never be pushed off the top of the screen to satisfy that.
+const MIN_TOP_GAP = 12
+
+export function keypadLift({
+  viewportHeight,
+  padHeight,
+  fieldBottom,
+  sheetTop,
+}: {
+  viewportHeight: number
+  padHeight: number
+  fieldBottom: number
+  sheetTop: number
+}): number {
+  const padTop = viewportHeight - padHeight
+  const needed = fieldBottom + FIELD_CLEARANCE - padTop
+  // Zero when the field already clears the pad: most fields sit high enough in
+  // their sheet, and a sheet that need not move must not move.
+  return Math.max(0, Math.min(needed, sheetTop - MIN_TOP_GAP))
+}
+
 // ── Which field owns the pad ────────────────────────────────────────────────
 // An id rather than a component: NumberField keeps its own props and simply
 // renders the pad when it holds the token, so nothing has to be plumbed through

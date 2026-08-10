@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   pressKey, keyFromEvent, nextKeypadId, openKeypad, closeKeypad, keypadOwner, resetKeypad,
+  keypadLift,
   type Key,
 } from './keypad'
 
@@ -169,5 +170,30 @@ describe('keypad ownership', () => {
     expect(keypadOwner()).toBe(b)
     closeKeypad(b)
     expect(keypadOwner()).toBeNull()
+  })
+})
+
+describe('keypadLift', () => {
+  // The real geometry, measured on the Add transaction sheet at 390x844: the pad
+  // is 327px tall, so its top edge lands at 517 — within a few pixels of the
+  // Amount box's bottom edge at 544.
+  const sheet = { viewportHeight: 844, padHeight: 327, fieldBottom: 544, sheetTop: 370 }
+
+  it('lifts a covered field clear of the pad, with room for the hint line', () => {
+    // 544 + 34 - 517
+    expect(keypadLift(sheet)).toBe(61)
+  })
+
+  it('leaves a field that already clears the pad exactly where it is', () => {
+    expect(keypadLift({ ...sheet, fieldBottom: 400 })).toBe(0)
+  })
+
+  it('never lifts a tall sheet off the top of the screen', () => {
+    // A sheet starting 40px down can only give up 28 of them.
+    expect(keypadLift({ ...sheet, sheetTop: 40 })).toBe(28)
+  })
+
+  it('does not pull a sheet down when it is already above the top gap', () => {
+    expect(keypadLift({ ...sheet, fieldBottom: 400, sheetTop: 4 })).toBe(0)
   })
 })

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Keypad } from './Keypad'
 import {
   pressKey, keyFromEvent, nextKeypadId, openKeypad, closeKeypad, keypadOwner, useKeypadOwner,
+  KEYPAD_ANIM_MS,
   type Key, type KeypadMode,
 } from '../lib/keypad'
 
@@ -54,6 +55,30 @@ export function NumberField({
   const fieldId = idRef.current
 
   const open = useKeypadOwner() === fieldId
+
+  // A pad that is simply unmounted cannot animate away, so it is held on screen
+  // for the length of its own slide-out — long enough for it and the sheet it
+  // lifted to come down together.
+  //
+  // Decided DURING the render that closes the pad, not in an effect afterwards.
+  // An effect would leave one committed frame with the pad neither open nor
+  // exiting: React unmounts it, the room is handed back on the spot, and the pad
+  // then remounts to play its exit — which undoes the whole point of holding the
+  // sheet still while a tap is in flight. Adjusting state while rendering is
+  // React's own answer to this; the intermediate state never reaches the DOM.
+  const [exiting, setExiting] = useState(false)
+  const [wasOpen, setWasOpen] = useState(open)
+  if (wasOpen !== open) {
+    setWasOpen(open)
+    // Moving straight to another numeric field: that field's pad is already on
+    // screen, so animating this one out would stack two panels. Go at once.
+    setExiting(!open && keypadOwner() === null)
+  }
+  useEffect(() => {
+    if (!exiting) return
+    const timer = window.setTimeout(() => setExiting(false), KEYPAD_ANIM_MS)
+    return () => clearTimeout(timer)
+  }, [exiting])
 
   // The text as it stands RIGHT NOW, not as of the last render. Two keys tapped
   // in quick succession arrive as two separate events, and the second one would
@@ -143,11 +168,12 @@ export function NumberField({
           openKeypad(fieldId)
         }}
       />
-      {open && (
+      {(open || exiting) && (
         <Keypad
           mode={mode}
           label={label}
           allowDecimal={allowDecimal}
+          exiting={!open}
           fieldRef={inputRef}
           onKey={apply}
           onDone={done}
