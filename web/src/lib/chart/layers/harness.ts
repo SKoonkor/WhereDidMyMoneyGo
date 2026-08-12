@@ -38,9 +38,18 @@ export function series(bars: Bar[]): OhlcvColumns {
   }
 }
 
-/** A deterministic zig-zag series — enough shape for wicks, direction changes
- *  and a plausible volume profile, with no randomness anywhere. */
-export function sawSeries(n: number, start = 43000, step = 60_000): OhlcvColumns {
+/**
+ * A deterministic zig-zag series — enough shape for wicks, direction changes and
+ * a plausible volume profile, with no randomness anywhere.
+ *
+ * `t0` anchors the first bar. It defaults to the epoch, which is fine for any
+ * test that only cares about geometry — but a test that cares about CALENDAR
+ * behaviour must pass a real local instant. `timeTicks` resolves day boundaries
+ * in local time (correctly: they are for display), so an epoch-anchored window
+ * puts its day boundaries in different places in every timezone, and an
+ * assertion about them passes in UTC+7 and fails in CI's UTC.
+ */
+export function sawSeries(n: number, start = 43000, step = 60_000, t0 = 0): OhlcvColumns {
   const bars: Bar[] = []
   let p = start
   for (let i = 0; i < n; i++) {
@@ -49,7 +58,7 @@ export function sawSeries(n: number, start = 43000, step = 60_000): OhlcvColumns
     const c = p + dir * 40
     const h = Math.max(o, c) + 12 + (i % 5)
     const l = Math.min(o, c) - 12 - (i % 3)
-    bars.push({ t: i * step, o, h, l, c, v: 1000 + (i % 11) * 130 })
+    bars.push({ t: t0 + i * step, o, h, l, c, v: 1000 + (i % 11) * 130 })
     p = c
   }
   return series(bars)

@@ -225,8 +225,18 @@ describe('the time axis', () => {
     // The --ink / --muted split is most of what makes a dense time axis
     // readable; getting it from anywhere but the `major` flag means the axis and
     // the grid's verticals can disagree about where a day starts.
-    const data = sawSeries(400, 43000, 15 * 60_000)
-    const { c, fake } = harness({ data, span: 400 })
+    //
+    // Anchored to a real LOCAL midnight, and wide enough that the ladder picks a
+    // 6-hour step rather than a daily one. Both matter, and this test failed in
+    // CI without them: epoch-anchored, the window's day boundaries land in a
+    // different place in every timezone, and at 340px the step became one DAY —
+    // where `major` means Monday rather than a day boundary. In UTC the run's
+    // only Monday was the final tick, which the layer correctly DROPS rather
+    // than clip at the plot edge, leaving nothing promoted and the guard below
+    // failing. Four local midnights inside a wide plot is true everywhere.
+    const midnight = new Date(2026, 0, 5, 0, 0, 0, 0).getTime()
+    const data = sawSeries(400, 43000, 15 * 60_000, midnight)
+    const { c, fake } = harness({ data, span: 400, w: 1200 })
     createTimeAxisLayer({ format: fmt }).draw(c)
 
     const painted = paintedText(fake)
@@ -310,8 +320,12 @@ describe('the grid', () => {
   })
 
   it('draws verticals only where the time axis promotes a label', () => {
-    const data = sawSeries(400, 43000, 15 * 60_000)
-    const { c, fake } = harness({ data, span: 400 })
+    // Local midnight, and wide enough for a 6-hour step — see the time axis's
+    // own promotion test for why an epoch-anchored window makes this assertion
+    // timezone-dependent and fails in CI.
+    const midnight = new Date(2026, 0, 5, 0, 0, 0, 0).getTime()
+    const data = sawSeries(400, 43000, 15 * 60_000, midnight)
+    const { c, fake } = harness({ data, span: 400, w: 1200 })
     createGridLayer({ tickSize: 0.5 }).draw(c)
     // Verticals arrive as segments that step over each horizontal row, so it is
     // the distinct x values that correspond to boundaries, not the rect count.
@@ -360,7 +374,8 @@ describe('the grid', () => {
     // "At no tick position" was the other half of the review's claim. A vertical
     // whose label the time axis dropped would be exactly that, so the two layers
     // are checked against each other rather than each against itself.
-    const data = sawSeries(1200, 43000, 15 * 60_000)
+    const midnight = new Date(2026, 0, 5, 0, 0, 0, 0).getTime()
+    const data = sawSeries(1200, 43000, 15 * 60_000, midnight)
     for (const span of [120, 300, 600, 1000]) {
       const g = harness({ data, span, w: 680, h: 520 })
       createGridLayer({ tickSize: 0.5 }).draw(g.c)
@@ -370,8 +385,18 @@ describe('the grid', () => {
       createTimeAxisLayer({ format: (_x, _u, major) => (major ? 'Mar 5' : '14:00') }).draw(t.c)
       const labels = paintedText(t.fake).filter((p) => p.text === 'Mar 5').map((p) => p.x)
 
+      // The two layers agree everywhere except at the very edges, and that gap
+      // is real rather than a test artifact: the time axis DROPS a label whose
+      // half-width would cross the plot boundary (dropping beats clipping), so a
+      // boundary landing within a label's reach of an edge keeps its vertical and
+      // loses its text. Found at UTC+14, where a day boundary fell ~11px from the
+      // right edge. Encoded rather than hidden — a vertical anywhere else without
+      // a label is still a failure, which is what this test is for.
+      const EDGE = 40
       for (const x of verticals) {
-        expect(labels.some((l) => Math.abs(l - x) < 1), `vertical at ${x}, span ${span}`).toBe(true)
+        const labelled = labels.some((l) => Math.abs(l - x) < 1)
+        const atEdge = x < EDGE || x > g.c.plot.w - EDGE
+        expect(labelled || atEdge, `vertical at ${x}, span ${span}`).toBe(true)
       }
     }
   })
