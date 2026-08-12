@@ -124,6 +124,9 @@ export interface TradingMarketView extends MarketView {
  * millions of evaluations for a number that cannot have changed.
  */
 export function createMarketView(feed: MarketFeed): TradingMarketView {
+  /** Parsed option symbols only. A contract's strike, right and expiry are in its
+   *  name, so the parse is immutable and worth keeping; perps are not — see
+   *  `perpInstrument`. */
   const derived = new Map<string, Instrument>()
   const quoteCache = new Map<string, { t: SimTime; q: Quote }>()
 
@@ -136,12 +139,24 @@ export function createMarketView(feed: MarketFeed): TradingMarketView {
     return parsed
   }
 
+  /**
+   * Deliberately NOT cached, unlike its option sibling.
+   *
+   * A perp is a view of a spot instrument whose precision is not fixed: the live
+   * adapter starts BTCUSDT on a provisional tick and widens it from the first
+   * strings off the wire. Caching the first answer pins a perp built before that
+   * first print to the provisional forever, while spot walks on without it — the
+   * two disagree about the same market for the rest of the session.
+   *
+   * The cache above earns its keep on option quotes, which run Black-Scholes
+   * dozens of times per simulated second. A nine-field object literal built by
+   * `previewOrder` on a keystroke and by `step()` once per position per second is
+   * not that.
+   */
   function perpInstrument(symbol: string): Instrument | undefined {
-    const hit = derived.get(symbol)
-    if (hit) return hit
     const spot = feed.instrument(spotOf(symbol))
     if (!spot || spot.kind !== 'spot') return undefined
-    const inst: Instrument = {
+    return {
       kind: 'perp',
       symbol,
       underlying: spot.symbol,
@@ -152,8 +167,6 @@ export function createMarketView(feed: MarketFeed): TradingMarketView {
       maxLeverage: PERP_MAX_LEVERAGE,
       fundingIntervalMs: FUNDING_INTERVAL_MS,
     }
-    derived.set(symbol, inst)
-    return inst
   }
 
   function instrument(symbol: string): Instrument | undefined {

@@ -10,6 +10,9 @@
 // a toast. That is the entire reason this file is separate from the components.
 import { t } from '../../i18n'
 import type { CancelReason, TradeError, TradeErrorCode } from '../../lib/trading/broker/types'
+// Type-only, so it is erased at build time and adds no import edge to the
+// runtime module this file is deliberately lighter than.
+import type { LiveNotice } from './runtime'
 
 /** Numbers inside a message. Two decimals, grouped — these are money and
  *  leverage, never a price that needs the instrument's own precision. */
@@ -89,4 +92,20 @@ export function cancelReasonLabel(note: string | undefined): string {
  *  not block the order. */
 export function warningMessage(code: TradeErrorCode): string {
   return MESSAGES[code]({})
+}
+
+/**
+ * Why live mode is not on. A `LiveNotice` code in, a sentence out — the same
+ * split this file makes for `TradeErrorCode`, so the runtime never holds a word
+ * a translator cannot reach.
+ *
+ * It sits here rather than in either of its two callers (the page shows it as an
+ * inline alert, the settings sheet as a note under the Live chip) because a
+ * component file exporting a non-component costs a fast-refresh warning, and
+ * duplicating the two strings would cost a translator.
+ */
+export function liveNoticeMessage(n: LiveNotice): string | null {
+  if (n === 'offline') return t('No connection, so the simulated market stayed on.')
+  if (n === 'unreachable') return t('Could not reach the exchange, so the simulated market stayed on.')
+  return null
 }

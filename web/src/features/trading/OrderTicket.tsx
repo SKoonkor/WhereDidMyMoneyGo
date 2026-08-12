@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { NumberField } from '../../components/NumberField'
 import { parseAmountExpr } from '../transactions/amountExpr'
 import { t } from '../../i18n'
+import { showToast } from '../../toast'
 import type { OrderRequest, OrderPreview } from '../../lib/trading/broker/engine'
 import type { OrderType, Side } from '../../lib/trading/types'
 import { tradeErrorMessage } from './errors'
@@ -11,7 +12,14 @@ import { LeverageSlider } from './LeverageSlider'
 import { ConfirmSheet } from './ConfirmSheet'
 import type { TradingView } from './useTrading'
 
-// The order ticket — half the screenshot, and the half a critic reads first.
+// The order ticket — what the bar's ＋ opens.
+//
+// It is ALWAYS the body of a sheet: there is one call site, and after the page
+// reshuffle that call site wraps it in a `Modal`. So no `sheet?` flag and no
+// inferring a mode from whether `onClose` was passed — `onClose` is required and
+// the root carries no `card`. `.card` and `.modal-sheet` are both var(--surface)
+// with 16px padding, so keeping the class would nest a same-coloured card inside
+// a same-coloured sheet at double the padding.
 //
 // Non-negotiables, all of them from §E and the repo's own conventions:
 //
@@ -53,7 +61,7 @@ function parse(s: string): number {
   return e.valid ? e.net : NaN
 }
 
-export function OrderTicket({ view }: { view: TradingView }) {
+export function OrderTicket({ view, onClose }: { view: TradingView; onClose: () => void }) {
   const { runtime, cfg, account, buyingPower, precision, currency, quote } = view
 
   const [side, setSide] = useState<Side>('buy')
@@ -125,6 +133,15 @@ export function OrderTicket({ view }: { view: TradingView }) {
     setConfirming(ok)
   }
 
+  // Success leaves; failure stays.
+  //
+  // A rejection is always about the amount the user has just typed — not enough
+  // buying power, below the lot size — so closing the sheet would throw away the
+  // very field they have to correct. It stays open with the reason under the
+  // button. A success has nothing left to correct, so the sheet closes and the
+  // confirmation becomes a Toast, which owns its own timer (hence no setFlash
+  // and no setTimeout here). Closing in the same commit also keeps the toast
+  // visible: `.toast` is z-index 35 and `.modal-backdrop` 40.
   const commit = () => {
     setConfirming(null)
     const res = runtime.place(request)
@@ -133,14 +150,14 @@ export function OrderTicket({ view }: { view: TradingView }) {
       return
     }
     setAmount('')
-    setFlash(res.outcome === 'filled' ? t('Filled.') : t('Order placed.'))
-    window.setTimeout(() => setFlash(null), 2600)
+    showToast(res.outcome === 'filled' ? t('Filled.') : t('Order placed.'))
+    onClose()
   }
 
   const held = account.positions[symbol]?.qty ?? 0
 
   return (
-    <section className="card tr-ticket">
+    <section className="tr-ticket">
       {/* Buy / Sell. Two-up, active side filled with the app's own income /
           expense colours so the ticket belongs to this app and not to a
           screenshot of another one. */}
@@ -297,7 +314,8 @@ export function OrderTicket({ view }: { view: TradingView }) {
         {side === 'buy' ? t('Buy {symbol}', { symbol }) : t('Sell {symbol}', { symbol })}
       </button>
 
-      {flash && <p className="tr-flash" role="status">{flash}</p>}
+      {/* Only ever an error now — the success path toasts and closes. */}
+      {flash && <p className="tr-flash is-error" role="status">{flash}</p>}
 
       {confirming && (
         <ConfirmSheet

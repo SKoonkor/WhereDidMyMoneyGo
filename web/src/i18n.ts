@@ -862,6 +862,23 @@ const TH: Record<string, string> = {
   'Amount ({currency})': 'จำนวนเงิน ({currency})',
   'Paper trading': 'เทรดจำลอง',
   SIM: 'SIM',
+
+  // Bottom bar in trading mode, and the way out of it. The bar's five slots are
+  // repurposed in place, so these sit beside the existing 'Accounts' (line ~459)
+  // and 'Chart settings' (below) rather than duplicating them.
+  //
+  // 'Chart' is กราฟ — the loanword every Thai platform prints under exactly this
+  // tab. 'Buy or sell' is the ＋'s accessible name, not a visible label, so it
+  // reads as the pair of actions a trader picks between (ซื้อหรือขาย) rather
+  // than as a noun. ออกจาก… ("leave") for Quit: เลิก would read as giving up
+  // trading altogether rather than closing the mode.
+  Chart: 'กราฟ',
+  'Buy or sell': 'ซื้อหรือขาย',
+  'Quit paper trading': 'ออกจากเทรดจำลอง',
+  'Quit paper trading?': 'ออกจากเทรดจำลองไหม?',
+  Quit: 'ออก',
+  'Your simulated accounts, positions and history are kept — you can come back to them any time.': 'บัญชีจำลอง สถานะ และประวัติของคุณยังอยู่ครบ กลับมาต่อได้ทุกเมื่อ',
+
   'Back to the chart': 'กลับไปที่กราฟ',
   Options: 'ออปชัน',
   Deposit: 'ฝาก',

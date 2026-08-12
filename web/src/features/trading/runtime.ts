@@ -637,7 +637,24 @@ class Runtime implements TradingRuntime {
     this.patchCfg({ speed: this.feed.clock.speed })
   }
 
+  /**
+   * Pause, or resume at 1×.
+   *
+   * Resuming resets the speed because 300× is a thing you do on purpose for a
+   * few seconds and then stop looking at; coming back to a paused chart and
+   * un-pausing it should not fast-forward a month of market in the time it takes
+   * to read the price. It lives here rather than in SpeedControl so that every
+   * other entry point — a keyboard shortcut, an auto-resume after a margin call
+   * — gets it for free, and so it is testable without a DOM.
+   *
+   * The guard is what makes it safe: without it, a redundant `setPaused(false)`
+   * on an already-running clock would stomp a speed the user had just chosen.
+   * `setSpeed` persists through `patchCfg`, so the 1× survives a reload —
+   * which matters, because `paused` itself is not persisted.
+   */
   setPaused(p: boolean): void {
+    if (p === this.feed.clock.paused) return
+    if (!p) this.setSpeed(1)
     this.feed.clock.paused = p
     this.notify()
   }

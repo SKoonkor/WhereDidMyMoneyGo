@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import { HashRouter, NavLink, Routes, Route } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { t } from './i18n'
@@ -34,15 +35,14 @@ import { Modal } from './components/Modal'
 import { Toast } from './components/Toast'
 import { CarryNote } from './components/CarryNote'
 import { useCarry, dismissCarry, carryFiller } from './features/transactions/carryNote'
+import { showToast, dismissToast, useToast } from './toast'
+import {
+  cancelExit, confirmExit, enterTrading, openSheet, requestLeave,
+  usePendingExit, useTradingMode,
+} from './tradingMode'
 import { OnboardingHost } from './features/onboarding/OnboardingHost'
 import { TxnForm } from './features/transactions/TxnForm'
 import './App.css'
-
-// A transient bottom toast: a message plus an optional trailing action.
-interface ToastState {
-  message: string
-  action?: { label: string; onClick: () => void }
-}
 
 // A gentle heads-up for the review form when a scan looks unreliable — a missing
 // total, or a low self-reported confidence. Returns undefined when it read cleanly.
@@ -73,9 +73,31 @@ const TradingOptionsPage = lazy(() =>
   import('./features/trading/OptionsPage').then((m) => ({ default: m.OptionsPage })),
 )
 
+// Every trading route, wrapped: it turns the sticky paper-trading mode on and
+// carries the shared Suspense fallback. Entering belongs here because the router
+// is already the only place that knows which routes are trading routes — and one
+// wrapper replaces three identical fallbacks. The mode is deliberately NOT turned
+// off on unmount: it survives browsing away, and ends only through the header ✕
+// or the prompt an Apps tile raises.
+function TradingRoute({ children }: { children: ReactNode }) {
+  useEffect(() => { enterTrading() }, [])
+  return <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>{children}</Suspense>
+}
+
+// Where the ＋ and the Chart-settings slot send you. Both open a sheet that
+// TradingPage renders (App must not render them itself — that would pull
+// useTrading()/acquireRuntime() into the eager chunk and defeat the lazy import
+// above), so anywhere else, including the accounts and options routes, has to
+// land on the chart first.
+function goToChart() {
+  const h = window.location.hash
+  if (h !== '#/trading' && h !== '#/trading/') window.location.hash = '#/trading'
+}
+
 function Header() {
   const [theme, toggleTheme] = useTheme()
   const [censor, toggleCensor] = useCensor()
+  const trading = useTradingMode()
   const appName = useAppName()
   // Keep the default name translatable (Thai title), but show a custom name
   // verbatim. Mirror the chosen name into the browser/tab title too.
@@ -98,14 +120,34 @@ function Header() {
         >
           <span className="tt-knob" />
         </button>
-        <button
-          className="censor-toggle"
-          onClick={toggleCensor}
-          aria-label="Toggle privacy"
-          title={censor ? 'Show amounts' : 'Hide amounts'}
-        >
-          <span className="ct-eye" />
-        </button>
+        {/* While paper trading is on, the header's one spare control is the way
+            out of the mode — the same slot, reusing .censor-toggle's zeroed
+            chrome, so nothing about the header moves. Privacy is a ledger
+            control and there is no ledger on screen to hide. */}
+        {trading ? (
+          <button
+            className="censor-toggle"
+            onClick={() => { requestLeave('/') }}
+            aria-label={t('Quit paper trading')}
+            title={t('Quit paper trading')}
+          >
+            <svg
+              viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+              strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            className="censor-toggle"
+            onClick={toggleCensor}
+            aria-label="Toggle privacy"
+            title={censor ? 'Show amounts' : 'Hide amounts'}
+          >
+            <span className="ct-eye" />
+          </button>
+        )}
       </div>
     </header>
   )
@@ -124,7 +166,10 @@ export default function App() {
   // A scanned receipt awaiting review opens a prefilled Add form (with an optional
   // note when the read was shaky).
   const [review, setReview] = useState<{ prefill: TxnPrefill; notice?: string } | null>(null)
-  const [toast, setToast] = useState<ToastState | null>(null)
+  // The toast lives in src/toast.ts rather than here: the order ticket, a lazy
+  // chunk and several routes away, raises one after closing its own sheet.
+  const toast = useToast()
+  const pendingExit = usePendingExit()
   const ai = useLiveQuery(() => getAi(), [])
   const aiReady = !!(ai?.enabled && ai.apiKey.trim())
 
@@ -153,12 +198,12 @@ export default function App() {
         account, amount: draft.amount, type: 'Expense', category,
         note: draft.merchant, currency: draft.currency,
       })
-      setToast({
-        message: t('Recorded {amount} to {account} from receipt.', {
+      showToast(
+        t('Recorded {amount} to {account} from receipt.', {
           amount: `${draft.amount} ${draft.currency ?? ''}`.trim(), account,
         }),
-        action: { label: t('Undo'), onClick: () => { void deleteTxn(id) } },
-      })
+        { label: t('Undo'), onClick: () => { void deleteTxn(id) } },
+      )
       return
     }
     // Couldn't fully resolve it — fall back to the form so the user finishes it.
@@ -175,10 +220,10 @@ export default function App() {
   }, [])
   // Fires whenever a saved transaction newly pushes a spending limit into its
   // warning band — from any of the save paths, since it watches the ledger.
-  useLimitAlert((message) => setToast({
+  useLimitAlert((message) => showToast(
     message,
-    action: { label: t('View'), onClick: () => { window.location.hash = '#/limits' } },
-  }))
+    { label: t('View'), onClick: () => { window.location.hash = '#/limits' } },
+  ))
   // What's left to record after the last save, floated over everything (see
   // CarryNote). Mirrored onto <html data-carry> — the same scheme as data-theme /
   // data-censor — so App.css can make room for it at the top of an open modal
@@ -221,29 +266,14 @@ export default function App() {
                 </Suspense>
               }
             />
-            <Route
-              path="/trading"
-              element={
-                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
-                  <TradingPage />
-                </Suspense>
-              }
-            />
+            <Route path="/trading" element={<TradingRoute><TradingPage /></TradingRoute>} />
             <Route
               path="/trading/accounts"
-              element={
-                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
-                  <TradingAccountsPage />
-                </Suspense>
-              }
+              element={<TradingRoute><TradingAccountsPage /></TradingRoute>}
             />
             <Route
               path="/trading/options"
-              element={
-                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
-                  <TradingOptionsPage />
-                </Suspense>
-              }
+              element={<TradingRoute><TradingOptionsPage /></TradingRoute>}
             />
           </Routes>
         </main>
@@ -251,8 +281,10 @@ export default function App() {
           onAdd={() => setAdding(true)}
           onLongPress={() => {
             if (aiReady) setCapturing(true)
-            else setToast({ message: t('Turn on AI receipt scanning in Settings to snap receipts.'), action: { label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } } })
+            else showToast(t('Turn on AI receipt scanning in Settings to snap receipts.'), { label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } })
           }}
+          onCentre={() => { openSheet('ticket'); goToChart() }}
+          onChartSettings={() => { openSheet('settings'); goToChart() }}
         />
         {adding && (
           <Modal title={t('Add transaction')} onClose={() => { setAdding(false); setAddPrefill(undefined) }}>
@@ -274,8 +306,29 @@ export default function App() {
           <Toast
             message={toast.message}
             action={toast.action}
-            onClose={() => setToast(null)}
+            onClose={dismissToast}
           />
+        )}
+        {/* Leaving paper trading for another app, asked once and rendered once —
+            AppsPage only calls a predicate, and the header ✕ routes through the
+            same pending exit. Navigating by hash, not useNavigate: this body is
+            outside the HashRouter it renders. */}
+        {pendingExit !== null && (
+          <Modal title={t('Quit paper trading?')} onClose={cancelExit}>
+            <p className="muted" style={{ margin: '0 0 14px' }}>
+              {t('Your simulated accounts, positions and history are kept — you can come back to them any time.')}
+            </p>
+            <div className="modal-actions">
+              <button type="button" className="btn ghost" onClick={cancelExit}>{t('Cancel')}</button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => { window.location.hash = '#' + confirmExit() }}
+              >
+                {t('Quit')}
+              </button>
+            </div>
+          </Modal>
         )}
         {carryShown && carry && (
           <CarryNote

@@ -189,13 +189,30 @@ function num(x: unknown): number {
   return NaN
 }
 
-/** Decimals in a wire price. Venues pad to their own tick size — "43210.10" means
- *  a 0.01 tick — so the quote string is a free, exact answer to a question that
- *  would otherwise cost an exchangeInfo round trip and a second failure mode. */
+/**
+ * Decimals a wire price actually carries, ignoring padding.
+ *
+ * The tempting reading — "venues pad to their own tick size, so `43210.10` IS a
+ * 0.01 tick" — is true of Coinbase and FALSE of Binance, which pads every price
+ * to the quote asset's 8 decimals and is our default venue. Counting characters
+ * there reads `68123.45000000` as a 1e-8 tick, and `fmt.price` (which uses
+ * `minimumFractionDigits`) then prints eight decimals with six always zero.
+ *
+ * Stripping the padding first makes the answer the venue's real resolution on
+ * both, and keeps it free: no exchangeInfo round trip, no second network
+ * dependency on a screen whose whole brief is working offline.
+ *
+ * One sample can only UNDER-state precision — `68123.00000000` looks like zero
+ * decimals — and never over-state it. That asymmetry is why `refine` widens and
+ * never narrows; without that half this function is worse than the bug it fixes.
+ */
 function decimalsOfString(x: unknown): number {
   if (typeof x !== 'string') return -1
   const dot = x.indexOf('.')
-  return dot < 0 ? 0 : x.length - dot - 1
+  if (dot < 0) return 0
+  let end = x.length
+  while (end > dot + 1 && x.charCodeAt(end - 1) === 0x30) end--
+  return end - dot - 1
 }
 
 function splitSymbol(sym: string): { base: string; quote: string } {
@@ -882,13 +899,32 @@ class LiveFeed implements MarketFeed {
     for (const l of this.listeners) l.onBook?.(s.symbol)
   }
 
+  /**
+   * Widen the instrument's precision to fit what the wire just showed us. Never
+   * narrow it.
+   *
+   * `decimalsOfString` can only under-state (a round price looks coarse), so a
+   * `!==` here would let the tick churn print to print — `68123.45` then
+   * `68123.00` would flip 0.01 → 1 → 0.01 — and drag every consumer with it.
+   * Widening only, seeded from the constructor's provisional, makes precision
+   * monotonic and bounded: at most a handful of changes per symbol per session,
+   * and in practice none for BTCUSDT, whose 2 the provisional already has.
+   *
+   * The two halves are deliberately asymmetric. Price starts at 2 and may grow,
+   * because too-fine a price is a DISPLAY bug and too-coarse a one is unreadable.
+   * Quantity starts at the venue maximum of 8, so this branch is a no-op by
+   * construction — that is the point. A too-fine lot size is merely permissive,
+   * whereas letting a first `q: "0.25000000"` set `lotSize: 0.01` would have the
+   * broker REJECT an order for 0.005 BTC: a functional regression traded for a
+   * cosmetic non-issue. Leave the branch in so the rule stays one rule.
+   */
   private refine(s: LiveSymbol, price: unknown, size: unknown): void {
     const pd = decimalsOfString(price)
-    if (pd >= 0 && pd !== s.inst.pricePrecision) {
+    if (pd > s.inst.pricePrecision) {
       s.inst = { ...s.inst, pricePrecision: pd, tickSize: Math.pow(10, -pd) }
     }
     const qd = decimalsOfString(size)
-    if (qd >= 0 && qd !== s.inst.qtyPrecision) {
+    if (qd > s.inst.qtyPrecision) {
       s.inst = { ...s.inst, qtyPrecision: qd, lotSize: Math.pow(10, -qd) }
     }
   }

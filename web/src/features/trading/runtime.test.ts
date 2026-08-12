@@ -190,6 +190,44 @@ describe('runtime world', () => {
   })
 })
 
+// Resuming at 1× is a runtime rule rather than a SpeedControl one, which is what
+// makes it testable here at all — and what makes it true for any other way of
+// un-pausing that ever gets added.
+describe('runtime pause and speed', () => {
+  it('resumes at 1×, and persists that through the config', async () => {
+    const rt = await acquireRuntime()
+    rt.setSpeed(300)
+    rt.setPaused(true)
+    expect(rt.feed.clock.paused).toBe(true)
+    // Still 300× while paused: the reset belongs to the resume, so a paused
+    // chart shows the speed it will not be running at until you say go.
+    expect(rt.cfg.speed).toBe(300)
+
+    rt.setPaused(false)
+    expect(rt.feed.clock.paused).toBe(false)
+    // Both halves matter. `cfg.speed` is what the slider reads and what a reload
+    // restores; `clock.speed` is what the market actually runs at. Setting one
+    // without the other is a slider that lies.
+    expect(rt.cfg.speed).toBe(1)
+    expect(rt.feed.clock.speed).toBe(1)
+    releaseRuntime()
+  })
+
+  it('leaves a chosen speed alone when the clock is already running', async () => {
+    const rt = await acquireRuntime()
+    expect(rt.feed.clock.paused).toBe(false)
+    rt.setSpeed(60)
+
+    // A redundant resume. Without the transition guard this would stomp the 60×
+    // the user just picked — the failure mode is a slider that snaps back to 1×
+    // on an unrelated re-render.
+    rt.setPaused(false)
+    expect(rt.cfg.speed).toBe(60)
+    expect(rt.feed.clock.speed).toBe(60)
+    releaseRuntime()
+  })
+})
+
 describe('runtime mode switching', () => {
   it('swaps in the live feed, and restricts the watchlist to crypto pairs', async () => {
     _setLiveTransport({

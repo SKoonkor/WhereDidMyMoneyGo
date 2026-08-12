@@ -338,13 +338,7 @@
   height: 26px;
   border-top: 1px solid var(--border-soft);
 }
-.tr-skel-ticket { opacity: 0.55; }
-.tr-skel-line {
-  height: 38px;
-  margin-top: 10px;
-  border-radius: 8px;
-  background: var(--surface-2);
-}
+.tr-skel-positions { opacity: 0.55; }
 .seg-btn.is-skel { opacity: 0.5; }
 
 /* ── Timeframe row ───────────────────────────────────────────────────────── */
@@ -364,13 +358,6 @@
   font-size: 12px;
   font-weight: 600;
 }
-.tr-gear {
-  flex: 0 0 auto;
-  width: var(--tr-tap);
-  min-height: var(--tr-tap);
-  font-size: 16px;
-}
-
 /* ── Chips ───────────────────────────────────────────────────────────────── */
 
 .tr-chip {

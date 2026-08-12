@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { t } from '../../i18n'
+import { requestLeave } from '../../tradingMode'
 
 // Launcher grid for the analytics/feature pages, split into two groups:
 // day-to-day money tracking vs. forward-looking calculators.
@@ -33,7 +34,16 @@ function TileGrid({ tiles }: { tiles: Tile[] }) {
   return (
     <div className="apps-grid">
       {tiles.map((tile) => (
-        <Link key={tile.to} to={tile.to} className="app-tile">
+        // One guard, in the single place every tile renders: a false means some
+        // other screen has a reason to ask the user first and has raised it, so
+        // this navigation must not happen. It returns true whenever nothing is
+        // asking, which is the overwhelmingly common case.
+        <Link
+          key={tile.to}
+          to={tile.to}
+          className="app-tile"
+          onClick={(e) => { if (!requestLeave(tile.to)) e.preventDefault() }}
+        >
           <span className="app-tile-icon" aria-hidden="true">{tile.icon}</span>
           <span className="app-tile-label">{t(tile.label)}</span>
           <span className="app-tile-desc">{t(tile.desc)}</span>

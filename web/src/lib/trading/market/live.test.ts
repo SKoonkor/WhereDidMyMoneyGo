@@ -218,9 +218,60 @@ describe('the live feed reading the wire', () => {
     expect(i.kind).toBe('spot')
     expect(i.pricePrecision).toBe(2)
     expect(i.tickSize).toBeCloseTo(0.01, 12)
-    expect(i.kind === 'spot' && i.qtyPrecision).toBe(2)
+    // 8, not the 2 the `q: '0.25'` string suggests. Price and quantity follow the
+    // same widen-only rule, and quantity's provisional is already the venue
+    // maximum — so this branch is a deliberate no-op. Narrowing here would let a
+    // padded `0.25000000` set lotSize 0.01 and have the broker reject an order
+    // for 0.005 BTC: a real rejection traded for a cosmetic display fix.
+    expect(i.kind === 'spot' && i.qtyPrecision).toBe(8)
     expect(i.kind === 'spot' && i.base).toBe('BTC')
     expect(i.kind === 'spot' && i.quote).toBe('USDT')
+    h.feed.dispose()
+  })
+
+  it('reads through Binance’s 8-decimal padding instead of believing it', () => {
+    // The shipped bug: Binance pads to the QUOTE asset's decimals, not to its own
+    // tick, so this print used to be read as a 1e-8 tick and rendered as
+    // "68,123.45000000".
+    const h = harness()
+    h.sockets[0].open()
+    h.sockets[0].deliver(aggTrade({ p: '68123.45000000', q: '0.25000000' }))
+    const i = h.feed.instrument(SYM)!
+    expect(i.pricePrecision).toBe(2)
+    expect(i.tickSize).toBeCloseTo(0.01, 12)
+    // Same print, the quantity half: still the provisional 8.
+    expect(i.kind === 'spot' && i.qtyPrecision).toBe(8)
+    expect(i.kind === 'spot' && i.lotSize).toBeCloseTo(1e-8, 15)
+    h.feed.dispose()
+  })
+
+  it('never narrows precision, so a round price cannot make the tick flicker', () => {
+    // The guard a naive trailing-zero strip fails: stripping alone reads
+    // "68123.00000000" as ZERO decimals, and the old `!==` rewrote on every
+    // mismatch — so the tick would churn trade to trade, taking the chart's
+    // grid and every formatted price with it.
+    const h = harness()
+    h.sockets[0].open()
+    h.sockets[0].deliver(aggTrade({ p: '68123.45000000' }))
+    h.sockets[0].deliver(aggTrade({ p: '68123.00000000', T: T0 + 10 }))
+    const i = h.feed.instrument(SYM)!
+    expect(i.pricePrecision).toBe(2)
+    expect(i.tickSize).toBeCloseTo(0.01, 12)
+    h.feed.dispose()
+  })
+
+  it('widens for a genuinely finer price', () => {
+    // A sub-cent symbol has real digits out at 1e-8; the point of widen-only is
+    // that it still gets them.
+    const h = harness()
+    h.sockets[0].open()
+    h.sockets[0].deliver(aggTrade({ p: '0.00001234' }))
+    const i = h.feed.instrument(SYM)!
+    expect(i.pricePrecision).toBe(8)
+    expect(i.tickSize).toBeCloseTo(1e-8, 15)
+    // And having widened, it stays widened.
+    h.sockets[0].deliver(aggTrade({ p: '0.00001200', T: T0 + 10 }))
+    expect(h.feed.instrument(SYM)!.pricePrecision).toBe(8)
     h.feed.dispose()
   })
 

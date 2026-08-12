@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Modal } from '../../components/Modal'
 import { t } from '../../i18n'
+import { useTradingSheet, closeSheet } from '../../tradingMode'
 import type { Timeframe } from '../../lib/trading/types'
 import { TIMEFRAMES } from './runtime'
 import { useTrading } from './useTrading'
-import type { TradingView } from './useTrading'
 import { ChartPanel } from './ChartPanel'
-import { INDICATOR_DEFS, INDICATOR_IDS } from './overlays'
+import { ChartSettings } from './ChartSettings'
+import { liveNoticeMessage } from './errors'
 import { DisclaimerGate } from './DisclaimerGate'
 import { SimBadge } from './SimBadge'
 import { OrderTicket } from './OrderTicket'
@@ -22,35 +23,37 @@ import './trading.css'
 
 // The main screen. Its order is not arbitrary — §E fixes it:
 //
-//   chart (≥ 360px) → a 44px timeframe row → the ticket
+//   chart (≥ 360px) → a 44px timeframe row → what you hold
 //
-// Everything below that is reference material the user scrolls to. Anything above
-// the ticket is what they came for, and on a 390×844 phone the chart plus the
-// timeframe row plus the top of the ticket is the whole first screen.
-
-/**
- * Why live mode is not on. A `LiveNotice` code in, a sentence out — the same
- * split `errors.ts` makes for `TradeErrorCode`, so the runtime never holds a word
- * a translator cannot reach.
- */
-function liveNoticeMessage(n: TradingView['runtime']['liveNotice']): string | null {
-  if (n === 'offline') return t('No connection, so the simulated market stayed on.')
-  if (n === 'unreachable') return t('Could not reach the exchange, so the simulated market stayed on.')
-  return null
-}
-
-const CHART_TYPES: { id: TradingView['cfg']['chartType']; label: string }[] = [
-  { id: 'candles', label: 'Candles' },
-  { id: 'hollow', label: 'Hollow' },
-  { id: 'heikin', label: 'Heikin-Ashi' },
-  { id: 'bars', label: 'Bars' },
-  { id: 'line', label: 'Line' },
-  { id: 'area', label: 'Area' },
-]
+// Everything below that is reference material the user scrolls to. The ticket
+// used to sit under the timeframe row and eat the rest of the first screen; it
+// now comes up from the bar's ＋ as a sheet, so the space it held goes to the
+// positions the user came back to check.
+//
+// Both of the mode's sheets are rendered HERE rather than in the shell, and that
+// is deliberate: the ticket needs a TradingView, which means `acquireRuntime()`.
+// Rendering it from App would drag a chart engine, a market model, a broker and
+// an options pricer into the eager bundle and defeat the lazy trading chunk. The
+// bar only sets a flag; this page, which already holds the runtime, does the
+// rendering.
 
 export function TradingPage() {
   const view = useTrading()
-  const [settings, setSettings] = useState(false)
+  const sheet = useTradingSheet()
+
+  // A sheet flagged on a screen that cannot render it is dropped, not queued.
+  //
+  // The bar raises the flag from any route and the shell then navigates here, so
+  // the tap can land while the runtime is still loading or on an account that has
+  // not accepted the disclaimer — neither of the two branches below renders a
+  // sheet. Left set, the flag would survive until the real page mounted and pop
+  // an order ticket seconds after the tap, possibly over the disclaimer the user
+  // was reading. In an effect rather than during render: clearing a store mid-
+  // render is a setState-in-render in disguise.
+  const blocked = !view || !view.cfg.disclaimerAcceptedAt
+  useEffect(() => {
+    if (blocked && sheet !== null) closeSheet()
+  }, [blocked, sheet])
 
   // §E: never a spinner over an empty box. The skeleton below is the real page's
   // chrome — the chart's own grid and both axis strips — drawn in CSS at the
@@ -60,7 +63,7 @@ export function TradingPage() {
 
   if (!view.cfg.disclaimerAcceptedAt) return <DisclaimerGate runtime={view.runtime} />
 
-  const { runtime, cfg, summary, quote, precision, currency, account } = view
+  const { runtime, cfg, summary, quote, precision } = view
   const change24 = quote && quote.open24h > 0 ? ((quote.last - quote.open24h) / quote.open24h) * 100 : 0
   const level = summary.margin.marginLevel
   const liveNote = liveNoticeMessage(runtime.liveNotice)
@@ -129,12 +132,7 @@ export function TradingPage() {
             </button>
           ))}
         </div>
-        <button type="button" className="tr-chip tr-gear" onClick={() => setSettings(true)} aria-label={t('Chart settings')}>
-          ⚙
-        </button>
       </div>
-
-      <OrderTicket view={view} />
 
       <PositionsList view={view} />
       <OrdersList view={view} />
@@ -155,94 +153,16 @@ export function TradingPage() {
         </Link>
       </div>
 
-      {settings && (
-        <Modal title={t('Chart settings')} onClose={() => setSettings(false)}>
-          <div className="tr-settings">
-            <div className="tr-set-group">
-              <span className="tr-label">{t('Chart type')}</span>
-              <div className="tr-chips">
-                {CHART_TYPES.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`tr-chip${cfg.chartType === c.id ? ' is-on' : ''}`}
-                    onClick={() => runtime.patchCfg({ chartType: c.id })}
-                  >
-                    {t(c.label)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="tr-set-group">
-              <span className="tr-label">{t('Indicators')}</span>
-              <div className="tr-chips">
-                {INDICATOR_IDS.map((id) => {
-                  const on = cfg.indicators.includes(id)
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className={`tr-chip${on ? ' is-on' : ''}`}
-                      onClick={() => runtime.patchCfg({
-                        indicators: on ? cfg.indicators.filter((x) => x !== id) : [...cfg.indicators, id],
-                      })}
-                    >
-                      {INDICATOR_DEFS[id].label}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Market data. Plain chips, same as every other group here — the
-                switch disposes one feed and builds the other, and the page
-                re-points itself; nothing about that needs its own screen. */}
-            <div className="tr-set-group">
-              <span className="tr-label">{t('Market data')}</span>
-              <div className="tr-chips">
-                <button
-                  type="button"
-                  className={`tr-chip${cfg.mode === 'sim' ? ' is-on' : ''}`}
-                  onClick={() => { void runtime.switchMode('sim') }}
-                >
-                  {t('Simulated')}
-                </button>
-                <button
-                  type="button"
-                  className={`tr-chip${cfg.mode === 'live' ? ' is-on' : ''}`}
-                  onClick={() => { void runtime.switchMode('live') }}
-                >
-                  {t('Live crypto')}
-                </button>
-              </div>
-              <p className="muted tr-set-note">
-                {t('Live streams real prices from a public crypto exchange, and needs a connection. Your money, orders and positions stay simulated either way.')}
-              </p>
-              {liveNote && <p className="muted tr-set-note">{liveNote}</p>}
-            </div>
-
-            <label className="tr-check">
-              <input type="checkbox" checked={cfg.showDepth} onChange={(e) => runtime.patchCfg({ showDepth: e.target.checked })} />
-              <span>{t('Show order book depth')}</span>
-            </label>
-            <label className="tr-check">
-              <input type="checkbox" checked={cfg.colorBlind} onChange={(e) => runtime.patchCfg({ colorBlind: e.target.checked })} />
-              <span>{t('Colour-blind palette (blue / orange)')}</span>
-            </label>
-
-            <p className="muted tr-set-note">
-              {t('Account {name} · {cash} {currency} cash', {
-                name: account.name, cash: money(summary.cash), currency,
-              })}
-            </p>
-
-            <div className="modal-actions">
-              <button type="button" className="btn ghost" onClick={() => setSettings(false)}>{t('Done')}</button>
-            </div>
-          </div>
+      {/* Both sheets, driven by the bar. Mutually exclusive by construction —
+          `sheet` is one nullable field, so Settings while the ticket is open
+          swaps rather than stacks. */}
+      {sheet === 'ticket' && (
+        <Modal title={t('Buy or sell')} onClose={closeSheet}>
+          <OrderTicket view={view} onClose={closeSheet} />
         </Modal>
       )}
+
+      {sheet === 'settings' && <ChartSettings view={view} onClose={closeSheet} />}
     </div>
   )
 }
@@ -279,13 +199,12 @@ function TradingSkeleton() {
           ))}
         </div>
       </div>
-      <section className="card tr-ticket tr-skel-ticket" aria-hidden="true">
-        <div className="seg tr-side-seg">
-          <span className="seg-btn tr-side-btn" />
-          <span className="seg-btn tr-side-btn" />
-        </div>
-        <div className="tr-skel-line" />
-        <div className="tr-skel-line" />
+      {/* Positions-shaped, not ticket-shaped: the ticket is a sheet now, so a
+          ticket here would promise a card that never arrives and the page would
+          jump the moment the world loaded. Mirrors PositionsList's empty state. */}
+      <section className="card tr-skel-positions" aria-hidden="true">
+        <div className="dash-title">{t('Positions')}</div>
+        <p className="muted tr-empty">{t('Nothing open. Your first order will show up here.')}</p>
       </section>
     </div>
   )
