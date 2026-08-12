@@ -10,6 +10,11 @@ import type { BudgetCfg, Categories, DebtsCfg, GoalsCfg, ReconcileState, Setting
 import type { TaxCfg } from '../analytics/income_tax'
 import type { GoalMove } from '../analytics/goalSavings'
 import { normalizeLayout, type HomeLayout } from '../homeLayout'
+import type { TradingCfg } from '../../data/defaults'
+import {
+  dumpSim, restoreSim, saveTrading,
+  type EquityPoint, type SimAccount, type SimTrade,
+} from '../../features/trading/store'
 
 const APP_TAG = 'where-did-my-money-go'
 // v1 bundled transactions/accounts/categories/settings. v2 adds budget + goals +
@@ -25,7 +30,15 @@ const APP_TAG = 'where-did-my-money-go'
 // own — it rides along inside the transaction rows, which have always travelled
 // whole. Debt ids are uuids, so a restore keeps every tag pointing at its debt
 // even though IndexedDB reassigns the row ids around them.
-const BACKUP_VERSION = 6
+//
+// v7 is the paper-trading sandbox: its preferences, its accounts, its trades, its
+// equity curves, and the world's seed and clock. Candles and market state are
+// deliberately LEFT OUT, and nothing is lost by it — the market is a pure function
+// of the seed and the clock, so a restore regenerates the very history the backup
+// was taken from. Carrying them would be ruinous instead: a month of one-minute
+// candles is around 40 MB of JSON, the difference between a backup a user can
+// email themselves and one the browser refuses to write.
+const BACKUP_VERSION = 7
 
 export interface Backup {
   app: typeof APP_TAG
@@ -42,9 +55,16 @@ export interface Backup {
   home?: HomeLayout
   goalMoves?: GoalMove[]
   debts?: DebtsCfg
+  trading?: TradingCfg
+  simAccounts?: SimAccount[]
+  simTrades?: SimTrade[]
+  simEquity?: Array<{ accountId: string } & EquityPoint>
+  /** Seed + clock only — see the version note above. */
+  simWorld?: { seed: string; clock: unknown; savedAtWall: number }
 }
 
 export async function makeBackup(): Promise<Backup> {
+  const sim = await dumpSim()
   return {
     app: APP_TAG,
     version: BACKUP_VERSION,
@@ -60,6 +80,11 @@ export async function makeBackup(): Promise<Backup> {
     home: await getHomeLayout(),
     goalMoves: await listGoalMoves(),
     debts: await getDebts(),
+    trading: sim.trading,
+    simAccounts: sim.simAccounts,
+    simTrades: sim.simTrades,
+    simEquity: sim.simEquity,
+    simWorld: sim.simWorld,
   }
 }
 
@@ -90,29 +115,48 @@ export interface RestoreResult { transactions: number; accounts: number }
 // dropped so IndexedDB reassigns them (transfer links use uuids in `transferId`,
 // which are preserved, so pairs stay linked).
 export async function restoreBackup(b: Backup): Promise<RestoreResult> {
-  await db.transaction('rw', db.transactions, db.config, db.goalMoves, async () => {
-    await db.transactions.clear()
-    await db.transactions.bulkAdd(b.transactions.map(({ id: _id, ...rest }) => rest as Txn))
-    await saveAccounts(b.accounts)
-    await saveCategories(b.categories)
-    if (b.settings) await saveSettings(b.settings)
-    // v2 keys — only overwrite when the backup carries them, so restoring an
-    // older v1 file leaves the current budget/goals config untouched.
-    if (b.budget) await saveBudget(b.budget)
-    if (b.goals) await saveGoals(b.goals)
-    if (b.debts) await saveDebts(b.debts)
-    if (b.reconcile) await saveReconcileState(b.reconcile)
-    if (b.tax) await saveTax(b.tax)
-    // Normalized on the way in — a backup file is untrusted input, and one
-    // written by a newer build may name widgets this version can't render.
-    if (b.home) await saveHomeLayout(normalizeLayout(b.home))
-    // v5 — goal allocation moves. Ids are dropped like transaction ids are, and
-    // for the same reason: IndexedDB reassigns them. The link back to a transfer
-    // rides in `transferId`, a uuid, so tagged transfers stay tagged.
-    if (b.goalMoves) {
-      await db.goalMoves.clear()
-      await db.goalMoves.bulkAdd(b.goalMoves.map(({ id: _id, ...rest }) => rest as GoalMove))
-    }
-  })
+  await db.transaction(
+    'rw',
+    [db.transactions, db.config, db.goalMoves,
+      db.simAccounts, db.simTrades, db.simEquity, db.simWorld, db.simBars],
+    async () => {
+      await db.transactions.clear()
+      await db.transactions.bulkAdd(b.transactions.map(({ id: _id, ...rest }) => rest as Txn))
+      await saveAccounts(b.accounts)
+      await saveCategories(b.categories)
+      if (b.settings) await saveSettings(b.settings)
+      // v2 keys — only overwrite when the backup carries them, so restoring an
+      // older v1 file leaves the current budget/goals config untouched.
+      if (b.budget) await saveBudget(b.budget)
+      if (b.goals) await saveGoals(b.goals)
+      if (b.debts) await saveDebts(b.debts)
+      if (b.reconcile) await saveReconcileState(b.reconcile)
+      if (b.tax) await saveTax(b.tax)
+      // Normalized on the way in — a backup file is untrusted input, and one
+      // written by a newer build may name widgets this version can't render.
+      if (b.home) await saveHomeLayout(normalizeLayout(b.home))
+      // v5 — goal allocation moves. Ids are dropped like transaction ids are, and
+      // for the same reason: IndexedDB reassigns them. The link back to a transfer
+      // rides in `transferId`, a uuid, so tagged transfers stay tagged.
+      if (b.goalMoves) {
+        await db.goalMoves.clear()
+        await db.goalMoves.bulkAdd(b.goalMoves.map(({ id: _id, ...rest }) => rest as GoalMove))
+      }
+      // v7 — the sandbox. Gated on `simAccounts` rather than restored blindly, so
+      // a pre-v7 file leaves the user's current paper accounts exactly where they
+      // are instead of silently wiping them. `trading` is written through its own
+      // saver, which means a hand-edited file still gets validated on the way back
+      // out by getTrading rather than trusted here.
+      if (b.trading) await saveTrading(b.trading)
+      if (b.simAccounts) {
+        await restoreSim({
+          simAccounts: b.simAccounts,
+          simTrades: b.simTrades ?? [],
+          simEquity: b.simEquity ?? [],
+          simWorld: b.simWorld,
+        })
+      }
+    },
+  )
   return { transactions: b.transactions.length, accounts: b.accounts.length }
 }

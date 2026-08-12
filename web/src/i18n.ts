@@ -823,6 +823,306 @@ const TH: Record<string, string> = {
   Equals: 'เท่ากับ',
   'Decimal point': 'จุดทศนิยม',
   Backspace: 'ลบย้อนกลับ',
+
+  // ── Paper trading ──────────────────────────────────────────────────────────
+  // Register: what a Thai trader actually says, not what a dictionary says.
+  // Trading vocabulary in Thailand is mostly loanwords and every Thai-facing
+  // exchange ships them that way, so leverage=เลเวอเรจ, margin=มาร์จิน,
+  // long/short=ลอง/ชอร์ต, funding=ฟันดิ้ง. Real Thai terms are used where they
+  // are the ones in circulation (กำไร/ขาดทุน, เงินสด, เสนอซื้อ/เสนอขาย on the
+  // options chain, which is how SET/Settrade label bid/ask).
+  //
+  // Left in English on purpose, each for a layout or a notation reason:
+  //   • SIM — a 3-character pill drawn on the chart. Any word overflows it.
+  //   • O H L C — the OHLC legend's micro-labels, drawn on canvas at 10px.
+  //     เปิด/สูง/ต่ำ/ปิด is 3–4 glyphs each where there is room for one, and the
+  //     legend would wrap over the candles.
+  //   • Liq. — the liquidation price-line label, also on canvas. ล้างพอร์ต is
+  //     nine glyphs in a slot sized for four and would ellipsize to nothing.
+  //   • IV, Δ Γ ν Θ, Heikin-Ashi — notation and a proper name, like SMA 20.
+  //
+  // The order types are loanwords rather than English or Royal-Institute Thai:
+  // มาร์เก็ต / สต็อป / เทรลลิ่ง, and the prose around them follows
+  // (ราคาสต็อป, คำสั่งเทรลลิ่ง) so the segmented control and the messages that
+  // refer back to it use the same word.
+  //
+  // NOTE: 'Limit' has no entry here — the key already exists above as the Debts
+  // page's DSR ceiling (Limit: 'เพดาน', ~line 746) and one English key cannot
+  // carry two Thai meanings. The order-type chip and the chart's limit-order
+  // price line therefore render as เพดาน rather than ลิมิต. Resolving it means
+  // changing the English one of the two features displays — a product decision,
+  // not a translation one, and it is with the user. Do not "fix" it here by
+  // re-keying either side.
+  Buy: 'ซื้อ',
+  Sell: 'ขาย',
+  Equity: 'มูลค่าพอร์ต',
+  Leverage: 'เลเวอเรจ',
+  Quantity: 'จำนวน',
+  'Contract size': 'ขนาดสัญญา',
+  'Amount ({currency})': 'จำนวนเงิน ({currency})',
+  'Paper trading': 'เทรดจำลอง',
+  SIM: 'SIM',
+  'Back to the chart': 'กลับไปที่กราฟ',
+  Options: 'ออปชัน',
+  Deposit: 'ฝาก',
+  Withdraw: 'ถอน',
+
+  // Apps launcher tile
+  Simulators: 'ตัวจำลอง',
+  'Practise on a simulated market.': 'ฝึกเทรดในตลาดจำลอง',
+
+  // Disclaimer gate. The one screen that must not be softened: it exists so that
+  // "I thought it was real" is impossible.
+  'A market simulator. Read this once before you start.': 'ตัวจำลองตลาด อ่านสักครั้งก่อนเริ่ม',
+  'None of this is real money.': 'ทั้งหมดนี้ไม่ใช่เงินจริง',
+  'The prices are generated on your device by a mathematical model. No exchange, no broker, and no connection to your accounts.': 'ราคาทั้งหมดถูกสร้างขึ้นบนเครื่องของคุณด้วยแบบจำลองทางคณิตศาสตร์ ไม่มีตลาดจริง ไม่มีโบรกเกอร์ และไม่เชื่อมต่อกับบัญชีใดของคุณ',
+  'It cannot touch your tracked money.': 'มันแตะเงินที่คุณบันทึกไว้ไม่ได้',
+  'The simulator keeps its own separate records. Your transactions, budgets and goals are never read or written by it.': 'ตัวจำลองเก็บข้อมูลแยกของตัวเอง ไม่มีการอ่านหรือเขียนรายการจดบันทึก งบประมาณ และเป้าหมายของคุณเลย',
+  'Leverage and options are here to be learned, not recommended.': 'เลเวอเรจและออปชันมีไว้ให้เรียนรู้ ไม่ใช่คำแนะนำให้ใช้',
+  'They can lose more than you put in — which is exactly why it is better to find that out here.': 'มันขาดทุนได้มากกว่าเงินที่ใส่เข้าไป — และนั่นคือเหตุผลว่าทำไมควรรู้จากที่นี่ ไม่ใช่จากเงินจริง',
+  'This is not financial advice.': 'นี่ไม่ใช่คำแนะนำการลงทุน',
+  'Results in a simulator say nothing about results in a real market.': 'ผลลัพธ์ในตัวจำลองบอกอะไรไม่ได้เลยเกี่ยวกับผลในตลาดจริง',
+  'I understand — start the simulator': 'เข้าใจแล้ว — เริ่มใช้ตัวจำลอง',
+
+  // Trading screen
+  'A market simulator. No real money, ever.': 'ตัวจำลองตลาด ไม่มีเงินจริงเข้ามาเกี่ยวข้อง',
+  'Margin level {pct}%. Positions are closed automatically below 100%.': 'ระดับมาร์จิน {pct}% ต่ำกว่า 100% สถานะจะถูกปิดอัตโนมัติ',
+  '24h {low} – {high}': '24 ชม. {low} – {high}',
+  'Warming up…': 'กำลังอุ่นเครื่อง…',
+  Timeframe: 'ไทม์เฟรม',
+  'Chart settings': 'ตั้งค่ากราฟ',
+  'Chart type': 'ชนิดกราฟ',
+  Indicators: 'อินดิเคเตอร์',
+  'Show order book depth': 'แสดงความลึกของออเดอร์บุ๊ก',
+  'Colour-blind palette (blue / orange)': 'โทนสีสำหรับตาบอดสี (น้ำเงิน / ส้ม)',
+  'Account {name} · {cash} {currency} cash': 'บัญชี {name} · เงินสด {cash} {currency}',
+  '{n} accounts · deposits, history and reset': '{n} บัญชี · ฝากถอน ประวัติ และรีเซ็ต',
+  'Calls and puts on {symbol}': 'คอลและพุตของ {symbol}',
+
+  // Market data (sim vs live crypto). "Live" is ไลฟ์ as a loanword — สด is used
+  // for live video and reads oddly beside a price — and คริปโต is the only word
+  // anyone uses for the asset class.
+  'Market data': 'ข้อมูลตลาด',
+  Simulated: 'จำลอง',
+  'Live crypto': 'คริปโตไลฟ์',
+  'Live streams real prices from a public crypto exchange, and needs a connection. Your money, orders and positions stay simulated either way.': 'โหมดไลฟ์ดึงราคาจริงจากกระดานเทรดคริปโตสาธารณะ และต้องต่ออินเทอร์เน็ต ไม่ว่าโหมดไหน เงิน คำสั่ง และสถานะของคุณยังเป็นการจำลองทั้งหมด',
+  'No connection, so the simulated market stayed on.': 'ไม่มีการเชื่อมต่อ จึงยังใช้ตลาดจำลองต่อไป',
+  'Could not reach the exchange, so the simulated market stayed on.': 'ติดต่อกระดานเทรดไม่ได้ จึงยังใช้ตลาดจำลองต่อไป',
+
+  // Chart types. 'Bars' is already แท่ง from the composition chart.
+  Candles: 'แท่งเทียน',
+  Hollow: 'แท่งเทียนโปร่ง',
+  'Heikin-Ashi': 'Heikin-Ashi',
+  Line: 'เส้น',
+  Area: 'พื้นที่',
+
+  // Watchlist
+  Symbols: 'สินทรัพย์',
+
+  // Chart overlay. Entry/O/H/L/C/Liq. are drawn on the canvas, not in the DOM —
+  // see the note above about why four of them stay Latin.
+  'Catching up · {time}': 'กำลังไล่ตาม · {time}',
+  'Reconnecting…': 'กำลังเชื่อมต่อใหม่…',
+  'Feed stalled': 'ข้อมูลหยุดนิ่ง',
+  'Connecting…': 'กำลังเชื่อมต่อ…',
+  'Tap to clear': 'แตะเพื่อล้าง',
+  Entry: 'เข้า',
+  'Liq.': 'Liq.',
+  O: 'O',
+  H: 'H',
+  L: 'L',
+  C: 'C',
+
+  // Order ticket.
+  //
+  // Order types keep their English as loanwords, which is what Thai traders
+  // actually say and read on every platform they will have used. Translating
+  // "market order" to a native compound would be dictionary-correct and
+  // unrecognisable.
+  //
+  // NOTE: "Limit" is deliberately absent here. The key already exists for the
+  // Debts page, where it means a borrowing ceiling and is correctly rendered
+  // "เพดาน" — and since the English string IS the key, the two features cannot
+  // hold different Thai. Resolving it needs one of them to change the English it
+  // displays, which is a product decision rather than a translation one.
+  Market: 'มาร์เก็ต',
+  Stop: 'สต็อป',
+  Trailing: 'เทรลลิ่ง',
+  Margin: 'มาร์จิน',
+  'Switch to quantity': 'สลับเป็นจำนวน',
+  'Switch to amount': 'สลับเป็นจำนวนเงิน',
+  Max: 'สูงสุด',
+  'Buying power': 'กำลังซื้อ',
+  'Limit price': 'ราคาลิมิต',
+  'Stop price': 'ราคาสต็อป',
+  // A percentage, not a price — the % sign carries that in both languages, so the
+  // label stays as short as the two above it.
+  'Trail (%)': 'เทรล (%)',
+  'Reduce only': 'ลดสถานะเท่านั้น',
+  'You get': 'คุณจะได้',
+  '{qty} at {price}': '{qty} ที่ {price}',
+  '{value} {currency}': '{value} {currency}',
+  market: 'ราคาตลาด',
+  'Enter an amount to see the estimate.': 'ใส่จำนวนเงินเพื่อดูค่าประมาณ',
+  'Buy {symbol}': 'ซื้อ {symbol}',
+  'Sell {symbol}': 'ขาย {symbol}',
+  'Filled.': 'จับคู่สำเร็จ',
+  'Order placed.': 'ส่งคำสั่งแล้ว',
+
+  // Leverage slider
+  Liquidation: 'ราคาล้างพอร์ต',
+  'No liquidation at this size': 'ขนาดนี้ไม่มีการล้างพอร์ต',
+
+  // Confirm sheet
+  'Confirm buy': 'ยืนยันการซื้อ',
+  'Confirm sell': 'ยืนยันการขาย',
+  Price: 'ราคา',
+  'Estimated price': 'ราคาโดยประมาณ',
+  'At market': 'ราคาตลาด',
+  'Order value': 'มูลค่าคำสั่ง',
+  Fee: 'ค่าธรรมเนียม',
+  'Margin required': 'มาร์จินที่ต้องใช้',
+  'Liquidation price': 'ราคาล้างพอร์ต',
+  'Margin level after': 'มาร์จินหลังส่งคำสั่ง',
+  'This opens a short: you will owe {qty} that you do not hold.': 'นี่คือการเปิดชอร์ต: คุณจะติดหนี้ {qty} ที่คุณไม่ได้ถืออยู่',
+  'This sells more than you hold, leaving you short {qty}.': 'ขายมากกว่าที่คุณถืออยู่ จะเหลือสถานะชอร์ต {qty}',
+
+  // Positions
+  Positions: 'สถานะที่ถืออยู่',
+  'Nothing open. Your first order will show up here.': 'ยังไม่มีสถานะเปิดอยู่ คำสั่งแรกของคุณจะมาแสดงที่นี่',
+  Long: 'ลอง',
+  Short: 'ชอร์ต',
+  'avg {price}': 'เฉลี่ย {price}',
+  'mark {price}': 'มาร์ก {price}',
+  'liq {price}': 'ล้างพอร์ต {price}',
+  'funding {amount}': 'ฟันดิ้ง {amount}',
+  'Δ {delta} · Γ {gamma} · ν {vega} · Θ {theta}': 'Δ {delta} · Γ {gamma} · ν {vega} · Θ {theta}',
+
+  // Open orders
+  'Open orders': 'คำสั่งที่รออยู่',
+  'reduce only': 'ลดสถานะเท่านั้น',
+  'trail {pct}%': 'เทรล {pct}%',
+  '#{seq}': '#{seq}',
+
+  // Order book
+  'Order book': 'ออเดอร์บุ๊ก',
+  Spread: 'สเปรด',
+  'Waiting for the book…': 'กำลังรอออเดอร์บุ๊ก…',
+
+  // Speed control
+  // A pause/resume toggle chip that sits inline before a 220px-min speed
+  // segment; หยุดชั่วคราว pushes the segment onto its own line at 390px.
+  Pause: 'หยุด',
+  Resume: 'เล่นต่อ',
+  'Above {n}× the simulation works your device hard.': 'เกิน {n}× ตัวจำลองจะกินกำลังเครื่องหนัก',
+  // What the row says instead when the data is live: neither control exists there.
+  'Live market data': 'ข้อมูลตลาดไลฟ์',
+  Streaming: 'กำลังรับข้อมูล',
+  'Live data runs at 1× and cannot be paused.': 'ข้อมูลไลฟ์เดินที่ 1× และหยุดชั่วคราวไม่ได้',
+
+  // Activity blotter
+  Activity: 'ความเคลื่อนไหว',
+  'No activity yet.': 'ยังไม่มีความเคลื่อนไหว',
+  Funding: 'ฟันดิ้ง',
+  Liquidated: 'ล้างพอร์ต',
+  Settled: 'ชำระราคา',
+  'fee {amount}': 'ค่าธรรมเนียม {amount}',
+  // Same word as the Realised stat above (รับรู้แล้ว), shortened: this one is a
+  // fragment in a metadata line set in the mono stack, which has no Thai face and
+  // falls back per glyph.
+  'realised {amount}': 'รับรู้ {amount}',
+
+  // Accounts screen
+  'Paper accounts': 'บัญชีจำลอง',
+  'Simulated money only. Nothing here touches what you track.': 'เงินจำลองล้วน ๆ ไม่มีอะไรตรงนี้แตะเงินที่คุณบันทึกไว้',
+  Cash: 'เงินสด',
+  Invested: 'ลงทุนอยู่',
+  Realised: 'รับรู้แล้ว',
+  Unrealised: 'ยังไม่รับรู้',
+  Contributed: 'เงินที่ใส่เข้า',
+  'Margin level': 'ระดับมาร์จิน',
+  'Win rate': 'อัตราชนะ',
+  'Closed trades': 'เทรดที่ปิดแล้ว',
+  'Your simulator starts with {amount}. Fund it to place your first trade.': 'ตัวจำลองของคุณเริ่มที่ {amount} เติมเงินเพื่อเริ่มเทรดครั้งแรก',
+  'opened with {amount} {currency}': 'เปิดด้วย {amount} {currency}',
+  'New paper account': 'บัญชีจำลองใหม่',
+  'Paper account': 'บัญชีจำลอง',
+  Name: 'ชื่อ',
+  'Starting cash': 'เงินตั้งต้น',
+  'Starting cash ({currency})': 'เงินตั้งต้น ({currency})',
+  Create: 'สร้าง',
+  'Deposit paper money': 'ฝากเงินจำลอง',
+  'Withdraw paper money': 'ถอนเงินจำลอง',
+  'Reset the sandbox': 'รีเซ็ตสนามจำลอง',
+  'Erases every paper account, position and price this simulator has generated, and starts a fresh market. Your transactions, budgets, goals and debts are untouched.': 'ลบบัญชีจำลอง สถานะ และราคาทั้งหมดที่ตัวจำลองสร้างขึ้น แล้วเริ่มตลาดใหม่ รายการจดบันทึก งบประมาณ เป้าหมาย และหนี้สินของคุณไม่ถูกแตะต้อง',
+  'Reset the sandbox?': 'รีเซ็ตสนามจำลองหรือไม่?',
+  'Every paper account, trade and simulated price is deleted and a new market begins. This cannot be undone. Your real transactions, budgets, goals and debts are not part of the sandbox and are not affected.': 'บัญชีจำลอง รายการเทรด และราคาจำลองทั้งหมดจะถูกลบ แล้วเริ่มตลาดใหม่ การกระทำนี้ไม่สามารถย้อนกลับได้ รายการจดบันทึก งบประมาณ เป้าหมาย และหนี้สินจริงของคุณไม่ได้อยู่ในสนามจำลอง และไม่ได้รับผลกระทบ',
+  'Erase and start over': 'ลบและเริ่มใหม่',
+  'Resetting…': 'กำลังรีเซ็ต…',
+
+  // Equity curve
+  'Equity over time': 'มูลค่าพอร์ตตามเวลา',
+  'The curve starts with your first trade.': 'กราฟจะเริ่มเมื่อคุณเทรดครั้งแรก',
+  'Largest drawdown': 'ขาดทุนสูงสุด',
+
+  // Options screen
+  'Simulated calls and puts on {symbol}. Cash-settled at expiry against a 30-minute average.': 'คอลและพุตจำลองของ {symbol} ชำระเป็นเงินสดตอนหมดอายุ โดยอิงค่าเฉลี่ย 30 นาที',
+  spot: 'สปอต',
+  Expiry: 'วันหมดอายุ',
+  Calls: 'คอล',
+  Puts: 'พุต',
+  Call: 'คอล',
+  Put: 'พุต',
+  Strike: 'สไตรค์',
+  Bid: 'เสนอซื้อ',
+  Ask: 'เสนอขาย',
+  IV: 'IV',
+  'Δ': 'Δ',
+  'Building the chain…': 'กำลังสร้างเชนออปชัน…',
+  Contracts: 'จำนวนสัญญา',
+  'Cost to buy': 'เบี้ยที่ต้องจ่าย',
+  'Credit to sell': 'เบี้ยที่ได้รับ',
+  'Margin if sold': 'มาร์จินถ้าขาย',
+  'Implied volatility': 'ความผันผวนแฝง',
+  'Selling an option can lose far more than the credit you receive. At expiry it settles in cash against the last 30 minutes of the underlying.': 'การขายออปชันขาดทุนได้มากกว่าเบี้ยที่ได้รับมาก ตอนหมดอายุจะชำระเป็นเงินสดโดยอิงราคาสินทรัพย์อ้างอิง 30 นาทีสุดท้าย',
+
+  // Trade errors
+  'Pick a symbol first.': 'เลือกสินทรัพย์ก่อน',
+  '{symbol} is not a symbol this sandbox trades.': '{symbol} ไม่ใช่สินทรัพย์ที่สนามจำลองนี้เทรดได้',
+  'No price yet — give the market a moment.': 'ยังไม่มีราคา — รอตลาดสักครู่',
+  'Enter a quantity greater than zero.': 'กรุณากรอกจำนวนที่มากกว่าศูนย์',
+  'Enter an amount greater than zero.': 'กรุณากรอกจำนวนเงินที่มากกว่าศูนย์',
+  'Not enough cash: this needs {need} and you have {have}.': 'เงินสดไม่พอ: ต้องใช้ {need} แต่คุณมี {have}',
+  'Not enough free collateral: this needs {need} and you have {have}.': 'หลักประกันว่างไม่พอ: ต้องใช้ {need} แต่คุณมี {have}',
+  'Leverage is capped at {cap}× here.': 'ที่นี่จำกัดเลเวอเรจไว้ที่ {cap}×',
+  'Reduce-only, but this order would open a new position.': 'ตั้งลดสถานะเท่านั้น แต่คำสั่งนี้จะเปิดสถานะใหม่',
+  'A limit order needs a limit price.': 'คำสั่งลิมิตต้องมีราคาลิมิต',
+  'A stop order needs a stop price.': 'คำสั่งสต็อปต้องมีราคาสต็อป',
+  'A trailing order needs a trail percentage.': 'คำสั่งเทรลลิ่งต้องมีเปอร์เซ็นต์เทรล',
+  'That contract has already expired.': 'สัญญานี้หมดอายุไปแล้ว',
+  'Your account owes {deficit}. Deposit first — you can close positions, but not open new ones.': 'บัญชีของคุณติดลบ {deficit} ต้องฝากเงินก่อน — ปิดสถานะได้ แต่เปิดใหม่ไม่ได้',
+  'The market is closed. This will fill when it opens.': 'ตลาดปิดอยู่ คำสั่งจะจับคู่เมื่อตลาดเปิด',
+
+  // Cancel reasons. The first three are not refusals — an order simply reached
+  // the end of the life the user asked for — so they read as statements.
+  Cancelled: 'ยกเลิกแล้ว',
+  'Expired — immediate-or-cancel': 'หมดอายุ — จับคู่ทันทีหรือยกเลิก',
+  'Expired — end of day': 'หมดอายุ — สิ้นวัน',
+  'Cancelled — no symbol': 'ยกเลิก — ไม่มีสินทรัพย์',
+  'Cancelled — unknown symbol': 'ยกเลิก — ไม่รู้จักสินทรัพย์',
+  'Cancelled — no price': 'ยกเลิก — ไม่มีราคา',
+  'Cancelled — bad quantity': 'ยกเลิก — จำนวนไม่ถูกต้อง',
+  'Cancelled — bad amount': 'ยกเลิก — จำนวนเงินไม่ถูกต้อง',
+  'Cancelled — not enough cash at fill': 'ยกเลิก — เงินสดไม่พอตอนจับคู่',
+  'Cancelled — not enough collateral at fill': 'ยกเลิก — หลักประกันไม่พอตอนจับคู่',
+  'Cancelled — over the leverage cap': 'ยกเลิก — เกินเพดานเลเวอเรจ',
+  'Cancelled — reduce-only': 'ยกเลิก — ลดสถานะเท่านั้น',
+  'Cancelled — no limit price': 'ยกเลิก — ไม่มีราคาลิมิต',
+  'Cancelled — no stop price': 'ยกเลิก — ไม่มีราคาสต็อป',
+  'Cancelled — no trail': 'ยกเลิก — ไม่มีเปอร์เซ็นต์เทรล',
+  'Cancelled — contract expired': 'ยกเลิก — สัญญาหมดอายุ',
+  'Cancelled — account in deficit': 'ยกเลิก — บัญชีติดลบ',
+  'Cancelled — market closed': 'ยกเลิก — ตลาดปิด',
 }
 
 export function getLang(): Lang {

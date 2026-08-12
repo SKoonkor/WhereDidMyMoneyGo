@@ -34,6 +34,23 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.9.0',
+    date: '11-08-2026',
+    changes: [
+      { kind: 'new', text: 'Apps → Paper trading opens a market simulator. The prices are made up on your phone, the money is made up too, and none of it can reach the transactions, budgets, goals or debts you actually track. You are told all of that once, before anything starts.' },
+      { kind: 'new', text: 'A proper chart: candles you can pinch to zoom and drag to pan, six timeframes from a minute to a day, and a hold-to-inspect crosshair that reads out the open, high, low and close of whichever candle is under your finger.' },
+      { kind: 'new', text: 'Buy and sell with market, limit and stop orders. The ticket shows what the order will cost and what it will get you before you commit, and asks you to confirm it.' },
+      { kind: 'new', text: 'Turn on Margin and a leverage slider appears, with the price your position would be closed out at updating live underneath it. It is the cheapest possible way to find out what 20× actually means.' },
+      { kind: 'new', text: 'Calls and puts, priced properly, with the implied volatility and delta of every strike. Sell one and it tells you the margin it holds against you first.' },
+      { kind: 'new', text: 'The market keeps running while the app is closed. Come back after a few hours and it catches up, with a progress bar telling you how much it is making up.' },
+      { kind: 'new', text: 'Run it faster than life — up to a thousand times — to see a week play out over a coffee, or pause it and think.' },
+      { kind: 'new', text: 'Accounts hold an equity curve, your win rate, your largest drawdown, and a full record of every fill, fee and funding payment. You can keep several and switch between them.' },
+      { kind: 'new', text: 'One button erases the whole sandbox and starts a fresh market. It is on the accounts screen and it asks first.' },
+      { kind: 'improved', text: 'The privacy toggle now blanks the chart too — the axis labels, the price and the equity curve, not just the amounts in the lists.' },
+      { kind: 'improved', text: 'There is a blue-and-orange palette in the chart settings for anyone who does not read red and green apart easily.' },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '08-08-2026',
     changes: [

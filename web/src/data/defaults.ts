@@ -2,6 +2,7 @@
 // starts with the same accounts and categories.
 //   accounts       ← src/analytics/accounts.py DEFAULT_ACCOUNTS
 //   categories     ← src/analytics/transaction_categories.py DEFAULT_CATEGORIES
+import type { Timeframe } from '../lib/trading/types'
 
 export const DEFAULT_ACCOUNTS: string[] = [
   'Cash',
@@ -328,4 +329,46 @@ export const DEFAULT_AI: AiCfg = {
   model: AI_MODELS.claude,
   confirmBeforeSave: true,
   detailsCollapsed: false,
+}
+
+// ── Paper-trading sandbox preferences ────────────────────────────────────────
+// What the trading screen looks like when the user comes back to it, and nothing
+// more: no money, no positions, no market. Those live in their own tables (see
+// db.ts v5), because they change many times a second and a config row does not.
+//
+// `indicators` is an ordered list, so features/trading/store.ts VALIDATES it on
+// read instead of merging it — the same reasoning as `debts` in db.ts.
+//
+// `mode` starts on 'sim': the sandbox must work with the plane in flight mode,
+// and a first run that reaches for a crypto exchange would contradict the whole
+// "your data stays on your device" promise before the user has agreed to it.
+export interface TradingCfg {
+  selectedAccountId: string | null
+  mode: 'sim' | 'live'
+  speed: number
+  timeframe: Timeframe
+  chartType: 'candles' | 'hollow' | 'heikin' | 'bars' | 'line' | 'area'
+  indicators: string[]
+  symbol: string
+  showDepth: boolean
+  colorBlind: boolean
+  soundOn: boolean
+  // When the leverage/options disclaimer was accepted (ISO), or null while the
+  // gate is still up. A personal-finance app shipping a margin simulator owes the
+  // user one unmistakable "this is not real money, and not advice" screen.
+  disclaimerAcceptedAt: string | null
+}
+
+export const DEFAULT_TRADING: Readonly<TradingCfg> = {
+  selectedAccountId: null,
+  mode: 'sim',
+  speed: 1,
+  timeframe: '1m',
+  chartType: 'candles',
+  indicators: [],
+  symbol: 'BTC',
+  showDepth: false,
+  colorBlind: false,
+  soundOn: false,
+  disclaimerAcceptedAt: null,
 }

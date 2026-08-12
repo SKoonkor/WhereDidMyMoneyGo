@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { db, ensureSeeded, addTxn, addTransfer, listTxns, addGoalMove, listGoalMoves, getAccounts, getBudget, getGoals, getTax, getDebts, getHomeLayout, saveBudget, saveGoals, saveTax, saveDebts, saveHomeLayout } from '../../db'
 import { allocations } from '../analytics/goalSavings'
+import { DEFAULT_TRADING } from '../../data/defaults'
+import {
+  getTrading, saveTrading, listAccounts, saveAccount, appendTrades, listTrades,
+  appendEquity, listEquity, saveWorld, loadWorld, saveBars, loadBars, flush, resetSandbox,
+} from '../../features/trading/store'
 import { toExportRecords, toCsv } from './exporter'
 import { makeBackup, parseBackup, restoreBackup } from './backup'
 
 beforeEach(async () => {
+  await resetSandbox()
   await db.transactions.clear()
   await db.config.clear()
   await db.goalMoves.clear()
@@ -70,7 +76,7 @@ describe('backup / restore', () => {
     const gid = await addTransfer({ period: '2026-07-11', amount: 2000, from: 'Cash', to: 'Savings', goal: 'Car' })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(6)
+    expect(backup.version).toBe(7)
     expect(backup.goalMoves).toHaveLength(2)
 
     await db.transactions.clear()
@@ -101,7 +107,7 @@ describe('backup / restore', () => {
     await saveTax({ country: 'Thailand', allowances: { spouse: true, children: 2 }, incomeSelections: ['Salary'], taxSelections: ['Bills'] })
 
     const backup = await makeBackup()
-    expect(backup.version).toBe(6)
+    expect(backup.version).toBe(7)
     expect(backup.budget?.mode).toBe('rolling')
     expect(backup.goals?.selected).toEqual(['Car'])
     expect(backup.tax?.allowances.children).toBe(2)
@@ -230,6 +236,82 @@ describe('backup / restore', () => {
     }
     await restoreBackup(parseBackup(JSON.stringify(v3)))
     expect((await getHomeLayout()).items.map((i) => i.widget)).toEqual(['accounts'])
+  })
+
+  it('round-trips the paper-trading sandbox (v7)', async () => {
+    await saveTrading({ ...DEFAULT_TRADING, symbol: 'ETH', speed: 8, indicators: ['sma-20'] })
+    const acct = { id: 'a1', name: 'Practice', cash: 9_500, positions: { BTC: { qty: 0.5 } }, orders: [] }
+    await saveAccount(acct)
+    const buy = { id: 't1', accountId: 'a1', t: 1_000, symbol: 'BTC', side: 'buy', qty: 0.5, price: 1000 }
+    await appendTrades([buy])
+    await appendEquity('a1', [{ t: 1_000, v: 10_000 }, { t: 9_000, v: 10_150 }])
+    await saveWorld({
+      seed: 'seed-9', savedAtWall: 0,
+      clock: { simNow: 900_000, speed: 8, residual: 0, paused: false },
+      markets: { BTC: { version: 1, quanta: 3600, logP: 11.2 } },
+    })
+    await flush('hidden')
+
+    const backup = await makeBackup()
+    expect(backup.version).toBe(7)
+
+    await resetSandbox()
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+
+    expect(await listAccounts()).toEqual([acct])
+    expect((await listTrades('a1')).map((t) => t.id)).toEqual(['t1'])
+    expect(await listEquity('a1')).toEqual([{ t: 1_000, v: 10_000 }, { t: 9_000, v: 10_150 }])
+    const cfg = await getTrading()
+    expect(cfg.symbol).toBe('ETH')
+    expect(cfg.indicators).toEqual(['sma-20'])
+  })
+
+  it('carries the world’s seed and clock, and nothing else about the market', async () => {
+    // Candles and market state are excluded on purpose: they are a pure function
+    // of the seed and the clock, so they regenerate, and a month of one-minute
+    // bars would turn a backup into a 40 MB file nobody can email themselves.
+    await saveWorld({
+      seed: 'seed-9', savedAtWall: 0,
+      clock: { simNow: 900_000, speed: 1, residual: 0, paused: false },
+      markets: { BTC: { version: 1, quanta: 3600, logP: 11.2 } },
+    })
+    await saveBars('BTC', '1m', Array.from({ length: 600 }, (_, i) => ({
+      t: i * 60_000, o: 100, h: 101, l: 99, c: 100.5, v: 12, n: 3,
+    })))
+    await flush('hidden')
+
+    const backup = await makeBackup()
+    expect(backup.simWorld).toEqual({
+      seed: 'seed-9', savedAtWall: expect.any(Number),
+      clock: { simNow: 900_000, speed: 1, residual: 0, paused: false },
+    })
+    const json = JSON.stringify(backup)
+    expect(json).not.toContain('simBars')
+    expect(json).not.toContain('markets')
+    expect(json.length).toBeLessThan(200_000)
+
+    // Restoring clears the old world's candles rather than splicing two histories
+    // into one chart. The seed is what brings them back.
+    await restoreBackup(parseBackup(json))
+    expect(await loadBars('BTC', '1m', 1_000)).toEqual([])
+    expect((await loadWorld())?.seed).toBe('seed-9')
+  })
+
+  it('restores a pre-v7 file without touching the sandbox', async () => {
+    await saveTrading({ ...DEFAULT_TRADING, symbol: 'ETH' })
+    const acct = { id: 'a1', name: 'Practice', cash: 500 }
+    await saveAccount(acct)
+    await flush('hidden')
+
+    const v6 = {
+      app: 'where-did-my-money-go', version: 6, exportedAt: new Date().toISOString(),
+      transactions: [], accounts: ['Cash'], categories: { income: {}, expense: {} },
+    }
+    await restoreBackup(parseBackup(JSON.stringify(v6)))
+
+    // The old file has no way to describe a sandbox, so it must not erase one.
+    expect(await listAccounts()).toEqual([acct])
+    expect((await getTrading()).symbol).toBe('ETH')
   })
 
   it('rejects a non-backup file', () => {

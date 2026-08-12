@@ -19,6 +19,7 @@ import {
   DEFAULT_RECONCILE,
   DEFAULT_RETIREMENT,
   DEFAULT_SETTINGS,
+  DEFAULT_TRADING,
   OTHER_NAME,
   UNKNOWN_NAME,
   normalizeLimits,
@@ -32,6 +33,7 @@ import {
   type RetirementInputs,
   type Settings,
 } from './data/defaults'
+import type { SimTime, Timeframe } from './lib/trading/types'
 import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
 import {
   DEFAULT_HOME_LAYOUT, applyLegacyCollapsed, normalizeLayout, type HomeLayout,
@@ -73,20 +75,83 @@ export interface Txn {
 }
 
 interface ConfigRow {
-  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'debts' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai' | 'home'
+  key: 'accounts' | 'categories' | 'settings' | 'budget' | 'goals' | 'debts' | 'reconcile' | 'tax' | 'retirement' | 'notifications' | 'ai' | 'home' | 'trading'
   value: unknown
 }
+
+// ── The paper-trading sandbox (v5) ───────────────────────────────────────────
+// Five stores that belong to the simulator and to nothing else. They are separate
+// tables rather than tagged rows in `transactions` for one reason above all the
+// others: the sandbox trades imaginary money, and keeping it in its own stores is
+// what makes `resetSandbox()` a table wipe instead of a filtered delete whose
+// filter could one day be wrong and take real transactions with it.
+//
+// The row shapes below declare the primary key and the INDEXED columns, and stop
+// there. The rest of each record — a BrokerAccount's positions and orders, a
+// Trade's price and fee, a WorldSnapshot's market state — rides along as stored
+// data whose shape belongs to lib/trading/, which db.ts deliberately does not
+// import: the ledger must not learn the sandbox's internals. Exactly one module,
+// features/trading/store.ts, knows both sides.
+
+/** One paper account. The key is the account's own uuid, so a save is idempotent. */
+export interface SimAccountRow { id: string }
+
+/** One executed trade. A Trade carries its own uuid, which becomes the row key —
+ *  so re-writing a batch after a failed flush updates rows instead of throwing
+ *  ConstraintError and losing the rest of the batch. `++` covers a row written
+ *  without one. */
+export interface SimTradeRow { id: number | string; accountId: string; t: SimTime; symbol: string }
+
+/** One point on an account's equity curve — small enough to declare whole. */
+export interface SimEquityRow { id: number; accountId: string; t: SimTime; v: number }
+
+/** The world, as a singleton row under the key 'world'. */
+export interface SimWorldRow { id: 'world' }
+
+/**
+ * BAR_CHUNK candles packed into one row, columns as typed arrays.
+ *
+ * Two things make this the shape rather than a row per candle. IndexedDB
+ * structured-clones a Float64Array natively and fast, with none of the
+ * per-element boxing an array of objects costs; and a thousand candles written
+ * one row at a time is a thousand IndexedDB commits, which on Safari land on the
+ * main thread and stutter the very chart they are there to draw.
+ *
+ * The columns mirror CandleSeries exactly, `n` (the trade count in the bar)
+ * included. It is tempting to drop `n` as a generation-time detail, but it is
+ * what volume is bucketed by, so a reloaded series without it draws a visibly
+ * different volume histogram from the one the user was looking at.
+ */
+export interface SimBarChunk {
+  id: number
+  symbol: string
+  tf: Timeframe
+  t0: SimTime
+  count: number
+  t: Float64Array; o: Float64Array; h: Float64Array
+  l: Float64Array; c: Float64Array; v: Float64Array; n: Float64Array
+}
+
+/** Candles per `simBars` row. */
+export const BAR_CHUNK = 500
 
 const db = new Dexie('money-tracker') as Dexie & {
   transactions: EntityTable<Txn, 'id'>
   config: EntityTable<ConfigRow, 'key'>
   goalMoves: EntityTable<GoalMove, 'id'>
+  simAccounts: EntityTable<SimAccountRow, 'id'>
+  simTrades: EntityTable<SimTradeRow, 'id'>
+  simEquity: EntityTable<SimEquityRow, 'id'>
+  simWorld: EntityTable<SimWorldRow, 'id'>
+  simBars: EntityTable<SimBarChunk, 'id'>
 }
 
 // v1 shipped only `transactions`. v2 adds the transferId index + the config store.
 // v3 adds `goalMoves` — the per-goal allocation layer. v4 adds the `debt` index,
-// which tags a row as a payment toward (or a draw on) a standalone debt. Dexie
-// needs the whole schema restated per version, so earlier stores are repeated.
+// which tags a row as a payment toward (or a draw on) a standalone debt. v5 adds
+// the five paper-trading stores; it is purely additive, so an existing ledger
+// upgrades with nothing rewritten and nothing to lose. Dexie needs the whole
+// schema restated per version, so earlier stores are repeated.
 db.version(1).stores({ transactions: '++id, period, account, type, category' })
 db.version(2).stores({
   transactions: '++id, period, account, type, category, transferId',
@@ -101,6 +166,16 @@ db.version(4).stores({
   transactions: '++id, period, account, type, category, transferId, debt',
   config: 'key',
   goalMoves: '++id, period, transferId',
+})
+db.version(5).stores({
+  transactions: '++id, period, account, type, category, transferId, debt',
+  config: 'key',
+  goalMoves: '++id, period, transferId',
+  simAccounts: 'id',                    // uuid string
+  simTrades: '++id, accountId, t, symbol, [accountId+t]',
+  simEquity: '++id, accountId, t, [accountId+t]',
+  simWorld: 'id',                       // singleton, id = 'world'
+  simBars: '++id, [symbol+tf], t0, [symbol+tf+t0]',
 })
 
 export { db }
@@ -121,6 +196,7 @@ export async function ensureSeeded(): Promise<void> {
   if (!existing.has('tax')) puts.push({ key: 'tax', value: DEFAULT_TAX })
   if (!existing.has('notifications')) puts.push({ key: 'notifications', value: DEFAULT_NOTIFICATIONS })
   if (!existing.has('ai')) puts.push({ key: 'ai', value: DEFAULT_AI })
+  if (!existing.has('trading')) puts.push({ key: 'trading', value: DEFAULT_TRADING })
   // The Home layout starts as the pre-editor arrangement, carrying over whichever
   // boxes the user had folded before 0.4 (collapse state used to live in
   // localStorage, keyed by the same ids the singleton uids use).

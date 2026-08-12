@@ -22,6 +22,13 @@ const CALCULATORS: Tile[] = [
   { to: '/income-tax', label: 'Income Tax', desc: 'Estimate your yearly income tax.', icon: '🧾' },
 ]
 
+// Kept apart from the calculators on purpose: everything above answers a question
+// about the user's real money, and this does not. The tile says so in its own
+// description, and the page itself opens on a one-time disclaimer.
+const SIMULATORS: Tile[] = [
+  { to: '/trading', label: 'Paper trading', desc: 'Practise on a simulated market.', icon: '🕹️' },
+]
+
 function TileGrid({ tiles }: { tiles: Tile[] }) {
   return (
     <div className="apps-grid">
@@ -46,6 +53,9 @@ export function AppsPage() {
 
       <h2 className="apps-section-title">{t('Calculators')}</h2>
       <TileGrid tiles={CALCULATORS} />
+
+      <h2 className="apps-section-title">{t('Simulators')}</h2>
+      <TileGrid tiles={SIMULATORS} />
 
       <p className="muted" style={{ marginTop: 20 }}>{t('More coming soon.')}</p>
     </div>

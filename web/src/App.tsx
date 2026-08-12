@@ -60,6 +60,19 @@ const ImportPage = lazy(() =>
   import('./features/import/ImportPage').then((m) => ({ default: m.ImportPage })),
 )
 
+// Same treatment for the paper-trading simulator: a chart engine, a market model,
+// a broker and an options pricer are a lot of code for a screen most sessions
+// never open, and none of it belongs in the initial bundle.
+const TradingPage = lazy(() =>
+  import('./features/trading/TradingPage').then((m) => ({ default: m.TradingPage })),
+)
+const TradingAccountsPage = lazy(() =>
+  import('./features/trading/AccountsPage').then((m) => ({ default: m.AccountsPage })),
+)
+const TradingOptionsPage = lazy(() =>
+  import('./features/trading/OptionsPage').then((m) => ({ default: m.OptionsPage })),
+)
+
 function Header() {
   const [theme, toggleTheme] = useTheme()
   const [censor, toggleCensor] = useCensor()
@@ -205,6 +218,30 @@ export default function App() {
               element={
                 <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
                   <ImportPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/trading"
+              element={
+                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
+                  <TradingPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/trading/accounts"
+              element={
+                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
+                  <TradingAccountsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/trading/options"
+              element={
+                <Suspense fallback={<p className="muted">{t('Loading…')}</p>}>
+                  <TradingOptionsPage />
                 </Suspense>
               }
             />
