@@ -43,6 +43,15 @@ describe('buildFlowFigure box', () => {
     expect((empty.margin as Dict).t).toBe(16)
     expect((empty.margin as Dict).b).toBe(36)
   })
+
+  // The Flow page draws a much taller chart than the Home tile, so the height
+  // is an option. Both branches have to honour it or the page and its empty
+  // state would disagree.
+  it('honours an explicit height in both branches', () => {
+    const tall = { ...OPTS, height: 460 }
+    expect(layoutOf(buildFlowFigure(buildFlow([T({})]), null, tall)).height).toBe(460)
+    expect(layoutOf(buildFlowFigure(EMPTY_FLOW, null, tall)).height).toBe(460)
+  })
 })
 
 describe('income arrow standoff', () => {
@@ -50,12 +59,12 @@ describe('income arrow standoff', () => {
   // units via the drawn plot height. This converts it back and pins the
   // invariant, so changing PLOT_H/PLOT_MT/PLOT_MB can never silently detach the
   // arrows from their bars.
-  it('stays 13px above the bar top whatever the y-range is', () => {
+  it.each([undefined, 460])('stays 13px above the bar top whatever the y-range is (height %s)', (height) => {
     const flow = buildFlow([
       T({ period: '2026-07-01', type: 'Income', amount: 45_000, account: 'Bank' }),
       T({ period: '2026-07-05', amount: 300 }),
     ])
-    const fig = buildFlowFigure(flow, null, OPTS)
+    const fig = buildFlowFigure(flow, null, { ...OPTS, height })
     const l = layoutOf(fig)
 
     const arrows = fig.data.find(

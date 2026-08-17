@@ -62,12 +62,15 @@ export interface FlowFigureOpts {
    * (one entry, index 0) would repaint an unnamed account.
    */
   allAccounts?: string[]
+  /** Drawn plot height in px. Defaults to PLOT_H — the Home widget's box. */
+  height?: number
   noData: string
   labels: { netWorth: string; balances: string; amount: string; balanceAfter: string; forecast: string; hidden: string }
 }
 
 export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts: FlowFigureOpts) {
   const { currency, defaultDays, censor, ui, noData, labels } = opts
+  const h = opts.height ?? PLOT_H
   const order = opts.allAccounts ?? flow.accounts
   const colorIdx = (name: string) => {
     const i = order.indexOf(name)
@@ -80,7 +83,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
       layout: {
         // Same box as the real figure — kept on the constants so the two can't
         // drift apart (they had, before figure.test.ts started asserting it).
-        height: PLOT_H, ...transparent, margin: { t: PLOT_MT, b: PLOT_MB, l: 60, r: 20 },
+        height: h, ...transparent, margin: { t: PLOT_MT, b: PLOT_MB, l: 60, r: 20 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted, size: 16 } }],
       } as Dict,
     }
@@ -181,7 +184,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   // height (layout height − top/bottom margins, mirrored below).
   const incomeBars = flow.bars.filter((b) => b.type === 'Income')
   if (incomeBars.length) {
-    const areaPx = PLOT_H - PLOT_MT - PLOT_MB
+    const areaPx = h - PLOT_MT - PLOT_MB
     const standoff = (ARROW_STANDOFF_PX * ((hi - lo) + 2 * pad)) / areaPx
     data.push({
       type: 'scatter',
@@ -198,7 +201,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   return {
     data,
     layout: {
-      height: PLOT_H,
+      height: h,
       barmode: 'overlay',
       bargap: 0,
       ...transparent,

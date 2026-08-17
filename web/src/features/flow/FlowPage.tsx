@@ -13,6 +13,10 @@ function fmtDay(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
+// The page gives the chart 2.5x the Home widget's 184px box — this is the main
+// view of the data, not a tile, so it gets the room to read the balance line.
+const PAGE_PLOT_H = 460
+
 const HORIZONS: Array<{ label: string; days: number }> = [
   { label: '30 d', days: 30 },
   { label: '90 d', days: 90 },
@@ -27,7 +31,7 @@ export function FlowPage() {
   // '' = the whole ledger (the default view).
   const [account, setAccount] = useState('')
 
-  const { fig, fc, flow, flowAll, currency, censor } = useMoneyFlow(horizon, 60, account || null)
+  const { fig, fc, flow, flowAll, currency, censor } = useMoneyFlow(horizon, 60, account || null, PAGE_PLOT_H)
 
   // Slider stops: day-offsets from today (0) out to the horizon — daily for the
   // 30-day view, weekly for the longer horizons (> 45 d).
@@ -95,26 +99,6 @@ export function FlowPage() {
         <Plot data={plotData} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
       </div>
 
-      {/* Scope the plot to one account. Options come from the accounts that
-          actually have transactions, not the configured list, so picking one can
-          never produce an empty chart. */}
-      {flowAll.accounts.length > 1 && (
-        <div className="card flow-account-card">
-          <div className="flow-bal-title">{t('Show one account')}</div>
-          <ChipPicker
-            value={account || t('All accounts')}
-            options={[t('All accounts'), ...flowAll.accounts]}
-            onChange={(v) => setAccount(v === t('All accounts') ? '' : v)}
-            title={t('Account')}
-          />
-          {account && (
-            <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-              {t('Plot and forecast show {account} only.', { account })}
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Latest balances live in their own box below the plot. Always the whole
           ledger — the point of the list is the comparison, so filtering the plot
           bolds the picked account rather than hiding the others. */}
@@ -141,6 +125,27 @@ export function FlowPage() {
             <span>{t('Net worth')}</span>
             <span><span className="money">{censor ? '*****' : fmt(flowAll.netWorth)}</span> {currency}</span>
           </div>
+        </div>
+      )}
+
+      {/* Scope the plot to one account. Sits under the balances list so that
+          list stays adjacent to the plot it annotates. Options come from the
+          accounts that actually have transactions, not the configured list, so
+          picking one can never produce an empty chart. */}
+      {flowAll.accounts.length > 1 && (
+        <div className="card flow-account-card">
+          <div className="flow-bal-title">{t('Show one account')}</div>
+          <ChipPicker
+            value={account || t('All accounts')}
+            options={[t('All accounts'), ...flowAll.accounts]}
+            onChange={(v) => setAccount(v === t('All accounts') ? '' : v)}
+            title={t('Account')}
+          />
+          {account && (
+            <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+              {t('Plot and forecast show {account} only.', { account })}
+            </p>
+          )}
         </div>
       )}
 

@@ -36,7 +36,9 @@ export interface MoneyFlow {
 // the "default money flow plot": a 1-month forecast over a 2-month opening window.
 // Shared by FlowPage (which varies the horizon and can scope to one account) and
 // the Home dashboard embed.
-export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | null = null): MoneyFlow {
+// `height` overrides the figure's own box (the Flow page draws a much taller
+// chart than the Home tile); leave it out to keep the widget-sized default.
+export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | null = null, height?: number): MoneyFlow {
   const all = useLiveTxns()
   const currency = useBaseCurrency()
   const [theme] = useTheme()
@@ -82,6 +84,7 @@ export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | n
         // Bar colours are picked by position, so pass the full account list —
         // otherwise filtering to one account would recolour it.
         allAccounts: flowAll.accounts,
+        height,
         noData: t('No transactions yet'),
         labels: {
           // Scoped, the in-plot line is that account's balance, not net worth.
@@ -93,7 +96,7 @@ export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | n
           hidden: t('Hidden cost (untracked)'),
         },
       }),
-    [flow, fc, currency, defaultDays, censor, ui, flowAll, account],
+    [flow, fc, currency, defaultDays, censor, ui, flowAll, account, height],
   )
 
   return { fig, fc, flow, flowAll, currency, censor }
