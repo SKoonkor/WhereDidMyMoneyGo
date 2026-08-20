@@ -44,7 +44,7 @@ export function FlowPage() {
   // Pan / pinch-zoom / hold-to-inspect. The chart's y-axis refits to whatever
   // the window shows, so this owns the axes from here on.
   const { wrapRef, onRender, readout, inspecting } = useFlowInteraction({
-    flow, fc, layout: fig.layout, defaultDays: 60,
+    flow, fc, layout: fig.layout, highlight: fig.highlight, defaultDays: 60,
     enabled: flow.bars.length > 0,
     resetKey: `${account}|${horizon}`,
   })

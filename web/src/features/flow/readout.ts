@@ -36,7 +36,11 @@ export interface FlowPoint {
 export function pickFlowPoint(flow: FlowData, fc: Forecast | null, xMs: number): FlowPoint | null {
   if (flow.bars.length === 0) return null
 
-  const day = Math.round(xMs / MS_PER_DAY) * MS_PER_DAY
+  // floor, not round: a day's bars are drawn INSIDE that day (moneyflow.ts packs
+  // them across it), so the day an x belongs to is the one it falls in. Rounding
+  // put the boundary at the day's midpoint, which meant pointing at a bar in the
+  // right-hand half of a day picked the day AFTER it.
+  const day = Math.floor(xMs / MS_PER_DAY) * MS_PER_DAY
   const fcEnd = fc ? dayMs(fc.dates[fc.dates.length - 1]) : flow.lastDay
   if (day < flow.firstDay || day > Math.max(flow.lastDay, fcEnd)) return null
 
@@ -84,5 +88,10 @@ export function pickFlowPoint(flow: FlowData, fc: Forecast | null, xMs: number):
   return { dateIso: isoOf(day), balance, isForecast: false, band: null, txns }
 }
 
-/** UTC midnight of an ISO day, in ms — the x position of that day's bars. */
+/** UTC midnight of an ISO day, in ms — where that day STARTS on the axis. */
 export const flowDayMs = dayMs
+
+/** Centre of a day on the axis. moneyflow.ts packs a day's bars ACROSS the day
+ *  (DAY_USABLE, centres landing in [0.05, 0.95] of it), so the midpoint — not
+ *  the midnight edge — is where a crosshair for that day belongs. */
+export const flowDayCentreMs = (iso: string): number => dayMs(iso) + MS_PER_DAY / 2

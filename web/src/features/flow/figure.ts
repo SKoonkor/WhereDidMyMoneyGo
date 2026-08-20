@@ -183,6 +183,25 @@ export function flowDataBounds(
   return { min: flow.firstDay - MS_PER_DAY, max: fcEnd + MS_PER_DAY }
 }
 
+// ── Held-day highlight ───────────────────────────────────────────────────────
+// While a date is held, only that date keeps its colour; the other bars and the
+// forecast go grey. Driven imperatively by useFlowInteraction through Plotly's
+// own selection API, so an update is a style-only restyle of an index array —
+// not a data rebuild, which at ~60 pointermoves a second would replot the whole
+// chart per frame. This spec is what tells the hook which traces to touch.
+export interface FlowHighlightSpec {
+  /** Indices into `data` of the per-account bar traces. */
+  barTraces: number[]
+  /** Per bar trace, the UTC-midnight day of each of its points, same order. */
+  barDays: number[][]
+  /** Forecast traces dimmed wholesale, with both values so they can be restored. */
+  forecast: Array<{ trace: number; prop: 'fillcolor' | 'line.color'; normal: string; dim: string }>
+}
+
+/** Grey for the fan fills, at the same alphas the blue uses. */
+const FAN_DIM_90 = 'rgba(150,150,150,0.12)'
+const FAN_DIM_50 = 'rgba(150,150,150,0.22)'
+
 export interface FlowFigureOpts {
   currency: string
   defaultDays: number
@@ -225,6 +244,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
         height: h, ...transparent, margin: { t: FLOW_PLOT_MT, b: FLOW_PLOT_MB, l: 60, r: 20 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted, size: 16 } }],
       } as Dict,
+      highlight: { barTraces: [], barDays: [], forecast: [] } as FlowHighlightSpec,
     }
   }
 
@@ -239,9 +259,13 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   }
 
   // ── One bar trace per account ───────────────────────────────────────────────
+  const barTraces: number[] = []
+  const barDays: number[][] = []
   flow.accounts.forEach((account) => {
     const sub = flow.bars.filter((b) => b.account === account)
     if (sub.length === 0) return
+    barTraces.push(data.length)
+    barDays.push(sub.map((b) => dayMs(b.date)))
     data.push({
       type: 'bar',
       x: sub.map((b) => b.x),
@@ -256,6 +280,12 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
         // dark outline is dropped. Transfer-/Adjustment-In keep the outline.
         line: { color: BAR_OUTLINE, width: sub.map((b) => (b.incomeLike && b.type !== 'Income' ? 1.6 : 0)) },
       },
+      // Inert until `selectedpoints` is set, so the chart renders exactly as it
+      // always has. Both halves are explicit: Plotly's default for unselected
+      // points is an opacity fade, and what is wanted is a grey COLOUR at full
+      // strength.
+      selected: { marker: { opacity: 1 } },
+      unselected: { marker: { color: ui.muted, opacity: 1 } },
       customdata: sub.map((b) => [b.type, b.amount, b.cumAfter, b.date, b.category]),
       hovertemplate:
         `<b>%{customdata[0]}</b> · ${account}<br>%{customdata[3]}<br>%{customdata[4]}<br>` +
@@ -266,12 +296,16 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
   })
 
   // ── Forecast fan (behind median): 90% then 50% bands, then the dashed line ──
+  const fcDim: FlowHighlightSpec['forecast'] = []
   if (forecast) {
     const fx = forecast.dates
     data.push({ type: 'scatter', mode: 'lines', x: fx, y: forecast.hi90, line: { width: 0 }, hoverinfo: 'skip', showlegend: false })
+    fcDim.push({ trace: data.length, prop: 'fillcolor', normal: 'rgba(52,152,219,0.12)', dim: FAN_DIM_90 })
     data.push({ type: 'scatter', mode: 'lines', x: fx, y: forecast.lo90, line: { width: 0 }, fill: 'tonexty', fillcolor: 'rgba(52,152,219,0.12)', hoverinfo: 'skip', showlegend: false })
     data.push({ type: 'scatter', mode: 'lines', x: fx, y: forecast.hi50, line: { width: 0 }, hoverinfo: 'skip', showlegend: false })
+    fcDim.push({ trace: data.length, prop: 'fillcolor', normal: 'rgba(52,152,219,0.22)', dim: FAN_DIM_50 })
     data.push({ type: 'scatter', mode: 'lines', x: fx, y: forecast.lo50, line: { width: 0 }, fill: 'tonexty', fillcolor: 'rgba(52,152,219,0.22)', hoverinfo: 'skip', showlegend: false })
+    fcDim.push({ trace: data.length, prop: 'line.color', normal: FORECAST_COLOR, dim: ui.muted })
     data.push({
       type: 'scatter', mode: 'lines', x: fx, y: forecast.median, name: labels.forecast,
       line: { color: FORECAST_COLOR, width: 2, dash: 'dash' },
@@ -328,6 +362,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
 
   return {
     data,
+    highlight: { barTraces, barDays, forecast: fcDim } as FlowHighlightSpec,
     layout: {
       height: h,
       barmode: 'overlay',

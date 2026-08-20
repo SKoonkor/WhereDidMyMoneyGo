@@ -145,3 +145,72 @@ describe('y-range fitting', () => {
     expect(hi).toBeCloseTo(108, 6)
   })
 })
+
+const FC = {
+  dates: ['2026-07-10', '2026-07-11'],
+  median: [100, 100], lo50: [90, 90], hi50: [110, 110],
+  lo90: [50, 50], hi90: [150, 150],
+  anchorDate: '2026-07-10', anchorValue: 100,
+}
+
+describe('held-day highlight spec', () => {
+  const flow = buildFlow([
+    T({ id: 1, period: '2026-07-01', type: 'Income', amount: 5000, account: 'Bank' }),
+    T({ id: 2, period: '2026-07-10', amount: 100, account: 'Cash' }),
+    T({ id: 3, period: '2026-07-10', amount: 250, account: 'Cash' }),
+  ])
+  const fig = buildFlowFigure(flow, FC, OPTS)
+
+  // The dim style is declared on the trace but must do NOTHING until the hook
+  // sets selectedpoints — otherwise the chart would render greyed out at rest.
+  it('declares the dim style but stays inert', () => {
+    for (const i of fig.highlight.barTraces) {
+      const tr = fig.data[i]
+      expect(((tr.unselected as Dict).marker as Dict).color).toBe(UI.muted)
+      expect(((tr.selected as Dict).marker as Dict).opacity).toBe(1)
+      expect(tr.selectedpoints).toBeUndefined()
+    }
+  })
+
+  it('points barTraces at the bar traces, and only those', () => {
+    expect(fig.highlight.barTraces.length).toBeGreaterThan(0)
+    for (const i of fig.highlight.barTraces) expect(fig.data[i].type).toBe('bar')
+  })
+
+  // The hook indexes points by day, so a day array that is out of step with its
+  // trace would highlight the wrong bars.
+  it('gives one day per point, aligned with the trace', () => {
+    fig.highlight.barTraces.forEach((t, k) => {
+      const days = fig.highlight.barDays[k]
+      expect(days).toHaveLength((fig.data[t].x as number[]).length)
+      // Every point sits inside the day its entry names.
+      ;(fig.data[t].x as number[]).forEach((x, j) => {
+        expect(x).toBeGreaterThanOrEqual(days[j])
+        expect(x).toBeLessThan(days[j] + 86_400_000)
+      })
+    })
+  })
+
+  it('names forecast traces that really carry the prop it dims', () => {
+    expect(fig.highlight.forecast).toHaveLength(3)
+    for (const f of fig.highlight.forecast) {
+      const tr = fig.data[f.trace] as Dict
+      const actual = f.prop === 'fillcolor' ? tr.fillcolor : (tr.line as Dict).color
+      expect(actual).toBe(f.normal)
+      expect(f.dim).not.toBe(f.normal)
+    }
+  })
+
+  it('leaves the income arrows alone', () => {
+    const arrows = fig.data.find(
+      (d) => ((d as Dict).marker as Dict | undefined)?.symbol === 'triangle-up',
+    ) as Dict
+    expect(arrows.selectedpoints).toBeUndefined()
+    expect(arrows.unselected).toBeUndefined()
+  })
+
+  it('returns an empty spec for the no-data figure', () => {
+    const empty = buildFlowFigure(EMPTY_FLOW, null, OPTS).highlight
+    expect(empty).toEqual({ barTraces: [], barDays: [], forecast: [] })
+  })
+})

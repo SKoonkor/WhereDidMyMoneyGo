@@ -19,12 +19,13 @@ import { attachGestures } from '../../lib/chart/gestures'
 import { createSpring, easeOutCubic } from '../../lib/chart/physics'
 import {
   buildFlowYSource, flowYRange, padFlowY, flowDefaultRange, flowDataBounds,
+  type FlowHighlightSpec,
 } from './figure'
 import {
   plotBox, xFromPx, pxFromX, panView, zoomView, clampView, FLOW_MIN_SPAN_MS, flowMaxSpan,
   type FlowView, type PlotBox, type PlotMargin,
 } from './view'
-import { pickFlowPoint, flowDayMs, type FlowPoint } from './readout'
+import { pickFlowPoint, flowDayMs, flowDayCentreMs, type FlowPoint } from './readout'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Plotly = any
@@ -45,6 +46,12 @@ const READOUT_MIN_TOP_PX = 96
 /** Keep the label's centre this far inside the plot box. Must be >= half of
  *  .flow-readout's max-width, or a wide readout can still overflow the card. */
 const READOUT_INSET = 0.3
+/** Stand-in day for a position with no bars to highlight (every forecast day).
+ * Not a real day key — those are multiples of a day — so the Map lookup misses
+ * and the selection comes out empty. The point is that ALL such positions share
+ * ONE value, so scrubbing the length of the forecast costs a single restyle
+ * instead of one per day for an identical empty selection. */
+const NO_BARS_DAY = -1
 
 export interface FlowReadout {
   point: FlowPoint
@@ -65,6 +72,8 @@ export function useFlowInteraction(args: {
    *  mapping always matches what Plotly actually drew (the left margin flips
    *  with censor mode). */
   layout: Record<string, unknown>
+  /** Which traces the held-day highlight drives (buildFlowFigure emits it). */
+  highlight: FlowHighlightSpec
   defaultDays: number
   /** False for the empty figure, which has no axes to drive. */
   enabled: boolean
@@ -76,7 +85,7 @@ export function useFlowInteraction(args: {
   readout: FlowReadout | null
   inspecting: boolean
 } {
-  const { flow, fc, layout, defaultDays, enabled, resetKey } = args
+  const { flow, fc, layout, highlight, defaultDays, enabled, resetKey } = args
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const gdRef = useRef<HTMLDivElement | null>(null)
@@ -106,8 +115,49 @@ export function useFlowInteraction(args: {
 
   // Everything the rAF loop and the gesture handlers read, held in refs so the
   // listeners can be attached once and never re-bound mid-gesture.
-  const live = useRef({ ySrc, bounds, defaults, hasIncome, maxSpan, flow, fc, layout })
-  live.current = { ySrc, bounds, defaults, hasIncome, maxSpan, flow, fc, layout }
+  // day -> the point indices on that day, per bar trace. Built once per figure so
+  // that moving the crosshair onto a new day is a map lookup, not a scan over
+  // every bar in the ledger.
+  const dayIndex = useMemo(
+    () => highlight.barDays.map((days) => {
+      const m = new Map<number, number[]>()
+      days.forEach((d, i) => {
+        const hit = m.get(d)
+        if (hit) hit.push(i)
+        else m.set(d, [i])
+      })
+      return m
+    }),
+    [highlight],
+  )
+
+  // The forecast restyles, grouped by property. Plotly maps an ARRAY value across
+  // the trace list it is given, so the two fan fills go in a single call — two
+  // restyles per crossing instead of three, measured at 35-40% cheaper. Grouped
+  // once here rather than per crossing.
+  const fcGroups = useMemo(() => {
+    const by = new Map<string, { traces: number[]; dim: string[]; normal: string[] }>()
+    for (const f of highlight.forecast) {
+      const g = by.get(f.prop) ?? { traces: [], dim: [], normal: [] }
+      g.traces.push(f.trace)
+      g.dim.push(f.dim)
+      g.normal.push(f.normal)
+      by.set(f.prop, g)
+    }
+    return [...by.entries()]
+  }, [highlight])
+
+  const live = useRef({ ySrc, bounds, defaults, hasIncome, maxSpan, flow, fc, layout, highlight, dayIndex, fcGroups })
+  live.current = { ySrc, bounds, defaults, hasIncome, maxSpan, flow, fc, layout, highlight, dayIndex, fcGroups }
+
+  /** The day currently painted. `undefined` means Plotly re-rendered under us
+   *  and wiped the highlight, which is why it differs from a deliberate null. */
+  const appliedDay = useRef<number | null | undefined>(null)
+  /** Whether the forecast is currently painted dim. Tracked separately from the
+   *  day because it does NOT follow it one-for-one — see applyHighlight. */
+  const appliedFcDim = useRef<boolean | undefined>(false)
+  /** The day the readout is showing, so onRender can repaint after a react(). */
+  const readoutDay = useRef<number | null>(null)
 
   const springLo = useMemo(() => createSpring(AUTOSCALE_K), [])
   const springHi = useMemo(() => createSpring(AUTOSCALE_K), [])
@@ -191,6 +241,53 @@ export function useFlowInteraction(args: {
     rafRef.current = requestAnimationFrame(tick)
   }, [tick])
 
+  // ── Held-day highlight ─────────────────────────────────────────────────────
+  // The whole reason this stays affordable: it returns immediately unless the
+  // day changed, capping the work at one restyle per pointermove rather than one
+  // unconditionally. Don't read more into the margin than that — at the default
+  // 90-day window on a phone a day is only ~4px, so a brisk drag crosses days
+  // about as fast as the pointer reports.
+  //
+  // `selectedpoints` is editType "calc", NOT style: Plotly rebuilds the trace's
+  // calcdata and does not short-circuit an unchanged value. Measured ~8ms at 400
+  // bars to ~37ms at 5000 — comparable to one frame of the pan loop that already
+  // ships. Setting marker.color arrays instead measured no cheaper, so this is
+  // the right mechanism and the guard is what makes it affordable.
+  const applyHighlight = useCallback((day: number | null) => {
+    if (day === appliedDay.current) return
+    const gd = gdRef.current
+    const P = plotlyRef.current
+    const spec = live.current.highlight
+    if (!gd || !P || spec.barTraces.length === 0) return
+
+    appliedDay.current = day
+
+    P.restyle(
+      gd,
+      {
+        selectedpoints: day === null
+          ? spec.barTraces.map(() => null)
+          // sliced: Plotly's selection code appends to this array in some modes,
+          // which would grow the cached entry permanently.
+          : live.current.dayIndex.map((m) => (m.get(day) ?? []).slice()),
+      },
+      spec.barTraces,
+    )
+
+    // The forecast dims only while a REAL day is held. On a forecast day the
+    // crosshair is ON the forecast, so dimming it would grey out the very thing
+    // being inspected — there the bars grey and the forecast keeps its colour.
+    // Tracked on its own flag rather than derived from the day, so crossing
+    // between two real days still costs nothing.
+    const dim = day !== null && day !== NO_BARS_DAY
+    if (dim !== appliedFcDim.current) {
+      appliedFcDim.current = dim
+      for (const [prop, g] of live.current.fcGroups) {
+        P.restyle(gd, { [prop]: dim ? g.dim : g.normal }, g.traces)
+      }
+    }
+  }, [])
+
   // ── Readout ────────────────────────────────────────────────────────────────
   /** True when it found something to show. */
   const showAt = useCallback((x: number, y: number): boolean => {
@@ -201,9 +298,17 @@ export function useFlowInteraction(args: {
     // Off the end of the data: hold what is on screen rather than tearing the
     // readout down, so dragging back onto the data picks up where it left off.
     if (!point) return false
-    // Snap the crosshair to the day it picked, so the line sits on the bar
-    // rather than wherever the finger happened to land.
-    const px = pxFromX(flowDayMs(point.dateIso), v.x0, v.x1, box)
+    readoutDay.current = point.isForecast ? NO_BARS_DAY : flowDayMs(point.dateIso)
+    applyHighlight(readoutDay.current)
+    // Bars are packed ACROSS their day, so the crosshair belongs at the day's
+    // centre or it sits half a day to the left of what it points at. The
+    // forecast is different: its traces are plotted at the date itself
+    // (midnight), so there the centre would miss the very point whose value the
+    // readout is printing.
+    const px = pxFromX(
+      point.isForecast ? flowDayMs(point.dateIso) : flowDayCentreMs(point.dateIso),
+      v.x0, v.x1, box,
+    )
     // Pairs with .flow-readout's max-width: 60%. Half of 60% is 30%, so a
     // centred label clamped to this inset provably stays inside the box —
     // no measuring the rendered element.
@@ -216,12 +321,14 @@ export function useFlowInteraction(args: {
       below: y - READOUT_OFFSET_PX < READOUT_MIN_TOP_PX,
     })
     return true
-  }, [boxOf, viewOf])
+  }, [boxOf, viewOf, applyHighlight])
 
   const dismiss = useCallback(() => {
     inspectingRef.current = false
+    readoutDay.current = null
+    applyHighlight(null)
     setReadout(null)
-  }, [])
+  }, [applyHighlight])
 
   // Plotly's own hover is built off (`hovermode: false`) so it can't fire on
   // touchstart alongside the readout. A real mouse turns it back on — that is
@@ -360,8 +467,10 @@ export function useFlowInteraction(args: {
     viewRef.current = null
     primed.current = false
     inspectingRef.current = false
+    readoutDay.current = null
+    applyHighlight(null) // else the old day stays painted under the new figure
     setReadout(null)
-  }, [resetKey, stopReset])
+  }, [resetKey, stopReset, applyHighlight])
 
   // A gesture is not the only thing that invalidates the fit: the ledger can
   // change under a zoomed view (an import, another tab), and a container resize
@@ -403,7 +512,24 @@ export function useFlowInteraction(args: {
     }
     if (hoverMode.current === 'closest') patch.hovermode = 'closest'
     if (Object.keys(patch).length) P.relayout(gd, patch)
-  }, [springLo, springHi])
+
+    // A react() with FRESH trace objects wipes selectedpoints and the dimmed
+    // forecast colours, so the highlight has to be repainted. (With the same
+    // trace objects it survives — restyle writes selectedpoints back onto them.)
+    // The undefined sentinel stops applyHighlight short-circuiting on a day it
+    // thinks is already painted.
+    //
+    // But only when there is something to paint or something to clear: this runs
+    // on EVERY react, and the slider scrubs one per tick. Repainting an empty
+    // highlight there cost a full calc-recalc plus three forecast restyles, 60
+    // times a second, for no visible change.
+    const day = readoutDay.current
+    if (day !== null || appliedDay.current !== null) {
+      appliedDay.current = undefined
+      appliedFcDim.current = undefined
+      applyHighlight(day)
+    }
+  }, [springLo, springHi, applyHighlight])
 
   return { wrapRef, onRender, readout, inspecting: readout !== null }
 }

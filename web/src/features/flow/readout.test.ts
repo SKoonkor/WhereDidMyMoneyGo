@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { Txn } from '../../db'
 import type { Forecast } from '../../lib/analytics/forecast'
 import { buildFlow, EMPTY_FLOW } from '../../lib/analytics/moneyflow'
-import { pickFlowPoint, flowDayMs } from './readout'
+import { pickFlowPoint, flowDayMs, flowDayCentreMs } from './readout'
 
 const MS_PER_DAY = 86_400_000
 const T = (over: Partial<Txn>): Txn => ({
@@ -28,10 +28,13 @@ const FC: Forecast = {
 }
 
 describe('pickFlowPoint', () => {
-  it('snaps to the nearest day', () => {
-    // A third of the way into the 10th still reads as the 10th.
-    const p = pickFlowPoint(FLOW, null, flowDayMs('2026-07-10') + MS_PER_DAY / 3)!
-    expect(p.dateIso).toBe('2026-07-10')
+  it('snaps to the day the point falls in', () => {
+    // Anywhere inside the 10th reads as the 10th — including the right-hand half,
+    // which a Math.round snap used to push onto the 11th.
+    for (const frac of [0.05, 1 / 3, 0.5, 0.75, 0.95]) {
+      const p = pickFlowPoint(FLOW, null, flowDayMs('2026-07-10') + MS_PER_DAY * frac)!
+      expect(p.dateIso).toBe('2026-07-10')
+    }
   })
 
   it('lists every category on the picked day', () => {
@@ -114,5 +117,22 @@ describe('pickFlowPoint', () => {
 
   it('returns null for an empty ledger', () => {
     expect(pickFlowPoint(EMPTY_FLOW, null, flowDayMs('2026-07-10'))).toBeNull()
+  })
+})
+
+describe('flowDayCentreMs', () => {
+  // The crosshair used to sit on midnight, half a day left of the bars it was
+  // pointing at: moneyflow.ts packs a day's bars across the day, not on its edge.
+  it('is exactly half a day after the day start', () => {
+    expect(flowDayCentreMs('2026-07-10') - flowDayMs('2026-07-10')).toBe(MS_PER_DAY / 2)
+  })
+
+  it('lands inside the span of that day\u2019s bars', () => {
+    const bar = FLOW.bars.find((b) => b.date === '2026-07-10')!
+    const centre = flowDayCentreMs('2026-07-10')
+    expect(centre).toBeGreaterThan(flowDayMs('2026-07-10'))
+    expect(centre).toBeLessThan(flowDayMs('2026-07-10') + MS_PER_DAY)
+    // And the day it picks still round-trips back to the same date.
+    expect(pickFlowPoint(FLOW, null, centre)!.dateIso).toBe(bar.date)
   })
 })
