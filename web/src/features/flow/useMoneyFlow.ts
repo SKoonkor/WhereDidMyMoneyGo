@@ -38,7 +38,10 @@ export interface MoneyFlow {
 // the Home dashboard embed.
 // `height` overrides the figure's own box (the Flow page draws a much taller
 // chart than the Home tile); leave it out to keep the widget-sized default.
-export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | null = null, height?: number): MoneyFlow {
+export function useMoneyFlow(
+  horizon = 30, defaultDays = 60, account: string | null = null,
+  height?: number, interactive?: boolean,
+): MoneyFlow {
   const all = useLiveTxns()
   const currency = useBaseCurrency()
   const [theme] = useTheme()
@@ -85,6 +88,7 @@ export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | n
         // otherwise filtering to one account would recolour it.
         allAccounts: flowAll.accounts,
         height,
+        interactive,
         noData: t('No transactions yet'),
         labels: {
           // Scoped, the in-plot line is that account's balance, not net worth.
@@ -96,7 +100,7 @@ export function useMoneyFlow(horizon = 30, defaultDays = 60, account: string | n
           hidden: t('Hidden cost (untracked)'),
         },
       }),
-    [flow, fc, currency, defaultDays, censor, ui, flowAll, account, height],
+    [flow, fc, currency, defaultDays, censor, ui, flowAll, account, height, interactive],
   )
 
   return { fig, fc, flow, flowAll, currency, censor }

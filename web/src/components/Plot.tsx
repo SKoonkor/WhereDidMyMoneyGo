@@ -10,16 +10,25 @@ type Layout = Record<string, unknown>
 type Plotly = any
 
 export function Plot({
-  data, layout, style, ariaLabel, config,
+  data, layout, style, ariaLabel, config, onRender,
 }: {
   data: Trace[]
   layout?: Layout
   style?: React.CSSProperties
   ariaLabel?: string
   config?: Record<string, unknown>
+  /**
+   * Called synchronously right after every Plotly.react — same task, before
+   * paint. A caller that drives the axes imperatively (see FlowPage) uses this
+   * to re-apply its live view range, which react() would otherwise reset to the
+   * figure's own. Held in a ref so an inline lambda never re-triggers react.
+   */
+  onRender?: (gd: HTMLDivElement, plotly: Plotly) => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const plotly = useRef<Plotly>(null)
+  const onRenderRef = useRef(onRender)
+  onRenderRef.current = onRender
 
   useEffect(() => {
     let cancelled = false
@@ -28,6 +37,7 @@ export function Plot({
       if (cancelled || !ref.current) return
       plotly.current = P
       P.react(ref.current, data, layout ?? {}, { displayModeBar: false, responsive: true, ...config })
+      onRenderRef.current?.(ref.current, P)
     })
     return () => { cancelled = true }
   }, [data, layout, config])

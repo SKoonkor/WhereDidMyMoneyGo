@@ -19,17 +19,25 @@ const INCOME_COLOR = '#2ecc71'
 const FORECAST_COLOR = '#3498db'
 const BAR_OUTLINE = 'rgba(0,0,0,0.6)'
 
-// Plot box + the pixel gap between an Income bar top and its up-arrow. Kept as
-// constants so the arrow standoff (computed in data units) tracks the layout —
-// `areaPx` below mirrors these, so changing the height rescales the standoff
-// automatically and the arrows stay the same distance above their bars.
-// The top margin is deliberately small: nothing is drawn up there (no title, and
-// the net-worth annotation sits inside the plot area), so anything more is just
-// dead space between the box header and the chart.
-const PLOT_H = 184
-const PLOT_MT = 16
-const PLOT_MB = 36
-const ARROW_STANDOFF_PX = 13
+// Plot box. The top margin is deliberately small: nothing is drawn up there (no
+// title, and the net-worth annotation sits inside the plot area), so anything
+// more is just dead space between the box header and the chart.
+export const FLOW_PLOT_H = 184
+export const FLOW_PLOT_MT = 16
+export const FLOW_PLOT_MB = 36
+
+// The income up-arrow sits this many pixels above its bar top. It is a Plotly
+// `marker.standoff`, i.e. a real pixel offset — the arrow is therefore immune to
+// y-range changes, which matters because the range is now refitted live as the
+// user pans and zooms (see flowYRange).
+export const ARROW_STANDOFF_PX = 13
+// Standoff + half the 9px marker: the vertical room an arrow needs above the
+// highest bar so a fitted range doesn't clip it.
+export const ARROW_HEADROOM_PX = 18
+// Fraction of the fitted span added as breathing room top and bottom. Kept at
+// 8% rather than the trading chart's 6% — the net-worth annotation is drawn
+// inside the plot area and needs the extra.
+export const FLOW_Y_PAD = 0.08
 
 // Stable colour per account (mirrors theme.ACCOUNT_COLORS + FALLBACK_PALETTE).
 const ACCOUNT_COLORS: Record<string, string> = {
@@ -51,6 +59,130 @@ const transparent = { paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,
 
 type Dict = Record<string, unknown>
 
+// ── Y-range fitting ──────────────────────────────────────────────────────────
+// The y-axis spans only what is visible in the current x-window, refitted as the
+// user pans and zooms (the paper-trading chart does the same via lib/chart's
+// autoRange). Deliberately NOT included: the zero line, the net-worth line, and
+// the outer 90% forecast band. All three still draw; they simply come into view
+// when the window reaches them, instead of stretching the axis to reach them.
+
+/** Flattened, x-sorted view of everything the range may consider. Built once
+ *  per (flow, forecast) and scanned per frame, so the date parsing and the sort
+ *  never happen inside a gesture. */
+export interface FlowYSource {
+  /** Bars as full spans, not centres — see flowYRange. Sorted by `x0`. */
+  bars: Array<{ x0: number; x1: number; lo: number; hi: number }>
+  /** The running-balance connectors over quiet days, `null` breaks dropped. */
+  line: Array<{ x: number; y: number }>
+  /** The INNER (50%) forecast band only. */
+  band: Array<{ x: number; lo: number; hi: number }>
+}
+
+export function buildFlowYSource(flow: FlowData, forecast: Forecast | null): FlowYSource {
+  const bars = flow.bars
+    .map((b) => ({
+      x0: b.x - b.widthMs / 2,
+      x1: b.x + b.widthMs / 2,
+      lo: Math.min(b.base, b.base + b.height),
+      hi: Math.max(b.base, b.base + b.height),
+    }))
+    .sort((a, b) => a.x0 - b.x0)
+
+  // Connectors are the balance line over days with no transaction. Without them
+  // a window that lands in a quiet stretch would contain no data at all and the
+  // range would have nothing to fit.
+  const line: Array<{ x: number; y: number }> = []
+  const cx = flow.connectors.x
+  const cy = flow.connectors.y
+  for (let i = 0; i < cx.length; i++) {
+    const x = cx[i]
+    const y = cy[i]
+    if (typeof x === 'number' && typeof y === 'number') line.push({ x, y })
+  }
+
+  const band: Array<{ x: number; lo: number; hi: number }> = []
+  if (forecast) {
+    for (let i = 0; i < forecast.dates.length; i++) {
+      band.push({ x: dayMs(forecast.dates[i]), lo: forecast.lo50[i], hi: forecast.hi50[i] })
+    }
+  }
+
+  return { bars, line, band }
+}
+
+/** Fit to `[x0, x1]`. Returns null when the window holds nothing — the caller
+ *  keeps whatever range it already had rather than collapsing to a point. */
+export function flowYRange(src: FlowYSource, x0: number, x1: number): { lo: number; hi: number } | null {
+  let lo = Infinity
+  let hi = -Infinity
+
+  // A bar is included when any part of it is on screen. Testing the centre
+  // instead would drop a bar that is half over the edge — out of its own fit
+  // while still visibly drawn.
+  for (const b of src.bars) {
+    if (b.x0 > x1) break // sorted by x0, so nothing further can overlap
+    if (b.x1 < x0) continue
+    if (b.lo < lo) lo = b.lo
+    if (b.hi > hi) hi = b.hi
+  }
+  for (const p of src.line) {
+    if (p.x < x0 || p.x > x1) continue
+    if (p.y < lo) lo = p.y
+    if (p.y > hi) hi = p.y
+  }
+  for (const p of src.band) {
+    if (p.x < x0 || p.x > x1) continue
+    if (p.lo < lo) lo = p.lo
+    if (p.hi > hi) hi = p.hi
+  }
+
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null
+
+  // Dead-flat guard (mirrors lib/chart/scale.ts): without it a stretch of
+  // identical balances zooms the axis into floating-point noise.
+  const floor = Math.max(Math.abs(hi) * 1e-6, 1)
+  if (hi - lo < floor) {
+    const mid = (hi + lo) / 2
+    return { lo: mid - floor / 2, hi: mid + floor / 2 }
+  }
+  return { lo, hi }
+}
+
+/** Breathing room around a fitted span. `areaPx` is the drawn plot height;
+ *  `arrows` asks for enough headroom that an income arrow on the highest bar is
+ *  not clipped (they are pixel-offset, so the guarantee has to be in pixels). */
+export function padFlowY(lo: number, hi: number, areaPx: number, arrows = false): [number, number] {
+  const span = hi - lo
+  const headroom = arrows && areaPx > 0 ? (span * ARROW_HEADROOM_PX) / areaPx : 0
+  const pad = Math.max(span * FLOW_Y_PAD, headroom, 1)
+  return [lo - pad, hi + pad]
+}
+
+/** The opening x-window: the last `defaultDays` of ledger, plus the forecast.
+ *  Also what a double-tap resets to. */
+export function flowDefaultRange(
+  flow: FlowData, forecast: Forecast | null, defaultDays: number,
+): { x0: number; x1: number } {
+  const fcEnd = forecast ? dayMs(forecast.dates[forecast.dates.length - 1]) : flow.lastDay
+  // Never open further back than the ledger itself goes. On a young ledger the
+  // raw `lastDay - defaultDays` sits before the first transaction, which both
+  // wastes the left half of the chart on nothing and made the opening window
+  // WIDER than flowDataBounds — so clampView re-centred it and the very first
+  // pan or zoom lurched sideways. Clamped, the window is at most the full data
+  // extent, which clampView maps to itself (either through the slack branch or,
+  // when they are exactly equal, as an identity through the centring one).
+  const x0 = Math.max(flow.lastDay - defaultDays * MS_PER_DAY, flow.firstDay - MS_PER_DAY)
+  return { x0, x1: fcEnd + MS_PER_DAY }
+}
+
+/** Full extent of the data, for clamping pan and zoom. */
+export function flowDataBounds(
+  flow: FlowData, forecast: Forecast | null,
+): { min: number; max: number } {
+  const fcEnd = forecast ? dayMs(forecast.dates[forecast.dates.length - 1]) : flow.lastDay
+  return { min: flow.firstDay - MS_PER_DAY, max: fcEnd + MS_PER_DAY }
+}
+
 export interface FlowFigureOpts {
   currency: string
   defaultDays: number
@@ -62,15 +194,22 @@ export interface FlowFigureOpts {
    * (one entry, index 0) would repaint an unnamed account.
    */
   allAccounts?: string[]
-  /** Drawn plot height in px. Defaults to PLOT_H — the Home widget's box. */
+  /** Drawn plot height in px. Defaults to FLOW_PLOT_H — the Home widget's box. */
   height?: number
+  /**
+   * The Flow page drives pan/zoom/inspect itself (useFlowInteraction), so Plotly's
+   * own drag and touch-hover have to stand down or the two fight over the same
+   * gestures. Left off, the figure keeps the plain pannable behaviour the Home
+   * widget has always had.
+   */
+  interactive?: boolean
   noData: string
   labels: { netWorth: string; balances: string; amount: string; balanceAfter: string; forecast: string; hidden: string }
 }
 
 export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts: FlowFigureOpts) {
   const { currency, defaultDays, censor, ui, noData, labels } = opts
-  const h = opts.height ?? PLOT_H
+  const h = opts.height ?? FLOW_PLOT_H
   const order = opts.allAccounts ?? flow.accounts
   const colorIdx = (name: string) => {
     const i = order.indexOf(name)
@@ -83,7 +222,7 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
       layout: {
         // Same box as the real figure — kept on the constants so the two can't
         // drift apart (they had, before figure.test.ts started asserting it).
-        height: h, ...transparent, margin: { t: PLOT_MT, b: PLOT_MB, l: 60, r: 20 },
+        height: h, ...transparent, margin: { t: FLOW_PLOT_MT, b: FLOW_PLOT_MB, l: 60, r: 20 },
         annotations: [{ text: noData, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { color: ui.muted, size: 16 } }],
       } as Dict,
     }
@@ -156,47 +295,36 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
     { x: 0, y: flow.netWorth, xref: 'paper', yref: 'y', xanchor: 'left', yanchor: 'bottom', showarrow: false, text: `${labels.netWorth} ${nwTxt} ${currency}`, font: { size: 11, color: ui.ink } },
   ]
 
-  // ── Opening window: last `defaultDays` of data (+ forecast), y fit to it ─────
-  const x0 = flow.lastDay - defaultDays * MS_PER_DAY
-  const fcEnd = forecast ? dayMs(forecast.dates[forecast.dates.length - 1]) : flow.lastDay
-  const x1 = fcEnd + MS_PER_DAY
-  const win = flow.bars.filter((b) => b.x >= x0)
-  const los: number[] = []
-  const his: number[] = []
-  if (win.length) {
-    los.push(Math.min(...win.map((b) => b.base)))
-    his.push(Math.max(...win.map((b) => b.base + b.height)))
-  }
-  los.push(0, flow.netWorth)
-  his.push(0, flow.netWorth)
-  if (forecast) {
-    los.push(Math.min(...forecast.lo90))
-    his.push(Math.max(...forecast.hi90))
-  }
-  const lo = Math.min(...los)
-  const hi = Math.max(...his)
-  const pad = Math.max((hi - lo) * 0.08, 1)
-
-  // ── Green up-arrow above each Income bar (replaces the old dark outline) ──────
-  // A fixed-size triangle marker set above the bar top, so every income reads the
-  // same regardless of amount. The standoff is derived in pixels (≈ one marker
-  // height clear of the bar) and converted to data units via the plot's drawn
-  // height (layout height − top/bottom margins, mirrored below).
+  // ── Green up-arrow above each Income bar (replaces the old dark outline) ─────
+  // A fixed-size triangle pinned ARROW_STANDOFF_PX above the bar top by Plotly's
+  // pixel-space `marker.standoff`. It used to be offset in data units derived
+  // from the y-range, which detached the arrows the moment the range moved —
+  // and the range now moves on every pan.
   const incomeBars = flow.bars.filter((b) => b.type === 'Income')
   if (incomeBars.length) {
-    const areaPx = h - PLOT_MT - PLOT_MB
-    const standoff = (ARROW_STANDOFF_PX * ((hi - lo) + 2 * pad)) / areaPx
     data.push({
       type: 'scatter',
       mode: 'markers',
       x: incomeBars.map((b) => b.x),
-      y: incomeBars.map((b) => b.base + b.height + standoff),
-      marker: { symbol: 'triangle-up', size: 9, color: INCOME_COLOR },
+      y: incomeBars.map((b) => b.base + b.height),
+      marker: {
+        symbol: 'triangle-up', size: 9, color: INCOME_COLOR,
+        angle: 0, angleref: 'up', standoff: ARROW_STANDOFF_PX,
+      },
       hoverinfo: 'skip',
       showlegend: false,
-      cliponaxis: false,
+      // Clipped, not floating: with a window-fitted range an arrow for a bar
+      // panned off the edge would otherwise paint over the axis labels.
+      cliponaxis: true,
     })
   }
+
+  // ── Opening window, y fitted to it via the very same code every refit uses ──
+  const { x0, x1 } = flowDefaultRange(flow, forecast, defaultDays)
+  const fit = flowYRange(buildFlowYSource(flow, forecast), x0, x1)
+  const [y0, y1] = fit
+    ? padFlowY(fit.lo, fit.hi, h - FLOW_PLOT_MT - FLOW_PLOT_MB, incomeBars.length > 0)
+    : [-1, 1]
 
   return {
     data,
@@ -205,15 +333,18 @@ export function buildFlowFigure(flow: FlowData, forecast: Forecast | null, opts:
       barmode: 'overlay',
       bargap: 0,
       ...transparent,
-      hovermode: 'closest',
-      dragmode: 'pan',
-      margin: { t: PLOT_MT, b: PLOT_MB, l: censor ? 10 : 44, r: 8 },
+      // Interactive mode owns hover too: Plotly would otherwise fire its own
+      // tooltip on touchstart alongside the hold-to-inspect readout.
+      // useFlowInteraction flips this back to 'closest' for a real mouse.
+      hovermode: opts.interactive ? false : 'closest',
+      dragmode: opts.interactive ? false : 'pan',
+      margin: { t: FLOW_PLOT_MT, b: FLOW_PLOT_MB, l: censor ? 10 : 44, r: 8 },
       font: { color: ui.muted, size: 11 },
       showlegend: false,
       shapes,
       annotations,
       xaxis: { type: 'date', range: [x0, x1], showgrid: false, fixedrange: false },
-      yaxis: { range: [lo - pad, hi + pad], showticklabels: !censor, gridcolor: ui.grid, zeroline: false, fixedrange: true },
+      yaxis: { range: [y0, y1], showticklabels: !censor, gridcolor: ui.grid, zeroline: false, fixedrange: true },
     } as Dict,
   }
 }

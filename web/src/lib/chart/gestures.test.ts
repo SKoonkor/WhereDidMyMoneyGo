@@ -432,3 +432,27 @@ describe('scroll suppression', () => {
     expect(e.defaultPrevented).toBe(true)
   })
 })
+
+describe('touch-action', () => {
+  // The trading chart owns the screen and claims every touch. The Money Flow
+  // chart sits in a scrollable page and must leave vertical scrolling alone, so
+  // the value is an option — with the trading default pinned here.
+  it('claims every touch by default', () => {
+    dispose = attachGestures(el, spies())
+    expect(el.style.touchAction).toBe('none')
+  })
+
+  it('honours an explicit touch-action', () => {
+    dispose = attachGestures(el, spies(), { touchAction: 'pan-y' })
+    expect(el.style.touchAction).toBe('pan-y')
+  })
+
+  it('restores whatever was there before it attached', () => {
+    el.style.touchAction = 'manipulation'
+    const off = attachGestures(el, spies(), { touchAction: 'pan-y' })
+    expect(el.style.touchAction).toBe('pan-y')
+    off()
+    expect(el.style.touchAction).toBe('manipulation')
+    dispose = () => {}
+  })
+})

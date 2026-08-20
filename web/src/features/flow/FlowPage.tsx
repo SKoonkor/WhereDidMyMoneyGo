@@ -3,6 +3,8 @@ import { useMoneyFlow, FLOW_PLOT_CONFIG } from './useMoneyFlow'
 import { Plot } from '../../components/Plot'
 import { ChipPicker } from '../transactions/ChipPicker'
 import { useTheme } from '../../prefs'
+import { useFlowInteraction, READOUT_OFFSET_PX } from './useFlowInteraction'
+import { FLOW_PLOT_MT, FLOW_PLOT_MB } from './figure'
 import { t } from '../../i18n'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
@@ -13,9 +15,9 @@ function fmtDay(iso: string): string {
   return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 }
 
-// The page gives the chart 2.5x the Home widget's 184px box — this is the main
+// The page gives the chart 2x the Home widget's 184px box — this is the main
 // view of the data, not a tile, so it gets the room to read the balance line.
-const PAGE_PLOT_H = 460
+const PAGE_PLOT_H = 368
 
 const HORIZONS: Array<{ label: string; days: number }> = [
   { label: '30 d', days: 30 },
@@ -31,7 +33,15 @@ export function FlowPage() {
   // '' = the whole ledger (the default view).
   const [account, setAccount] = useState('')
 
-  const { fig, fc, flow, flowAll, currency, censor } = useMoneyFlow(horizon, 60, account || null, PAGE_PLOT_H)
+  const { fig, fc, flow, flowAll, currency, censor } = useMoneyFlow(horizon, 60, account || null, PAGE_PLOT_H, true)
+
+  // Pan / pinch-zoom / hold-to-inspect. The chart's y-axis refits to whatever
+  // the window shows, so this owns the axes from here on.
+  const { wrapRef, onRender, readout, inspecting } = useFlowInteraction({
+    flow, fc, layout: fig.layout, defaultDays: 60,
+    enabled: flow.bars.length > 0,
+    resetKey: `${account}|${horizon}`,
+  })
 
   // Slider stops: day-offsets from today (0) out to the horizon — daily for the
   // 30-day view, weekly for the longer horizons (> 45 d).
@@ -72,7 +82,9 @@ export function FlowPage() {
       marker: { color: '#3498db', size: 12, line: { color: ringColor, width: 2.5 } },
       hoverinfo: 'skip',
       showlegend: false,
-      cliponaxis: false,
+      // Clipped: zoomed in, a dot for an off-window date would otherwise float
+      // out in the margin.
+      cliponaxis: true,
     }
     return [...fig.data, dot]
   }, [fig.data, fc, stops.length, sliderDate, sliderAmount, ringColor])
@@ -94,9 +106,51 @@ export function FlowPage() {
         {t('Running balance across your accounts, with a forward forecast.')}
       </p>
 
-      {/* Plot first, then the forecast controls below it. */}
+      {/* Plot first, then the forecast controls below it. The wrapper is what
+          the gestures attach to, and what the crosshair/readout are positioned
+          against — it sits exactly over the plot's own box. */}
       <div className="card" style={{ padding: 8 }}>
-        <Plot data={plotData} layout={fig.layout} config={FLOW_PLOT_CONFIG} ariaLabel={t('Money Flow')} style={{ width: '100%' }} />
+        <div className="flow-plot-wrap" ref={wrapRef}>
+          <Plot
+            data={plotData} layout={fig.layout} config={FLOW_PLOT_CONFIG}
+            ariaLabel={t('Money Flow')} style={{ width: '100%' }} onRender={onRender}
+          />
+          {readout && (
+            <>
+              <div
+                className="flow-crosshair"
+                style={{ left: readout.px, top: FLOW_PLOT_MT, height: PAGE_PLOT_H - FLOW_PLOT_MT - FLOW_PLOT_MB }}
+              />
+              <div
+                className={readout.below ? 'flow-readout is-below' : 'flow-readout'}
+                style={{
+                  left: readout.labelPx,
+                  top: readout.below ? readout.py + 24 : readout.py - READOUT_OFFSET_PX,
+                }}
+              >
+                <div className="flow-readout-day">{fmtDay(readout.point.dateIso)}</div>
+                {readout.point.balance !== null && (
+                  <div className="flow-readout-bal">
+                    <span className="money">{censor ? '*****' : fmt(readout.point.balance)}</span> {currency}
+                    {readout.point.isForecast && <span className="flow-readout-tag">{t('Forecast')}</span>}
+                  </div>
+                )}
+                {readout.point.band && !censor && (
+                  <div className="flow-readout-band">
+                    {fmt(readout.point.band.lo)} – {fmt(readout.point.band.hi)}
+                  </div>
+                )}
+                {readout.point.txns.map((x, i) => (
+                  <div key={i} className="flow-readout-txn">
+                    <span>{x.type} · {x.category}</span>
+                    <span className="money">{censor ? '*****' : fmt(x.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+          {inspecting && <span className="flow-touch-hint">{t('Tap to clear')}</span>}
+        </div>
       </div>
 
       {/* Latest balances live in their own box below the plot. Always the whole

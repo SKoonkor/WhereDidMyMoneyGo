@@ -52,12 +52,20 @@ export interface GestureOptions {
   slop: number
   longPressMs: number
   flingWindowMs: number
+  /**
+   * `touch-action` to impose while attached. The default 'none' claims every
+   * touch, which is right for a chart that owns the screen. A chart embedded in
+   * a scrollable page wants 'pan-y': the browser keeps vertical page scroll,
+   * horizontal drags still reach us, and pinch-zoom stays disabled either way.
+   */
+  touchAction?: string
 }
 
 export const DEFAULT_GESTURE_OPTIONS: Readonly<GestureOptions> = Object.freeze({
   slop: 6,
   longPressMs: 260,
   flingWindowMs: 100,
+  touchAction: 'none',
 })
 
 /**
@@ -421,7 +429,7 @@ export function attachGestures(
   const prevTouchAction = el.style.touchAction
   const prevUserSelect = el.style.userSelect
   const prevCallout = el.style.getPropertyValue('-webkit-touch-callout')
-  el.style.touchAction = 'none'
+  el.style.touchAction = opts.touchAction ?? 'none'
   el.style.userSelect = 'none'
   el.style.setProperty('-webkit-touch-callout', 'none')
 

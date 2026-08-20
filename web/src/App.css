@@ -1514,6 +1514,72 @@ html[data-carry] .modal-sheet { max-height: min(80vh, 100%); }
 }
 
 /* Money Flow: forecast-horizon control row. The seg fills the rest of the row. */
+/* The gesture surface for the Money Flow chart: it sits exactly over the plot's
+   own box, so pointer coordinates map straight into the plot area (see
+   features/flow/view.ts plotBox). The crosshair and readout are positioned
+   against it. */
+.flow-plot-wrap {
+  position: relative;
+  touch-action: pan-y; /* attachGestures re-applies this; declared so the
+                          pre-gesture first paint already behaves */
+}
+.flow-crosshair {
+  position: absolute;
+  width: 1px;
+  border-left: 1px dashed var(--muted);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 2;
+}
+/* Floats above the finger (READOUT_OFFSET_PX) — under it, it is invisible. */
+.flow-readout {
+  position: absolute;
+  /* Anchored by its bottom edge, so `top` is the gap above the finger. */
+  transform: translate(-50%, -100%);
+  /* Paired with READOUT_INSET (0.3) in useFlowInteraction: the label is centred
+     on a point clamped 30% inside the box, so a box at most 60% wide cannot
+     reach the card edge. Text wraps rather than running on, for the same reason. */
+  max-width: 60%;
+  z-index: 3;
+  pointer-events: none;
+  padding: 6px 9px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.45;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+/* Held near the top of the plot there is no room above the finger, so it flips
+   underneath rather than hanging off the chart. */
+.flow-readout.is-below { transform: translate(-50%, 0); }
+.flow-readout-day { color: var(--muted); font-size: 10px; }
+.flow-readout-bal { font-weight: 700; }
+.flow-readout-tag {
+  margin-left: 6px;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--muted);
+}
+.flow-readout-band { color: var(--muted); font-size: 10px; }
+.flow-readout-txn { display: flex; gap: 10px; justify-content: space-between; }
+/* Mirrors .tr-touch-hint on the trading chart. */
+.flow-touch-hint {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.4px;
+}
+
 .flow-controls {
   display: flex;
   align-items: center;
