@@ -6,6 +6,7 @@ import { useTheme } from '../../prefs'
 import { useFlowInteraction, READOUT_OFFSET_PX } from './useFlowInteraction'
 import { FLOW_PLOT_MT, FLOW_PLOT_MB } from './figure'
 import { t } from '../../i18n'
+import type { TxnType } from '../../db'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
 
@@ -18,6 +19,11 @@ function fmtDay(iso: string): string {
 // The page gives the chart 2x the Home widget's 184px box — this is the main
 // view of the data, not a tile, so it gets the room to read the balance line.
 const PAGE_PLOT_H = 368
+
+// Red and green mark money that actually left or entered the user's finances.
+// Transfers and adjustments only move it between their own accounts, so they
+// read neutral — the same reasoning moneyflow.ts uses to keep Saving out of SIGN.
+const TXN_TONE: Partial<Record<TxnType, 'in' | 'out'>> = { Income: 'in', Expense: 'out' }
 
 const HORIZONS: Array<{ label: string; days: number }> = [
   { label: '30 d', days: 30 },
@@ -140,9 +146,15 @@ export function FlowPage() {
                     {fmt(readout.point.band.lo)} – {fmt(readout.point.band.hi)}
                   </div>
                 )}
-                {readout.point.txns.map((x, i) => (
-                  <div key={i} className="flow-readout-txn">
-                    <span>{x.type} · {x.category}</span>
+                {readout.point.txns.map((x) => (
+                  <div
+                    key={`${x.type}\u0000${x.category}`}
+                    className={`flow-readout-txn is-${TXN_TONE[x.type] ?? 'flat'}`}
+                  >
+                    <span>
+                      {x.type} · {x.category}
+                      {x.count > 1 && <span className="flow-readout-n"> ×{x.count}</span>}
+                    </span>
                     <span className="money">{censor ? '*****' : fmt(x.amount)}</span>
                   </div>
                 ))}

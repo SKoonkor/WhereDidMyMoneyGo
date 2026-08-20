@@ -34,11 +34,55 @@ describe('pickFlowPoint', () => {
     expect(p.dateIso).toBe('2026-07-10')
   })
 
-  it('lists every transaction on the picked day', () => {
+  it('lists every category on the picked day', () => {
     const p = pickFlowPoint(FLOW, null, flowDayMs('2026-07-10'))!
     expect(p.txns.map((x) => x.category).sort()).toEqual(['Food', 'Transport'])
+    expect(p.txns.every((x) => x.count === 1)).toBe(true)
     expect(p.isForecast).toBe(false)
     expect(p.band).toBeNull()
+  })
+
+  it('combines transactions sharing a type and category', () => {
+    const flow = buildFlow([
+      T({ id: 1, period: '2026-07-10', amount: 100, category: 'Food' }),
+      T({ id: 2, period: '2026-07-10', amount: 250, category: 'Food' }),
+      T({ id: 3, period: '2026-07-10', amount: 40, category: 'Food', account: 'Card' }),
+    ])
+    const p = pickFlowPoint(flow, null, flowDayMs('2026-07-10'))!
+    expect(p.txns).toHaveLength(1)
+    // Combined across accounts too — the key is type+category, nothing else.
+    expect(p.txns[0]).toEqual({ type: 'Expense', category: 'Food', amount: 390, count: 3 })
+  })
+
+  it('keeps the same category apart when the type differs', () => {
+    const flow = buildFlow([
+      T({ id: 1, period: '2026-07-10', type: 'Expense', amount: 100, category: 'Shared' }),
+      T({ id: 2, period: '2026-07-10', type: 'Income', amount: 900, category: 'Shared', account: 'Bank' }),
+    ])
+    const p = pickFlowPoint(flow, null, flowDayMs('2026-07-10'))!
+    expect(p.txns).toHaveLength(2)
+    expect(p.txns.map((x) => x.type)).toEqual(['Income', 'Expense']) // amount-descending
+  })
+
+  it('returns the combined rows largest first', () => {
+    const flow = buildFlow([
+      T({ id: 1, period: '2026-07-10', amount: 20, category: 'Coffee' }),
+      T({ id: 2, period: '2026-07-10', amount: 300, category: 'Rent' }),
+      T({ id: 3, period: '2026-07-10', amount: 60, category: 'Coffee' }),
+    ])
+    const p = pickFlowPoint(flow, null, flowDayMs('2026-07-10'))!
+    expect(p.txns.map((x) => [x.category, x.amount])).toEqual([['Rent', 300], ['Coffee', 80]])
+  })
+
+  // The key is built by concatenation, so a category that is a prefix of another
+  // (or that contains the separator) must not be able to collide.
+  it('does not collide categories that share a prefix', () => {
+    const flow = buildFlow([
+      T({ id: 1, period: '2026-07-10', amount: 10, category: 'Food' }),
+      T({ id: 2, period: '2026-07-10', amount: 20, category: 'Food & Drink' }),
+    ])
+    const p = pickFlowPoint(flow, null, flowDayMs('2026-07-10'))!
+    expect(p.txns).toHaveLength(2)
   })
 
   it('reports the balance carried into a quiet day', () => {

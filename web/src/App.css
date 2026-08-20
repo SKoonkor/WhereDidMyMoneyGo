@@ -1497,6 +1497,11 @@ html[data-carry] .modal-sheet { max-height: min(80vh, 100%); }
 }
 .flow-account-card {
   margin-top: 12px;
+  /* The Forecast row (.flow-controls) carries no top margin, so without this the
+     two sit flush. It goes here rather than on .flow-controls because a
+     single-account ledger hides this card entirely and .flow-balances above it
+     already supplies its own 12px — a top margin there would double to 24px. */
+  margin-bottom: 12px;
 }
 .flow-bal-amt {
   font-variant-numeric: tabular-nums;
@@ -1564,6 +1569,14 @@ html[data-carry] .modal-sheet { max-height: min(80vh, 100%); }
 }
 .flow-readout-band { color: var(--muted); font-size: 10px; }
 .flow-readout-txn { display: flex; gap: 10px; justify-content: space-between; }
+/* Red/green only where money really entered or left; transfers and adjustments
+   stay neutral. Tokens are theme.css's --income/--expense, so both themes and
+   the light-mode variants come for free. */
+.flow-readout-txn.is-in { color: var(--income); }
+.flow-readout-txn.is-out { color: var(--expense); }
+.flow-readout-txn.is-flat { color: var(--muted); }
+/* The "combined from N transactions" marker stays quiet next to the label. */
+.flow-readout-n { opacity: 0.65; font-size: 10px; }
 /* Mirrors .tr-touch-hint on the trading chart. */
 .flow-touch-hint {
   position: absolute;
