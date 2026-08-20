@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { HashRouter, NavLink, Routes, Route } from 'react-router-dom'
+import { HashRouter, NavLink, Routes, Route, Navigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { t } from './i18n'
 import { useTheme, useCensor, useLang } from './prefs'
@@ -38,7 +38,7 @@ import { useCarry, dismissCarry, carryFiller } from './features/transactions/car
 import { showToast, dismissToast, useToast } from './toast'
 import {
   cancelExit, confirmExit, enterTrading, openSheet, requestLeave,
-  usePendingExit, useTradingMode,
+  usePendingExit, useTradingMode, TRADING_ENABLED,
 } from './tradingMode'
 import { OnboardingHost } from './features/onboarding/OnboardingHost'
 import { TxnForm } from './features/transactions/TxnForm'
@@ -266,15 +266,24 @@ export default function App() {
                 </Suspense>
               }
             />
-            <Route path="/trading" element={<TradingRoute><TradingPage /></TradingRoute>} />
-            <Route
-              path="/trading/accounts"
-              element={<TradingRoute><TradingAccountsPage /></TradingRoute>}
-            />
-            <Route
-              path="/trading/options"
-              element={<TradingRoute><TradingOptionsPage /></TradingRoute>}
-            />
+            {/* Paper trading is parked (TRADING_ENABLED). The redirect matters:
+                this router has no catch-all, so an old bookmark on #/trading
+                would otherwise render an empty page rather than going home. */}
+            {TRADING_ENABLED ? (
+              <>
+                <Route path="/trading" element={<TradingRoute><TradingPage /></TradingRoute>} />
+                <Route
+                  path="/trading/accounts"
+                  element={<TradingRoute><TradingAccountsPage /></TradingRoute>}
+                />
+                <Route
+                  path="/trading/options"
+                  element={<TradingRoute><TradingOptionsPage /></TradingRoute>}
+                />
+              </>
+            ) : (
+              <Route path="/trading/*" element={<Navigate to="/" replace />} />
+            )}
           </Routes>
         </main>
         <BottomNav

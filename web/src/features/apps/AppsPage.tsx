@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { t } from '../../i18n'
-import { requestLeave } from '../../tradingMode'
+import { requestLeave, TRADING_ENABLED } from '../../tradingMode'
 
 // Launcher grid for the analytics/feature pages, split into two groups:
 // day-to-day money tracking vs. forward-looking calculators.
@@ -64,8 +64,14 @@ export function AppsPage() {
       <h2 className="apps-section-title">{t('Calculators')}</h2>
       <TileGrid tiles={CALCULATORS} />
 
-      <h2 className="apps-section-title">{t('Simulators')}</h2>
-      <TileGrid tiles={SIMULATORS} />
+      {/* Parked — see TRADING_ENABLED. The heading goes with the grid: hiding
+          only the tile would leave an empty "Simulators" section behind. */}
+      {TRADING_ENABLED && (
+        <>
+          <h2 className="apps-section-title">{t('Simulators')}</h2>
+          <TileGrid tiles={SIMULATORS} />
+        </>
+      )}
 
       <p className="muted" style={{ marginTop: 20 }}>{t('More coming soon.')}</p>
     </div>

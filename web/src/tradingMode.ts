@@ -22,6 +22,24 @@ import { useCallback, useSyncExternalStore } from 'react'
  *  tapping Settings while the ticket is open swaps instead of stacking. */
 export type TradingSheet = 'ticket' | 'settings'
 
+/**
+ * Paper trading is PARKED, not deleted. The feature is intact under
+ * features/trading/ and lib/trading/, and flipping this to true is the whole of
+ * re-enabling it — along with the Simulators section in AppsPage and the routes
+ * in App.tsx, which read this same const.
+ *
+ * Note lib/chart/ is no longer trading-only: features/flow/useFlowInteraction.ts
+ * imports its gestures and springs, so that tree stays live either way.
+ *
+ * Gated here rather than in enterTrading() on purpose. The store itself keeps
+ * working, so tradingMode.test.ts and BottomNav.test.tsx still exercise the real
+ * behaviour; what this switches off is the one path that can turn the mode on
+ * WITHOUT a route — a cold start on a #/trading deep link, or a sessionStorage
+ * key left by a session from before the feature was parked. Either would have
+ * left the trading bottom bar pointing at routes that no longer resolve.
+ */
+export const TRADING_ENABLED = false
+
 const KEY = 'trading-mode'
 
 const listeners = new Set<() => void>()
@@ -62,7 +80,7 @@ function writeStored(v: boolean): void {
 // that lands directly on a trading URL with an empty session: without it,
 // entering happens in an effect after paint and the user sees a frame of the
 // wrong bar.
-let on = readStored() || (typeof location !== 'undefined' && location.hash.startsWith('#/trading'))
+let on = TRADING_ENABLED && (readStored() || (typeof location !== 'undefined' && location.hash.startsWith('#/trading')))
 let sheet: TradingSheet | null = null
 let pendingExit: string | null = null
 
