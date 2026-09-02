@@ -61,5 +61,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: false,
+    // Pinned, because CI runs in UTC and the app does not. Anything that asserts
+    // a LOCAL calendar date against a UTC one can only fail where the two differ,
+    // so on a UTC runner those guards quietly assert nothing. Bangkok is the
+    // app's home offset and the one the date bugs were found in.
+    env: { TZ: 'Asia/Bangkok' },
   },
 })

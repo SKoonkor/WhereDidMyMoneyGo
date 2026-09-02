@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import type { Txn } from '../../db'
 import {
-  trackedBalances, computeAdjustments, hiddenCostByAccount, hiddenCostTotal, isReminderDue,
-  reconcileReminderDue,
+  trackedBalances, computeAdjustments, hiddenCostByAccount, hiddenCostTotal,
+  reconcileReminderDue, todayISO,
 } from './reconcile'
 
 const T = (over: Partial<Txn>): Txn => ({
@@ -48,33 +48,51 @@ describe('hidden cost', () => {
   })
 })
 
-describe('isReminderDue', () => {
-  it('is due when never reconciled', () => {
-    expect(isReminderDue(null, new Date(2026, 6, 15))).toBe(true)
+describe('todayISO', () => {
+  // The whole point of it: a LOCAL date, so it agrees with the local-midnight
+  // comparison the predicate does. toISOString() would give the previous day for
+  // either of these anywhere east of UTC.
+  it('uses the local calendar day, not UTC', () => {
+    expect(todayISO(new Date(2026, 8, 1, 0, 30))).toBe('2026-09-01')
+    expect(todayISO(new Date(2026, 8, 30, 23, 30))).toBe('2026-09-30')
   })
-  it('is due when the last reconciliation is stale (>31 days)', () => {
-    expect(isReminderDue('2026-05-01', new Date(2026, 6, 15))).toBe(true) // ~75 days
-    expect(isReminderDue('2026-07-01', new Date(2026, 6, 15))).toBe(false) // 14 days
-  })
-  it('is due at month-end when not yet reconciled this month', () => {
-    expect(isReminderDue('2026-06-20', new Date(2026, 6, 31))).toBe(true) // Jul 31, last in Jun
-    expect(isReminderDue('2026-07-05', new Date(2026, 6, 31))).toBe(false) // already this month
+  it('zero-pads month and day', () => {
+    expect(todayISO(new Date(2026, 0, 5, 12, 0))).toBe('2026-01-05')
   })
 })
 
-describe('reconcileReminderDue (home banner)', () => {
+describe('reconcileReminderDue', () => {
   it('never shows without transactions', () => {
     expect(reconcileReminderDue(null, false, new Date(2026, 6, 1))).toBe(false)
     expect(reconcileReminderDue('2026-01-01', false, new Date(2026, 6, 15))).toBe(false)
   })
-  it('always shows on the 1st of the month (with transactions)', () => {
+  it('shows on the 1st of the month', () => {
     expect(reconcileReminderDue('2026-06-25', true, new Date(2026, 6, 1))).toBe(true) // 6 days ago but 1st
+    expect(reconcileReminderDue('2026-06-30', true, new Date(2026, 6, 1))).toBe(true) // yesterday
+  })
+  // The regression this whole change exists for: the 1st used to be an
+  // unconditional "due", so reconciling ON the 1st could not clear the banner.
+  it('clears on the 1st once reconciled that same day', () => {
+    expect(reconcileReminderDue('2026-07-01', true, new Date(2026, 6, 1))).toBe(false)
   })
   it('shows after >30 days since the last reconciliation', () => {
     expect(reconcileReminderDue('2026-06-10', true, new Date(2026, 6, 15))).toBe(true) // 35 days
     expect(reconcileReminderDue('2026-06-20', true, new Date(2026, 6, 15))).toBe(false) // 25 days, mid-month
   })
+  it('pins the 30-day boundary', () => {
+    expect(reconcileReminderDue('2026-06-15', true, new Date(2026, 6, 15))).toBe(false) // exactly 30
+    expect(reconcileReminderDue('2026-06-14', true, new Date(2026, 6, 15))).toBe(true) // 31
+  })
   it('shows when never reconciled but transactions exist (not the 1st)', () => {
     expect(reconcileReminderDue(null, true, new Date(2026, 6, 15))).toBe(true)
+  })
+  // The unparsable-date guard has to stay ABOVE the day count: NaN > 0 is false,
+  // so getting the order wrong silences the banner forever instead of forcing it.
+  it('is due on an unparsable date, on the 1st and off it alike', () => {
+    expect(reconcileReminderDue('not-a-date', true, new Date(2026, 6, 1))).toBe(true)
+    expect(reconcileReminderDue('not-a-date', true, new Date(2026, 6, 15))).toBe(true)
+  })
+  it('is due when the stored date is in the future (skewed clock / restored backup)', () => {
+    expect(reconcileReminderDue('2026-08-01', true, new Date(2026, 6, 15))).toBe(true)
   })
 })

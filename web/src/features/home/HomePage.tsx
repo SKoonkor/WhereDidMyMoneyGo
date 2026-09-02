@@ -52,9 +52,13 @@ export function HomePage() {
   }
   const drag = useDragReorder(uids, (order) => commit((l) => reorderItems(l, order)), DRAG_OPTS)
 
-  // Reconcile nudge (only once the state has loaded, so it doesn't flash).
+  // Reconcile nudge (only once the state has loaded, so it doesn't flash), and
+  // only if the user hasn't switched it off on the Reconcile page. `!== false`
+  // rather than a truthiness test: a record written before the switch existed has
+  // no such field, and that must read as "on", not as "hidden".
   const reconState = useLiveQuery(() => getReconcileState(), [])
   const reconcileDue = reconState !== undefined
+    && reconState.remindersOn !== false
     && reconcileReminderDue(reconState.lastReconciled ?? null, all.length > 0)
 
   // The nudge is transient, not a widget the user arranges — so it stays out of

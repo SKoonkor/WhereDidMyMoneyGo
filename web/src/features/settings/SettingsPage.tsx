@@ -8,6 +8,7 @@ import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleRem
 import { makeProvider } from '../../lib/ai'
 import { openOnboarding } from '../onboarding/onboarding'
 import { Modal } from '../../components/Modal'
+import { OnOff } from '../../components/OnOff'
 import { CHANGELOG, CHANGE_LABEL } from '../../data/changelog'
 import { t, tBilingual } from '../../i18n'
 
@@ -249,29 +250,6 @@ function GeneralSettings() {
         <p className="muted set-autosave">{t('Changes are saved automatically.')}</p>
       </section>
     </>
-  )
-}
-
-// A small Off/On segmented control bound to a boolean.
-function OnOff({ value, onChange, disabled }: { value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
-  const opts: Array<{ value: boolean; label: string }> = [
-    { value: false, label: t('Off') },
-    { value: true, label: t('On') },
-  ]
-  return (
-    <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
-      {opts.map((o) => (
-        <button
-          key={String(o.value)}
-          type="button"
-          disabled={disabled}
-          className={o.value === value ? 'seg-btn active' : 'seg-btn'}
-          onClick={() => { if (o.value !== value) onChange(o.value) }}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
   )
 }
 

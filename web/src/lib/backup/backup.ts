@@ -6,6 +6,7 @@ import {
   getDebts, getReconcileState, getTax, getHomeLayout, saveAccounts, saveCategories, saveSettings,
   saveBudget, saveGoals, saveDebts, saveReconcileState, saveTax, saveHomeLayout, type Txn,
 } from '../../db'
+import { DEFAULT_RECONCILE } from '../../data/defaults'
 import type { BudgetCfg, Categories, DebtsCfg, GoalsCfg, ReconcileState, Settings } from '../../data/defaults'
 import type { TaxCfg } from '../analytics/income_tax'
 import type { GoalMove } from '../analytics/goalSavings'
@@ -25,6 +26,10 @@ const APP_TAG = 'where-did-my-money-go'
 // v5 earns its bump where the 0.4.0 spending limits didn't: those were an extra
 // field on a config object that already travelled, whereas goal moves are a whole
 // table a v4 file has no way to represent.
+//
+// The reconcile reminder switch needs no version of its own either: it is a field
+// on the reconcile config, which has travelled since v2 — the same reasoning that
+// let the 0.4.0 spending limits ride inside the budget config.
 //
 // v6 is the debts config. The `debt` tag on a transaction needs no version of its
 // own — it rides along inside the transaction rows, which have always travelled
@@ -130,7 +135,10 @@ export async function restoreBackup(b: Backup): Promise<RestoreResult> {
       if (b.budget) await saveBudget(b.budget)
       if (b.goals) await saveGoals(b.goals)
       if (b.debts) await saveDebts(b.debts)
-      if (b.reconcile) await saveReconcileState(b.reconcile)
+      // Spread over the defaults, not merged into the device's record: restore is a
+      // full replace, so a file written before the reminder switch existed must put
+      // that switch back to its default rather than leave this device's setting.
+      if (b.reconcile) await saveReconcileState({ ...DEFAULT_RECONCILE, ...b.reconcile })
       if (b.tax) await saveTax(b.tax)
       // Normalized on the way in — a backup file is untrusted input, and one
       // written by a newer build may name widgets this version can't render.

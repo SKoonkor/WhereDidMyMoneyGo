@@ -39,7 +39,7 @@ import {
   DEFAULT_HOME_LAYOUT, applyLegacyCollapsed, normalizeLayout, type HomeLayout,
 } from './lib/homeLayout'
 import { remapBudget, type BudgetRename } from './lib/analytics/budgetMaintenance'
-import { RECON_CATEGORY, ADJUST_IN, ADJUST_OUT } from './lib/analytics/reconcile'
+import { RECON_CATEGORY, ADJUST_IN, ADJUST_OUT, todayISO } from './lib/analytics/reconcile'
 import { UNALLOCATED, allocations, type GoalMove, type NewGoalMove } from './lib/analytics/goalSavings'
 
 // Signed types stored on rows (the Dash "Income/Expense" column). The user-facing
@@ -486,8 +486,23 @@ export async function saveHomeLayout(layout: HomeLayout): Promise<void> {
 export async function getReconcileState(): Promise<ReconcileState> {
   return { ...DEFAULT_RECONCILE, ...((await db.config.get('reconcile'))?.value as ReconcileState) }
 }
-export async function saveReconcileState(state: ReconcileState): Promise<void> {
-  await db.config.put({ key: 'reconcile', value: state })
+// Takes a PATCH, not the whole record. The two fields have different writers —
+// reconciling stamps the date, the page's switch sets the reminder — and a
+// whole-record put from either one silently reverts the other. (A plain put here
+// meant every reconcile dropped `remindersOn` and the default turned the reminder
+// back on.) Same freshest-merge idea as patchSettings in SettingsPage.
+//
+// Safe inside restoreBackup's transaction: db.config is already in its scope.
+export async function saveReconcileState(patch: Partial<ReconcileState>): Promise<void> {
+  // The read and the put are ONE transaction. Merging without it is still a lost
+  // update, just a narrower one: tapping the switch off and reconciling in the
+  // same breath had both writers read the same pre-write record, and whichever
+  // landed second put its stale copy of the other's field back. IndexedDB won't
+  // overlap two readwrite transactions on the same store, so this serialises them.
+  // Nested inside restoreBackup's rw transaction, Dexie reuses the parent.
+  await db.transaction('rw', db.config, async () => {
+    await db.config.put({ key: 'reconcile', value: { ...(await getReconcileState()), ...patch } })
+  })
 }
 
 export async function getTax(): Promise<TaxCfg> {
@@ -525,7 +540,7 @@ export async function applyReconciliation(
   period?: string,
 ): Promise<number> {
   const EPS = 0.005
-  const day = period ?? new Date().toISOString().slice(0, 10)
+  const day = period ?? todayISO()
   const cur = await currency()
   const pending = adjustments.filter((a) => Math.abs(a.delta) >= EPS)
   if (pending.length === 0) {

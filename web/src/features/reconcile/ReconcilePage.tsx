@@ -5,9 +5,10 @@ import { Modal } from '../../components/Modal'
 import { useLiveTxns } from '../useLiveTxns'
 import { useAccounts, useBaseCurrency } from '../transactions/useConfig'
 import { useCensor } from '../../prefs'
-import { trackedBalances, hiddenCostTotal, isReminderDue } from '../../lib/analytics/reconcile'
+import { trackedBalances, hiddenCostTotal, reconcileReminderDue, todayISO } from '../../lib/analytics/reconcile'
 import { parseAmountExpr } from '../transactions/amountExpr'
 import { NumberField } from '../../components/NumberField'
+import { OnOff } from '../../components/OnOff'
 import { t } from '../../i18n'
 
 const EPS = 0.005 // ignore sub-cent discrepancies
@@ -15,9 +16,11 @@ const money2 = (n: number) => n.toLocaleString(undefined, { minimumFractionDigit
 const signed2 = (n: number) => (n > 0 ? '+' : n < 0 ? '−' : '') + money2(Math.abs(n))
 const toneClass = (n: number) => (n > 0 ? 'amt-income' : n < 0 ? 'amt-expense' : '')
 
-// Flip the sign of the current entry ('' → '-', '12' ↔ '-12'), so liabilities
-// like a credit card can be entered negative in one tap.
-const flipSign = (v: string) => (v.startsWith('-') ? v.slice(1) : '-' + v)
+// An entry still being typed: the pad writes operators spaced (' + ', ' - '), and
+// parseAmountExpr deliberately reports a trailing one as VALID, keeping the terms
+// so far so the running preview doesn't flicker. That is right for a preview and
+// wrong for a balance — "500 - " would read as a firm 500.
+const MID_TYPING = /[+\-×÷*/]$/
 
 export function ReconcilePage() {
   const all = useLiveTxns()
@@ -41,13 +44,20 @@ export function ReconcilePage() {
   // a bank balance less a pending charge. (0.7.0 sanitised the text down to a
   // single signed decimal; the on-screen pad constrains the input now, and
   // stripping the operators here would turn "500 + 200" into 500200.)
+  //
+  // Three outcomes, not two. A blank row is "leave this account alone"; a row
+  // that doesn't parse yet is "the user isn't finished" — and those must not be
+  // conflated, because telling someone their balances match on the strength of a
+  // half-typed sum, and clearing the form as we say it, is worse than any clip.
   const rows = order.map((a) => {
-    const raw = adjust[a]
-    if (raw == null || raw.trim() === '') return { entered: false, delta: 0, next: tracked[a] }
-    const expr = parseAmountExpr(raw)
+    const text = (adjust[a] ?? '').trim()
+    if (text === '') return { entered: false, unfinished: false, delta: 0, next: tracked[a] }
+    const expr = parseAmountExpr(text)
     const num = expr.net
-    if (!expr.valid || !Number.isFinite(num)) return { entered: false, delta: 0, next: tracked[a] }
-    return { entered: true, delta: Math.round((num - tracked[a]) * 100) / 100, next: num }
+    if (!expr.valid || !Number.isFinite(num) || MID_TYPING.test(text)) {
+      return { entered: false, unfinished: true, delta: 0, next: tracked[a] }
+    }
+    return { entered: true, unfinished: false, delta: Math.round((num - tracked[a]) * 100) / 100, next: num }
   })
   const totalDiff = rows.reduce((s, r) => s + (r.entered ? r.delta : 0), 0)
 
@@ -58,12 +68,32 @@ export function ReconcilePage() {
 
   const hidden = useMemo(() => hiddenCostTotal(all), [all])
   const lastReconciled = reconState?.lastReconciled ?? null
-  const due = isReminderDue(lastReconciled)
+  const due = reconcileReminderDue(lastReconciled, all.length > 0)
+  // Default to on while the record is still loading, and don't let a tap land
+  // until it has — an early write would merge against a record we haven't read.
+  const remindersOn = reconState?.remindersOn ?? true
+  // A balance was typed for at least one account, whether or not it differs.
+  const enteredAny = rows.some((r) => r.entered)
+  const unfinished = rows.some((r) => r.unfinished)
 
-  function requestApply() {
+  async function requestApply() {
     setMsg('')
-    if (pending.length === 0) { setMsg(t('No discrepancies — nothing to record.')); return }
-    setConfirmOpen(true)
+    // Refuse the whole form rather than quietly dropping the rows that don't
+    // parse: silently ignoring one box and acting on the others is how a typo
+    // becomes an unnoticed adjustment.
+    if (unfinished) { setMsg(t('Finish or clear the highlighted balances first.')); return }
+    if (pending.length > 0) { setConfirmOpen(true); return }
+    // Every balance the user typed already matches. That IS a reconciliation, with
+    // nothing to record — so stamp the date and let the reminder clear. Refusing
+    // outright (what this did before) left the nudge up after the user had just
+    // checked every account, which is the one thing it must not do.
+    if (enteredAny) {
+      await saveReconcileState({ lastReconciled: todayISO() })
+      setAdjust({})
+      setMsg(t('Balances match — marked as reconciled today.'))
+      return
+    }
+    setMsg(t('No discrepancies — nothing to record.'))
   }
 
   async function confirmApply() {
@@ -76,7 +106,7 @@ export function ReconcilePage() {
   // "Everything already matches": stamp today's date so the home reminder clears,
   // without recording any adjustment. Confirmed first (it's an assertion of truth).
   async function confirmAllCorrect() {
-    await saveReconcileState({ lastReconciled: new Date().toISOString().slice(0, 10) })
+    await saveReconcileState({ lastReconciled: todayISO() })
     setOkConfirmOpen(false)
     setMsg(t('Marked as reconciled today.'))
   }
@@ -89,6 +119,22 @@ export function ReconcilePage() {
       </p>
 
       <section className="card">
+        <div className="recon-remind-row">
+          <span className="recon-remind-label">{t('Reconcile reminder')}</span>
+          <OnOff
+            value={remindersOn}
+            disabled={reconState === undefined}
+            onChange={(v) => { void saveReconcileState({ remindersOn: v }) }}
+          />
+        </div>
+        <span className="set-hint">
+          {remindersOn
+            ? t('Remind me on the 1st of each month, or after 30 days without reconciling.')
+            : t('The home screen will not show a reconcile reminder.')}
+        </span>
+      </section>
+
+      <section className="card">
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
           {t('Enter balances as the app shows them — liabilities like Credit Card are negative. Only accounts you type a new balance into are reconciled.')}
         </p>
@@ -99,26 +145,17 @@ export function ReconcilePage() {
           <span className="recon-num">{t('Adjust')}</span>
         </div>
 
-        {order.map((a) => (
+        {order.map((a, i) => (
           <div key={a} className="recon-row">
             <span className="recon-acct">{a}</span>
             <span className="recon-num muted"><span className="money">{money2(tracked[a])}</span></span>
             <span className="recon-num recon-adjust">
-              <button
-                type="button"
-                className="recon-sign"
-                aria-label={t('Toggle negative')}
-                onClick={() => setAdjust((p) => ({ ...p, [a]: flipSign(p[a] ?? '') }))}
-              >
-                ±
-              </button>
-              {/* The ± button stays: the pad writes a leading minus too, but
-                  flipping the sign of what is already there is one tap rather
-                  than a retype. */}
               <NumberField
                 className="recon-input"
                 mode="calc"
                 label={`${a} — ${t('Adjust')}`}
+                aria-label={`${a} — ${t('Adjust')}`}
+                aria-invalid={rows[i].unfinished}
                 placeholder=""
                 value={adjust[a] ?? ''}
                 onChange={(v) => setAdjust((p) => ({ ...p, [a]: v }))}
@@ -128,7 +165,7 @@ export function ReconcilePage() {
         ))}
 
         <div className="recon-actions">
-          <button type="button" className="btn" onClick={requestApply}>{t('Apply reconciliation')}</button>
+          <button type="button" className="btn" onClick={() => { void requestApply() }}>{t('Apply reconciliation')}</button>
           {msg && <span className="muted" style={{ alignSelf: 'center', fontSize: 14 }}>{msg}</span>}
         </div>
       </section>

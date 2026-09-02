@@ -153,12 +153,17 @@ export const DEFAULT_MIN_FLOOR = 500
 export const DEFAULT_DEBTS: DebtsCfg = { debts: [], strategy: 'avalanche', extraPayment: 0 }
 
 // ── Reconciliation state ─────────────────────────────────────────────────────
-// Just the last-reconciled date (drives the "due" reminder). The adjustment rows
-// themselves are ordinary transactions.
+// The last-reconciled date (drives the "due" reminder) plus whether that reminder
+// is wanted at all. The adjustment rows themselves are ordinary transactions.
+//
+// `remindersOn` is REQUIRED rather than optional on purpose: every writer of this
+// record has to say what it means, which is what stops a partial write from
+// silently resetting the switch. See saveReconcileState in db.ts.
 export interface ReconcileState {
   lastReconciled: string | null // ISO date, or null if never
+  remindersOn: boolean // show the home-screen nudge; on unless turned off
 }
-export const DEFAULT_RECONCILE: ReconcileState = { lastReconciled: null }
+export const DEFAULT_RECONCILE: ReconcileState = { lastReconciled: null, remindersOn: true }
 
 // ── Budget (50/30/20) ────────────────────────────────────────────────────────
 // Mirrors src/analytics/budget.py DEFAULT_BUDGET. The reset day is NOT stored

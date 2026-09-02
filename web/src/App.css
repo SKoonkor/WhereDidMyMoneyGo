@@ -2584,68 +2584,100 @@ a.pick-summary {
 .gs-act-tag { font-size: 11px; opacity: 0.75; }
 
 /* ── Reconcile ─────────────────────────────────────────────────────────────── */
+/* Grid, not flex, and the template lives on the SHARED selector: the header's
+   third cell is a plain .recon-num with no .recon-adjust class, so any width keyed
+   on .recon-adjust would silently misalign the header from every row below it.
+   Both floors are LENGTHS, so a number too wide for its column overflows left over
+   the account name rather than widening the row — they have to be measured, not
+   guessed. Sized to -9,999,999.99, NOT to the friendlier-looking -1,234,567.89:
+   that sample is the narrowest 7-figure string there is, because 1 is a narrow
+   glyph. 86px = 84.7 at 13px tabular; 122px = 104.2 of text at 16px tabular + 12
+   padding + 2 border. The fr keeps them growing on a desktop width. */
 .recon-head, .recon-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(86px, 1fr) minmax(122px, 1fr);
   align-items: center;
-  gap: 8px;
-  padding: 7px 2px;
+  gap: 6px;
+  padding: 7px 0;
 }
 .recon-head {
   color: var(--muted);
-  font-size: 12px;
   border-bottom: 1px solid var(--border);
 }
 .recon-row { border-bottom: 1px solid var(--border-soft); }
-.recon-acct { flex: 1.3; min-width: 0; font-weight: 600; }
+/* The account name pays for the Adjust box: smaller, and wrapping rather than
+   pushing the columns around. */
+.recon-acct {
+  min-width: 0;
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
 .recon-num {
-  flex: 1;
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-size: 13px;
+  white-space: nowrap;
 }
-.recon-head .recon-acct { font-weight: 400; }
-/* Adjust cell: a ± sign toggle + the balance input side by side. */
+/* Pinned explicitly: .recon-acct/.recon-num are declared after .recon-head, so at
+   equal specificity the body sizes would otherwise win in the header too. */
+.recon-head .recon-acct, .recon-head .recon-num { font-size: 12px; font-weight: 400; }
+/* Adjust cell: just the balance input now. The ± sign toggle it used to share the
+   cell with is gone — the pad types a leading minus itself, and the button's tap
+   landed outside the pad, which closed it. */
 .recon-adjust {
   display: flex;
   align-items: center;
-  gap: 6px;
 }
-.recon-sign {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 34px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--ink);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-}
-.recon-sign:active { filter: brightness(1.15); }
 .recon-input {
   flex: 1;
   min-width: 0;
   width: 100%;
-  padding: 7px 8px;
+  padding: 7px 6px;
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--ink);
+  /* Stays at 16px: Safari zooms the page when a smaller control takes focus. */
   font-size: 16px;
   text-align: right;
+  /* Both are inherited everywhere else on this row and NOT here: the UA's
+     `input { font: -webkit-small-control }` is a shorthand, and a shorthand resets
+     font-variant-numeric to normal at UA origin, where a declared value beats an
+     inherited one. Without these two the Adjust digits are a different face and a
+     different width from the Tracked digits beside them. */
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
 }
-.recon-total {
+/* An entry that doesn't parse yet — see MID_TYPING in ReconcilePage. */
+.recon-input[aria-invalid='true'] { border-color: var(--expense); }
+/* The header's Adjust label aligns to the track edge; the value below it aligns to
+   the input's content edge, one border plus one padding further in. */
+.recon-head .recon-num:last-child { padding-right: 7px; }
+/* Narrow phones: pay for the number columns out of the FONT, not the tracks. The
+   earlier version of this block shrank the tracks instead, which took 18px off the
+   two columns on exactly the phones where they were already tightest. 82px = 78.2
+   for the number at 12px, and 80.2 for the Thai header ที่บันทึกไว้. The 380px edge
+   takes in the 375px phones (SE 2/3, 13 mini), which cleared the base template by
+   under 2px. */
+@media (max-width: 380px) {
+  .recon-head, .recon-row {
+    grid-template-columns: minmax(0, 1fr) minmax(82px, 1fr) minmax(122px, 1fr);
+  }
+  .recon-num, .recon-head .recon-num { font-size: 12px; }
+}
+/* The reminder switch, at the top of the page. */
+.recon-remind-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 12px 2px 2px;
-  margin-top: 6px;
-  border-top: 2px solid var(--border);
-  font-weight: 600;
-  font-size: 16px;
+  justify-content: space-between;
+  gap: 12px;
 }
-.recon-actions { display: flex; gap: 14px; margin-top: 16px; }
+.recon-remind-label { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+/* The button and its result message share this row, and in Thai they do not fit
+   on one line. */
+.recon-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; }
 .recon-summary-row {
   display: flex;
   justify-content: space-between;

@@ -29,6 +29,7 @@ export function NumberField({
   onFocus,
   onKeyDown,
   'aria-invalid': ariaInvalid,
+  'aria-label': ariaLabel,
 }: {
   mode: KeypadMode
   value: string
@@ -46,6 +47,9 @@ export function NumberField({
   // otherwise be swallowed as the pad's `=`.
   onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   'aria-invalid'?: boolean
+  // An accessible name for call sites where no <label> is wired to the input.
+  // `label` above is the pad's own header text, not the field's name.
+  'aria-label'?: string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   // One id per instance, stable across renders — it is the token that says which
@@ -131,6 +135,7 @@ export function NumberField({
         style={style}
         placeholder={placeholder}
         aria-invalid={ariaInvalid}
+        aria-label={ariaLabel}
         value={value}
         // `readOnly` is what actually suppresses the keyboard on iOS;
         // `inputMode="none"` is what does it on Android. Both, or one of the two

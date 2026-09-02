@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, ensureSeeded, addTxn, addTransfer, listTxns, addGoalMove, listGoalMoves, getAccounts, getBudget, getGoals, getTax, getDebts, getHomeLayout, saveBudget, saveGoals, saveTax, saveDebts, saveHomeLayout } from '../../db'
+import { db, ensureSeeded, addTxn, addTransfer, listTxns, addGoalMove, listGoalMoves, getAccounts, getBudget, getGoals, getTax, getDebts, getHomeLayout, saveBudget, saveGoals, saveTax, saveDebts, saveHomeLayout, getReconcileState, saveReconcileState } from '../../db'
 import { allocations } from '../analytics/goalSavings'
 import { DEFAULT_TRADING } from '../../data/defaults'
 import {
@@ -162,6 +162,37 @@ describe('backup / restore', () => {
     await restoreBackup(parseBackup(JSON.stringify(v1)))
     // The v1 file had no goals key → the existing goals config is left intact.
     expect((await getGoals()).goals.Trip).toBe(50000)
+  })
+
+  // The reminder switch lives inside the reconcile config, so it rides along
+  // without a version bump — same reasoning as the limits below, same reason to
+  // assert it.
+  it('round-trips the reconcile reminder switch', async () => {
+    await saveReconcileState({ lastReconciled: '2026-07-01', remindersOn: false })
+    const backup = await makeBackup()
+    expect(backup.version).toBe(7) // no bump earned
+    expect(backup.reconcile).toEqual({ lastReconciled: '2026-07-01', remindersOn: false })
+
+    await db.config.clear()
+    await ensureSeeded()
+    expect((await getReconcileState()).remindersOn).toBe(true) // seeded back on
+
+    await restoreBackup(parseBackup(JSON.stringify(backup)))
+    expect(await getReconcileState()).toEqual({ lastReconciled: '2026-07-01', remindersOn: false })
+  })
+
+  // Restore is a full replace, so a file older than the switch resets it to the
+  // default rather than leaving whatever this device happened to be set to.
+  it('restores a pre-switch file to the default, not the device setting', async () => {
+    await saveReconcileState({ remindersOn: false })
+    await restoreBackup(parseBackup(JSON.stringify({
+      app: 'where-did-my-money-go', version: 2, exportedAt: new Date().toISOString(),
+      accounts: await getAccounts(),
+      categories: { income: {}, expense: {} },
+      transactions: [],
+      reconcile: { lastReconciled: '2026-01-01' },
+    })))
+    expect(await getReconcileState()).toEqual({ lastReconciled: '2026-01-01', remindersOn: true })
   })
 
   // Limits live inside the budget config, so they ride along without a version

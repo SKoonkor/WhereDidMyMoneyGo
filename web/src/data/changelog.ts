@@ -40,6 +40,17 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.11.0',
+    date: '02-09-2026',
+    changes: [
+      { kind: 'fixed', text: 'The reconcile reminder now clears the moment you reconcile — including on the 1st of the month, when it used to stay put.' },
+      { kind: 'new', text: 'A switch at the top of Reconcile turns that reminder off, if you would rather not be nudged.' },
+      { kind: 'improved', text: 'Wider Adjust boxes on Reconcile, so a balance over a million is no longer cut off.' },
+      { kind: 'fixed', text: 'Reconcile no longer reads a half-typed sum like “500 −” as a finished balance.' },
+      { kind: 'removed', text: 'The ± button on Reconcile — the keypad types a minus itself.' },
+    ],
+  },
+  {
     version: '0.10.0',
     date: '20-08-2026',
     changes: [
