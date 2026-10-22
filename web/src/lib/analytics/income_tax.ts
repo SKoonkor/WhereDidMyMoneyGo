@@ -214,30 +214,24 @@ export function incomeTaxStatus(gross: number, values: AllowanceValues, spec: Ta
 // A "selection" targets a whole category ("Category") or one subcategory
 // ("Category / Subcategory"); an empty category (" / Sub") is a legacy
 // subcategory-only match.
-function parseSelection(s: string): [string, string] {
-  if (s.includes(' / ')) {
-    const idx = s.indexOf(' / ')
-    return [s.slice(0, idx).trim(), s.slice(idx + 3).trim()]
-  }
-  return [s.trim(), '']
-}
-
 function selList(selections: string | string[] | null | undefined): string[] {
   if (selections == null) return []
   const arr = typeof selections === 'string' ? [selections] : selections
   return arr.filter((s) => s && String(s).trim())
 }
 
-// Does a transaction match any of the parsed selections?
+// Does a transaction match any selection? Matched on the exact stored strings
+// (never by re-splitting them), so a category or sub-category whose own name
+// contains ' / ' still resolves: "Cat" is the whole category, "Cat / Sub" one
+// sub, and " / Sub" a legacy subcategory-only entry.
 function matchesSelection(txn: Txn, selections: string[]): boolean {
-  for (const sel of selections) {
-    const [cat, sub] = parseSelection(sel)
-    if (!cat && !sub) continue
-    if (!cat) {
-      if (txn.subcategory === sub) return true // legacy subcategory-only
-      continue
-    }
-    if (txn.category === cat && (!sub || txn.subcategory === sub)) return true
+  const subKey = txn.subcategory ? selKey(txn.category, txn.subcategory) : null
+  for (const raw of selections) {
+    const sel = raw.trim()
+    if (!sel) continue
+    if (sel === txn.category || (subKey !== null && sel === subKey)) return true
+    // Tested on `raw`: trimming would eat the leading space that marks this form.
+    if (raw.startsWith(' / ') && txn.subcategory === raw.slice(3).trim()) return true
   }
   return false
 }
@@ -298,6 +292,61 @@ export function ledgerYears(txns: Txn[], current?: number): number[] {
     if (Number.isFinite(y)) years.add(y)
   }
   return [...years].sort((a, b) => b - a)
+}
+
+// ── Selection editing (the "Tax already paid" picker) ────────────────────────
+import type { BudgetRename } from './budgetMaintenance'
+
+export const selKey = (cat: string, sub?: string | null): string => (sub ? `${cat} / ${sub}` : cat)
+
+// Whole category, or a subcategory of it, as stored in a selection list.
+export function selectionState(selections: string[], cat: string, subs: string[]) {
+  const set = new Set(selections)
+  const whole = set.has(cat)
+  const picked = subs.filter((s) => set.has(selKey(cat, s)))
+  return { whole, picked }
+}
+
+// Tap on a category (sub = null) or one of its subcategories. Selecting a whole
+// category supersedes its subs; tapping a sub while the whole category is on
+// becomes "everything except that sub" so the tap always removes something.
+export function toggleTaxSelection(selections: string[], cat: string, sub: string | null, subsOfCat: string[]): string[] {
+  const own = (s: string) => s === cat || s.startsWith(`${cat} / `)
+  const rest = selections.filter((s) => !own(s))
+  const { whole, picked } = selectionState(selections, cat, subsOfCat)
+  // Legacy/unknown entries for this category (e.g. a sub since deleted) are kept
+  // out of the rewrite on purpose: they match nothing the picker can show.
+  if (sub === null) return whole ? rest : [...rest, cat]
+  if (whole) return [...rest, ...subsOfCat.filter((s) => s !== sub).map((s) => selKey(cat, s))]
+  const next = picked.includes(sub) ? picked.filter((s) => s !== sub) : [...picked, sub]
+  // Every sub picked is the same as the whole category, and keeps counting subs
+  // (and untagged rows) added later.
+  if (subsOfCat.length > 0 && next.length === subsOfCat.length) return [...rest, cat]
+  return [...rest, ...next.map((s) => selKey(cat, s))]
+}
+
+// Keep saved selections pointing at the right names after a rename / delete.
+// Exact-string work, for the same reason as matchesSelection.
+export function remapTaxSelections(selections: string[], op: BudgetRename): string[] {
+  const inCat = (sel: string, cat: string) => sel === cat || sel.startsWith(`${cat} / `)
+  const out: string[] = []
+  for (const sel of selections) {
+    switch (op.kind) {
+      case 'category':
+        out.push(inCat(sel, op.from) ? op.to + sel.slice(op.from.length) : sel)
+        break
+      case 'category-delete':
+        if (!inCat(sel, op.name)) out.push(sel)
+        break
+      case 'sub':
+        out.push(sel === selKey(op.category, op.from) ? selKey(op.category, op.to) : sel)
+        break
+      case 'sub-delete':
+        if (sel !== selKey(op.category, op.name)) out.push(sel)
+        break
+    }
+  }
+  return [...new Set(out)]
 }
 
 // ── Config defaults ──────────────────────────────────────────────────────────

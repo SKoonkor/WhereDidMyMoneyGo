@@ -40,6 +40,14 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.12.0',
+    date: '22-10-2026',
+    changes: [
+      { kind: 'new', text: 'Income Tax → Tax already paid: tap a category to pick single sub-categories, or “All” for the whole category.' },
+      { kind: 'fixed', text: 'Renaming or deleting a category or sub-category now carries over your tax-already-paid choices.' },
+    ],
+  },
+  {
     version: '0.11.0',
     date: '02-09-2026',
     changes: [

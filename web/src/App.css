@@ -2095,6 +2095,14 @@ a.pick-summary {
   box-shadow: 0 0 0 2px var(--accent) inset;
 }
 .budget-chip.sub { border-style: dashed; }
+/* Tax-paid picker chips are tapped, never held, so let the page scroll over them. */
+.budget-chip.tax-chip { touch-action: manipulation; }
+.budget-chip.tax-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.budget-chip.tax-chip.on .cat-caret { color: #fff; }
+.budget-chip.tax-chip.partial { border-color: var(--accent); }
+/* Collapsed, the strip's padding would still leave a dead gap under the chips. */
+.tax-subwrap:not(.open) { margin-top: 0; }
+.tax-subwrap:not(.open) > .budget-subgrid { padding-block: 0; }
 .budget-chip .cat-caret {
   font-size: 11px;
   color: var(--muted);

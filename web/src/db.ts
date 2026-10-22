@@ -34,7 +34,7 @@ import {
   type Settings,
 } from './data/defaults'
 import type { SimTime, Timeframe } from './lib/trading/types'
-import { DEFAULT_TAX, type TaxCfg } from './lib/analytics/income_tax'
+import { DEFAULT_TAX, remapTaxSelections, type TaxCfg } from './lib/analytics/income_tax'
 import {
   DEFAULT_HOME_LAYOUT, applyLegacyCollapsed, normalizeLayout, type HomeLayout,
 } from './lib/homeLayout'
@@ -354,6 +354,13 @@ export async function renameCategory(
 // category mutation remembers to do it.
 async function remapBudgetCfg(op: BudgetRename): Promise<void> {
   await saveBudget(remapBudget(await getBudget(), op))
+  // "Tax already paid" picks expense categories/subcategories by name too.
+  await patchTax((tax) => {
+    const before = tax.taxSelections ?? []
+    const after = remapTaxSelections(before, op)
+    const same = after.length === before.length && after.every((s, i) => s === before[i])
+    return same ? null : { taxSelections: after }
+  })
 }
 
 // Delete a category and reassign its transactions: a normal category funnels into
@@ -505,9 +512,30 @@ export async function saveReconcileState(patch: Partial<ReconcileState>): Promis
   })
 }
 
+// Older or hand-edited backups may hold a bare string (or junk) where a list of
+// selections belongs; the picker and remap both need a real string[].
+const asSelections = (v: unknown): string[] | undefined =>
+  v == null ? undefined : (typeof v === 'string' ? [v] : Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [])
+
 export async function getTax(): Promise<TaxCfg> {
-  return { ...DEFAULT_TAX, ...((await db.config.get('tax'))?.value as TaxCfg) }
+  const cfg = { ...DEFAULT_TAX, ...((await db.config.get('tax'))?.value as TaxCfg) }
+  return {
+    ...cfg,
+    incomeSelections: asSelections(cfg.incomeSelections) ?? [],
+    taxSelections: asSelections(cfg.taxSelections) ?? [],
+  }
 }
+// Read-modify-write inside one transaction, so two quick taps (or a rename
+// remapping at the same moment) can't overwrite each other from a stale snapshot.
+export async function patchTax(fn: (cfg: TaxCfg) => Partial<TaxCfg> | null): Promise<void> {
+  await db.transaction('rw', db.config, async () => {
+    const cfg = await getTax()
+    const patch = fn(cfg)
+    if (patch) await saveTax({ ...cfg, ...patch })
+  })
+}
+export const updateTaxSelections = (fn: (cur: string[]) => string[]) =>
+  patchTax((c) => ({ taxSelections: fn(c.taxSelections ?? []) }))
 export async function saveTax(cfg: TaxCfg): Promise<void> {
   await db.config.put({ key: 'tax', value: cfg })
 }

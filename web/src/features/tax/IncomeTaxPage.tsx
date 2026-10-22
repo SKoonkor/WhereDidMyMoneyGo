@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { getTax, saveTax, getCategories } from '../../db'
+import { getTax, getCategories, patchTax, updateTaxSelections } from '../../db'
 import { useLiveTxns } from '../useLiveTxns'
 import { useSettings } from '../transactions/useConfig'
 import {
   specFor, allowanceDefs, incomeTaxStatus, grossIncomeForYear, taxPaidForYear,
-  ledgerYears, type TaxCfg, type AllowanceDef, type AllowanceValues,
+  ledgerYears, toggleTaxSelection, selectionState, selKey, type TaxCfg, type AllowanceDef, type AllowanceValues,
 } from '../../lib/analytics/income_tax'
 import { t } from '../../i18n'
 import { NumberField } from '../../components/NumberField'
@@ -25,7 +25,8 @@ export function IncomeTaxPage() {
   useEffect(() => { if (years.length && !years.includes(year)) setYear(years[0]) }, [years, year])
 
   const spec = specFor(cfg?.country)
-  const save = (patch: Partial<TaxCfg>) => { if (cfg) void saveTax({ ...cfg, ...patch }) }
+  // Read-modify-write in one transaction, so a tap right after another can't write a stale snapshot back.
+  const save = (patch: Partial<TaxCfg>) => { void patchTax(() => patch) }
 
   // Ledger-derived gross for the year, filtered by the chosen income categories.
   const ledgerGross = useMemo(
@@ -52,12 +53,11 @@ export function IncomeTaxPage() {
   const incomeCats = cats ? Object.keys(cats.income) : []
   const expenseCats = cats ? Object.keys(cats.expense) : []
   const incomeSel = new Set(cfg.incomeSelections ?? [])
-  const taxSel = new Set(cfg.taxSelections ?? [])
-  const toggle = (set: Set<string>, name: string, key: 'incomeSelections' | 'taxSelections') => {
-    const next = new Set(set)
+  const toggleIncome = (name: string) => void patchTax((c) => {
+    const next = new Set(c.incomeSelections ?? [])
     if (next.has(name)) next.delete(name); else next.add(name)
-    save({ [key]: [...next] })
-  }
+    return { incomeSelections: [...next] }
+  })
 
   const refund = status.remaining < 0
 
@@ -92,7 +92,7 @@ export function IncomeTaxPage() {
             <div className="set-hint" style={{ marginTop: 10 }}>{t('Count only these income categories (none = all):')}</div>
             <div className="chip-choices">
               {incomeCats.map((c) => (
-                <button key={c} type="button" className={incomeSel.has(c) ? 'choice-chip on' : 'choice-chip'} onClick={() => toggle(incomeSel, c, 'incomeSelections')}>{c}</button>
+                <button key={c} type="button" className={incomeSel.has(c) ? 'choice-chip on' : 'choice-chip'} onClick={() => toggleIncome(c)}>{c}</button>
               ))}
             </div>
           </>
@@ -119,11 +119,11 @@ export function IncomeTaxPage() {
           {t('Withholding / prepayments from these expense categories:')}
         </p>
         {expenseCats.length > 0 ? (
-          <div className="chip-choices">
-            {expenseCats.map((c) => (
-              <button key={c} type="button" className={taxSel.has(c) ? 'choice-chip on' : 'choice-chip'} onClick={() => toggle(taxSel, c, 'taxSelections')}>{c}</button>
-            ))}
-          </div>
+          <TaxPaidPicker
+            expense={cats?.expense ?? {}}
+            selections={cfg.taxSelections ?? []}
+            onChange={(fn) => void updateTaxSelections(fn)}
+          />
         ) : <p className="muted" style={{ fontSize: 13 }}>{t('No expense categories yet.')}</p>}
         <p style={{ marginTop: 10 }}>
           {t('Paid in {year}', { year })}: <span className="money" style={{ fontWeight: 600 }}>{fmt(status.tax_paid)} {currency}</span>
@@ -207,5 +207,100 @@ function Total({ label, value, accent }: { label: string; value: React.ReactNode
       <span className="calc-total-label">{label}</span>
       <span className={`calc-total-value${accent ? ' accent' : ''}`}>{value}</span>
     </div>
+  )
+}
+
+// Expense categories as tappable chips. A category with sub-categories opens an
+// inline strip (the Spending limits pattern): "All <category>" picks the whole
+// thing, the other chips pick single sub-categories. Plain taps only.
+function TaxPaidPicker({ expense, selections, onChange }: {
+  expense: Record<string, string[]>
+  selections: string[]
+  onChange: (update: (cur: string[]) => string[]) => void
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  // `mounted`/`shown` keep the strip in the DOM through the collapse transition.
+  const [mounted, setMounted] = useState<string | null>(null)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (expanded) {
+      setMounted(expanded)
+      const r = requestAnimationFrame(() => setShown(true))
+      return () => cancelAnimationFrame(r)
+    }
+    setShown(false)
+    const tm = setTimeout(() => setMounted(null), 260)
+    return () => clearTimeout(tm)
+  }, [expanded])
+
+  const pick = (cat: string, sub: string | null) =>
+    onChange((cur) => toggleTaxSelection(cur, cat, sub, expense[cat] ?? []))
+
+  const chosen = Object.keys(expense).flatMap((cat) => {
+    const { whole, picked } = selectionState(selections, cat, expense[cat] ?? [])
+    return whole ? [cat] : picked.map((s) => selKey(cat, s))
+  })
+
+  return (
+    <>
+      <div className="budget-chip-list">
+        {Object.keys(expense).map((cat) => {
+          const subs = expense[cat] ?? []
+          const { whole, picked } = selectionState(selections, cat, subs)
+          const hasSubs = subs.length > 0
+          const cls = `budget-chip tax-chip${whole ? ' on' : picked.length ? ' partial' : ''}`
+          return (
+            <button
+              key={cat} type="button" className={cls}
+              {...(hasSubs ? { 'aria-expanded': expanded === cat } : { 'aria-pressed': whole })}
+              onClick={() => (hasSubs ? setExpanded((cur) => (cur === cat ? null : cat)) : pick(cat, null))}
+            >
+              {cat}
+              {!whole && picked.length > 0 && <span className="budget-chip-amt">{picked.length}</span>}
+              {hasSubs && <span className="cat-caret">{expanded === cat ? '▴' : '▾'}</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className={shown ? 'budget-subwrap tax-subwrap open' : 'budget-subwrap tax-subwrap'}>
+        <div className="budget-subgrid">
+          {mounted && (
+            <>
+              <div className="budget-substrip-head muted">
+                {mounted} · {t('Tap to include in tax already paid')}
+              </div>
+              <div className="budget-chip-list">
+                {(() => {
+                  const subs = expense[mounted] ?? []
+                  const { whole, picked } = selectionState(selections, mounted, subs)
+                  return (
+                    <>
+                      <button type="button" className={`budget-chip tax-chip${whole ? ' on' : ''}`} aria-pressed={whole} onClick={() => pick(mounted, null)}>
+                        {t('All {category}', { category: mounted })}
+                      </button>
+                      {subs.map((sub) => {
+                        const on = whole || picked.includes(sub)
+                        return (
+                          <button key={sub} type="button" className={`budget-chip sub tax-chip${on ? ' on' : ''}`} aria-pressed={on} onClick={() => pick(mounted, sub)}>
+                            {sub}
+                          </button>
+                        )
+                      })}
+                    </>
+                  )
+                })()}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {chosen.length > 0 && (
+        <p className="set-hint" style={{ marginTop: 8 }}>
+          {t('Counting')}: {chosen.map((c) => c.replace(' / ', ' › ')).join(', ')}
+        </p>
+      )}
+    </>
   )
 }

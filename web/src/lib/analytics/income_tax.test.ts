@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest'
 import {
   TH_SPEC, expenseDeduction, applyAllowances, progressiveTax, incomeTaxStatus,
   grossIncomeForYear, taxPaidForYear, taxPaymentsForYear, ledgerYears,
+  toggleTaxSelection, remapTaxSelections,
 } from './income_tax'
 import type { Txn } from '../../db'
 
@@ -166,5 +167,93 @@ describe('selection filtering', () => {
       { date: '10-Apr-2026', amount: 2_000, category: 'Bills', subcategory: 'Tax' },
       { date: '10-May-2026', amount: 1_500, category: 'Bills', subcategory: 'WHT' },
     ])
+  })
+})
+
+describe('toggleTaxSelection', () => {
+  const subs = ['Withholding', 'Prepaid', 'Social']
+  it('picks and unpicks single subs', () => {
+    const a = toggleTaxSelection([], 'Tax', 'Prepaid', subs)
+    expect(a).toEqual(['Tax / Prepaid'])
+    expect(toggleTaxSelection(a, 'Tax', 'Prepaid', subs)).toEqual([])
+  })
+  it('whole category supersedes its subs, leaves other categories alone', () => {
+    const next = toggleTaxSelection(['Food', 'Tax / Prepaid'], 'Tax', null, subs)
+    expect(next).toEqual(['Food', 'Tax'])
+    expect(toggleTaxSelection(next, 'Tax', null, subs)).toEqual(['Food'])
+  })
+  it('tapping a sub while whole is on means "all except it"', () => {
+    expect(toggleTaxSelection(['Tax'], 'Tax', 'Prepaid', subs))
+      .toEqual(['Tax / Withholding', 'Tax / Social'])
+  })
+  it('does not double count whole + sub', () => {
+    const txns = [
+      txn({ period: '2026-03-01', type: 'Expense', amount: 100, category: 'Tax', subcategory: 'Prepaid' }),
+      txn({ period: '2026-03-02', type: 'Expense', amount: 50, category: 'Tax', subcategory: 'Social' }),
+    ]
+    expect(taxPaidForYear(txns, ['Tax', 'Tax / Prepaid'], 2026)).toBe(150)
+    expect(taxPaidForYear(txns, ['Tax / Prepaid'], 2026)).toBe(100)
+  })
+})
+
+describe('toggleTaxSelection edge cases', () => {
+  it('picking every sub collapses to the whole category', () => {
+    const subs = ['A', 'B']
+    const one = toggleTaxSelection([], 'Tax', 'A', subs)
+    expect(toggleTaxSelection(one, 'Tax', 'B', subs)).toEqual(['Tax'])
+  })
+  it('a category name containing " / " can be ticked, unticked and counts whole', () => {
+    const on = toggleTaxSelection([], 'Rent / Util', null, [])
+    expect(on).toEqual(['Rent / Util'])
+    expect(toggleTaxSelection(on, 'Rent / Util', null, [])).toEqual([])
+    const t = [txn({ period: '2026-01-01', type: 'Expense', amount: 70, category: 'Rent / Util' })]
+    expect(taxPaidForYear(t, on, 2026)).toBe(70)
+  })
+})
+
+describe('remapTaxSelections', () => {
+  const sels = ['Tax', 'Tax / Prepaid', 'Food / Out']
+  it('renames a category, keeping subs', () => {
+    expect(remapTaxSelections(sels, { kind: 'category', from: 'Tax', to: 'Taxes' }))
+      .toEqual(['Taxes', 'Taxes / Prepaid', 'Food / Out'])
+  })
+  it('drops a deleted category', () => {
+    expect(remapTaxSelections(sels, { kind: 'category-delete', name: 'Tax', into: 'Other' }))
+      .toEqual(['Food / Out'])
+  })
+  it('renames and deletes a sub', () => {
+    expect(remapTaxSelections(sels, { kind: 'sub', category: 'Tax', from: 'Prepaid', to: 'Pre' }))
+      .toEqual(['Tax', 'Tax / Pre', 'Food / Out'])
+    expect(remapTaxSelections(sels, { kind: 'sub-delete', category: 'Tax', name: 'Prepaid' }))
+      .toEqual(['Tax', 'Food / Out'])
+  })
+})
+
+describe('categories whose names contain " / "', () => {
+  const t = [
+    txn({ period: '2026-01-01', type: 'Expense', amount: 100, category: 'Food / Drink', subcategory: 'Eat' }),
+    txn({ period: '2026-01-02', type: 'Expense', amount: 30, category: 'Food / Drink' }),
+  ]
+  it('counts a sub under such a category, and the whole category', () => {
+    expect(taxPaidForYear(t, ['Food / Drink / Eat'], 2026)).toBe(100)
+    expect(taxPaidForYear(t, ['Food / Drink'], 2026)).toBe(130)
+  })
+  it('remap follows a rename / delete of the category and its subs', () => {
+    expect(remapTaxSelections(['Food / Drink', 'Food / Drink / Eat'], { kind: 'category', from: 'Food / Drink', to: 'Z' }))
+      .toEqual(['Z', 'Z / Eat'])
+    expect(remapTaxSelections(['Food / Drink', 'Food / Drink / Eat', 'Rent'], { kind: 'category-delete', name: 'Food / Drink', into: 'Other' }))
+      .toEqual(['Rent'])
+    expect(remapTaxSelections(['Food / Drink / Eat'], { kind: 'sub', category: 'Food / Drink', from: 'Eat', to: 'Dine' }))
+      .toEqual(['Food / Drink / Dine'])
+  })
+})
+
+describe('legacy subcategory-only selections', () => {
+  it('" / Sub" still matches by subcategory alone', () => {
+    const t = [
+      txn({ period: '2025-03-01', type: 'Expense', amount: 100, category: 'Food', subcategory: 'Tax' }),
+      txn({ period: '2025-03-02', type: 'Expense', amount: 40, category: 'Food', subcategory: 'Eat' }),
+    ]
+    expect(taxPaidForYear(t, [' / Tax'], 2025)).toBe(100)
   })
 })
