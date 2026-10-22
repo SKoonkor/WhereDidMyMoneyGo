@@ -3,13 +3,16 @@ import type { GoalMove } from '../../lib/analytics/goalSavings'
 import { getLang } from '../../i18n'
 
 // Month key helpers ("YYYY-MM") and per-month/-day grouping for the list.
+import { todayISO } from '../../lib/analytics/reconcile'
 
 export function monthKeyOf(periodIso: string): string {
   return periodIso.slice(0, 7)
 }
 
 export function currentMonthKey(): string {
-  return new Date().toISOString().slice(0, 7)
+  // LOCAL month: it must agree with the form's default date (also local), or an
+  // entry saved just after midnight on the 1st lands in a month the page isn't showing.
+  return todayISO().slice(0, 7)
 }
 
 // Shift a "YYYY-MM" key by whole months.
@@ -48,7 +51,7 @@ export function latestPeriod(txns: Txn[]): string {
     const d = t.period.slice(0, 10)
     if (d > max) max = d
   }
-  return max || new Date().toISOString().slice(0, 10)
+  return max || todayISO()
 }
 
 // Shift a "YYYY-MM-DD" day by whole days (calendar-correct across months/years).

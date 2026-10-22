@@ -53,7 +53,7 @@ function steps(): Step[] {
     {
       mock: <SettingsMock />,
       title: t('Make it yours in Settings'),
-      body: t('Settings is where you switch language (EN/TH), light or dark theme, hide amounts for privacy, set your currency, and turn on AI receipt scanning.'),
+      body: t('Settings is where you switch language (EN/TH), light or dark theme, hide amounts for privacy, set your currency, and turn on the AI helper.'),
     },
     {
       mock: <ImportMock />,
@@ -193,7 +193,7 @@ export function TourOverlay({ onClose }: { onClose: () => void }) {
           <div className="tour-info-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="tour-info-title">{t('Your data & AI scanning')}</h3>
             <p className="tour-info-body">
-              {t('Everything you type stays on this phone. The one exception is AI receipt scanning: if you turn it on and add your own API key, the photo you scan is sent to that AI provider to read it. The app never stores the photo — it keeps only the text it pulls out, and only after you confirm. What the provider does with the image is covered by that provider’s own privacy policy.')}
+              {t('Everything you type stays on this phone. The one exception is the AI helper: if you turn it on and add your own API key, the receipt photo you scan, or the sentence you say for a voice entry (as text), is sent to that AI provider to read it. The app never stores the photo or the recording — it keeps only the details it pulls out, and only after you confirm. What the provider does with what it receives is covered by that provider’s own privacy policy.')}
             </p>
             <button className="btn btn-accent tour-info-ok" onClick={() => setInfoOpen(false)}>{t('Got it')}</button>
           </div>

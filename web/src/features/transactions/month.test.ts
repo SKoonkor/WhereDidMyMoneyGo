@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   addMonths, monthKeyOf, filterByMonth, collapseTransfers, groupByDay, monthSummary, daySummary,
-  filterByRange, latestPeriod, addDays, groupDaysWithMoves,
+  filterByRange, latestPeriod, addDays, groupDaysWithMoves, currentMonthKey,
 } from './month'
 import { UNALLOCATED, type GoalMove } from '../../lib/analytics/goalSavings'
 import type { Txn } from '../../db'
@@ -136,5 +136,18 @@ describe('groupDaysWithMoves', () => {
     const txns = [T({ id: 1, period: '2026-07-01' }), T({ id: 2, period: '2026-07-05' })]
     expect(groupDaysWithMoves(txns, []).map(([d, rows]) => [d, rows.length]))
       .toEqual(groupByDay(txns).map(([d, rows]) => [d, rows.length]))
+  })
+})
+
+describe('currentMonthKey is the LOCAL month', () => {
+  it('just after local midnight on the 1st (still the previous day in UTC) is the new month', () => {
+    vi.useFakeTimers()
+    try {
+      // 2026-11-01 02:00 in Bangkok (UTC+7) = 2026-10-31T19:00Z. TZ is pinned in vite.config.ts.
+      vi.setSystemTime(new Date('2026-10-31T19:00:00Z'))
+      expect(currentMonthKey()).toBe('2026-11')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

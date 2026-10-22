@@ -8,8 +8,11 @@
 // than prose we have to fish JSON out of. normalizeDraft still validates/coerces
 // the values (schema-valid ≠ semantically correct).
 import type { AiCfg } from '../../data/defaults'
-import type { AiProvider, ExtractContext, ExtractResult, ReceiptImage, TestResult } from './types'
-import { buildPrompt, errorMessage, normalizeDraft, parseJsonLoose, stripDataUrl } from './normalize'
+import type { AiProvider, ExtractContext, ExtractResult, ReceiptImage, TestResult, VoiceContext, VoiceResult } from './types'
+import {
+  buildPrompt, buildVoicePrompt, errorMessage, MAX_VOICE_CHARS, normalizeDraft, normalizeVoiceDraft,
+  parseJsonLoose, stripDataUrl,
+} from './normalize'
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -32,6 +35,20 @@ const RESPONSE_SCHEMA = {
     category: { type: 'string', nullable: true },
     currency: { type: 'string', nullable: true },
     confidence: { type: 'number', nullable: true },
+  },
+}
+
+const VOICE_SCHEMA = {
+  type: 'object',
+  properties: {
+    kind: { type: 'string', nullable: true },
+    amount: { type: 'number', nullable: true },
+    date: { type: 'string', nullable: true },
+    account: { type: 'string', nullable: true },
+    toAccount: { type: 'string', nullable: true },
+    category: { type: 'string', nullable: true },
+    subcategory: { type: 'string', nullable: true },
+    note: { type: 'string', nullable: true },
   },
 }
 
@@ -102,10 +119,40 @@ export async function extractReceipt(
   }
 }
 
+// Turn a spoken/typed sentence into a transaction draft (text only).
+export async function extractVoice(cfg: AiCfg, text: string, ctx: VoiceContext): Promise<VoiceResult> {
+  if (!cfg.apiKey.trim()) return { ok: false, error: 'missing-key' }
+  const said = text.trim().slice(0, MAX_VOICE_CHARS)
+  if (!said) return { ok: false, error: 'empty' }
+  try {
+    const res = await fetch(endpoint(cfg.model), {
+      method: 'POST',
+      headers: headers(cfg.apiKey.trim()),
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: buildVoicePrompt(ctx) }] },
+        contents: [{ role: 'user', parts: [{ text: said }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: VOICE_SCHEMA,
+          maxOutputTokens: 2048,
+        },
+      }),
+    })
+    if (!res.ok) return { ok: false, error: await errorMessage(res) }
+    const data = (await res.json().catch(() => null)) as GeminiResponse | null
+    const raw = parseJsonLoose(textOf(data))
+    if (!raw) return { ok: false, error: 'unreadable' }
+    return { ok: true, draft: normalizeVoiceDraft(raw, ctx) }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error' }
+  }
+}
+
 // The Gemini provider bound to a config.
 export function createGeminiProvider(cfg: AiCfg): AiProvider {
   return {
     testConnection: () => testConnection(cfg),
     extractReceipt: (image, ctx) => extractReceipt(cfg, image, ctx),
+    extractVoice: (text, ctx) => extractVoice(cfg, text, ctx),
   }
 }

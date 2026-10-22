@@ -6,7 +6,10 @@ import { createClaudeProvider } from './claude'
 import { createGeminiProvider } from './gemini'
 import type { AiProvider } from './types'
 
-export type { AiProvider, ExtractContext, ExtractResult, ReceiptDraft, ReceiptImage, TestResult } from './types'
+export type {
+  AiProvider, ExtractContext, ExtractResult, ReceiptDraft, ReceiptImage, TestResult,
+  VoiceContext, VoiceDraft, VoiceKind, VoiceResult,
+} from './types'
 
 export function makeProvider(cfg: AiCfg): AiProvider {
   switch (cfg.provider) {

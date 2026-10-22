@@ -8,7 +8,9 @@ import { useAppName } from './features/transactions/useConfig'
 import { addTxn, deleteTxn, getAccounts, getAi, getCategories, getNotifications } from './db'
 import { scheduleReminders } from './lib/notify'
 import { AiCapture } from './features/ai/AiCapture'
-import type { ReceiptDraft } from './lib/ai'
+import { AiChooser } from './features/ai/AiChooser'
+import { VoiceCapture } from './features/ai/VoiceCapture'
+import type { ReceiptDraft, VoiceDraft } from './lib/ai'
 import type { TxnPrefill } from './features/transactions/TxnForm'
 import { DEFAULT_SETTINGS } from './data/defaults'
 import { HomePage } from './features/home/HomePage'
@@ -30,6 +32,7 @@ import { CompoundPage } from './features/compound/CompoundPage'
 import { RetirementPage } from './features/retirement/RetirementPage'
 import { IncomeTaxPage } from './features/tax/IncomeTaxPage'
 import { ReconcilePage } from './features/reconcile/ReconcilePage'
+import { todayISO } from './lib/analytics/reconcile'
 import { BottomNav } from './components/BottomNav'
 import { Modal } from './components/Modal'
 import { Toast } from './components/Toast'
@@ -52,6 +55,22 @@ function scanNotice(draft: ReceiptDraft): string | undefined {
     return t('This was a low-confidence read — please double-check the details.')
   }
   return undefined
+}
+
+// What the review form should flag after a spoken entry: the transcript, so a
+// misheard word is easy to spot, and whichever fields it couldn't work out.
+function voiceNotice(draft: VoiceDraft, heard: string): string {
+  const missing: string[] = []
+  if (draft.amount == null) missing.push(t('amount'))
+  if (draft.kind === 'Transfer') {
+    if (!draft.account) missing.push(t('from account'))
+    if (!draft.toAccount) missing.push(t('to account'))
+  } else {
+    if (!draft.account) missing.push(t('account'))
+    if (!draft.category) missing.push(t('category'))
+  }
+  const heardLine = t('Heard: “{text}”', { text: heard })
+  return missing.length ? `${heardLine} — ${t('please fill in: {fields}', { fields: missing.join(', ') })}` : heardLine
 }
 
 // Code-split the importer: it pulls in SheetJS (~500 kB), which shouldn't sit in
@@ -163,9 +182,12 @@ export default function App() {
   // set; otherwise the hold nudges the user to turn it on (a plain tap always
   // opens the manual Add sheet either way).
   const [capturing, setCapturing] = useState(false)
+  // Holding the ＋ opens a chooser; each choice then opens its own capture sheet.
+  const [choosing, setChoosing] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
   // A scanned receipt awaiting review opens a prefilled Add form (with an optional
   // note when the read was shaky).
-  const [review, setReview] = useState<{ prefill: TxnPrefill; notice?: string } | null>(null)
+  const [review, setReview] = useState<{ prefill: TxnPrefill; notice?: string; title?: string } | null>(null)
   // The toast lives in src/toast.ts rather than here: the order ticket, a lazy
   // chunk and several routes away, raises one after closing its own sheet.
   const toast = useToast()
@@ -194,7 +216,7 @@ export default function App() {
     const category = draft.category && cats.expense[draft.category] ? draft.category : undefined
     if (draft.amount && draft.amount > 0 && account && category) {
       const id = await addTxn({
-        period: draft.date ?? new Date().toISOString().slice(0, 10),
+        period: draft.date ?? todayISO(),
         account, amount: draft.amount, type: 'Expense', category,
         note: draft.merchant, currency: draft.currency,
       })
@@ -208,6 +230,26 @@ export default function App() {
     }
     // Couldn't fully resolve it — fall back to the form so the user finishes it.
     setReview({ prefill, notice: t("Couldn't read everything — please fill in the missing details.") })
+  }
+  // A spoken entry ALWAYS goes to the review form, whatever "Review before
+  // saving" says: a misheard amount or account would otherwise land in the ledger
+  // unseen. Anything the model couldn't resolve is left blank for the user.
+  function handleVoice(draft: VoiceDraft, heard: string) {
+    setSpeaking(false)
+    setReview({
+      title: t('Check before saving'),
+      notice: voiceNotice(draft, heard),
+      prefill: {
+        kind: draft.kind,
+        amount: draft.amount,
+        date: draft.date,
+        note: draft.note,
+        account: draft.account,
+        toAccount: draft.toAccount,
+        category: draft.category,
+        subcategory: draft.subcategory,
+      },
+    })
   }
   // Subscribe to the language at the root so a change in Settings re-renders the
   // whole tree immediately (t() is read during render; pages aren't memoized).
@@ -289,8 +331,8 @@ export default function App() {
         <BottomNav
           onAdd={() => setAdding(true)}
           onLongPress={() => {
-            if (aiReady) setCapturing(true)
-            else showToast(t('Turn on AI receipt scanning in Settings to snap receipts.'), { label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } })
+            if (aiReady) setChoosing(true)
+            else showToast(t('Turn on the AI helper in Settings to scan receipts or add by voice.'), { label: t('Settings'), onClick: () => { window.location.hash = '#/settings' } })
           }}
           onCentre={() => { openSheet('ticket'); goToChart() }}
           onChartSettings={() => { openSheet('settings'); goToChart() }}
@@ -300,6 +342,19 @@ export default function App() {
             <TxnForm prefill={addPrefill} onClose={() => { setAdding(false); setAddPrefill(undefined) }} />
           </Modal>
         )}
+        {choosing && (
+          <AiChooser
+            onClose={() => setChoosing(false)}
+            onReceipt={() => { setChoosing(false); setCapturing(true) }}
+            onVoice={() => { setChoosing(false); setSpeaking(true) }}
+          />
+        )}
+        {speaking && (
+          <VoiceCapture
+            onClose={() => setSpeaking(false)}
+            onExtracted={handleVoice}
+          />
+        )}
         {capturing && (
           <AiCapture
             onClose={() => setCapturing(false)}
@@ -307,7 +362,7 @@ export default function App() {
           />
         )}
         {review && (
-          <Modal title={t('Review receipt')} onClose={() => setReview(null)}>
+          <Modal title={review.title ?? t('Review receipt')} onClose={() => setReview(null)}>
             <TxnForm prefill={review.prefill} notice={review.notice} onClose={() => setReview(null)} />
           </Modal>
         )}

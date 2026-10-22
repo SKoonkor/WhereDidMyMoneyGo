@@ -301,10 +301,10 @@ function AiSettings() {
 
   return (
     <>
-      <h2 className="set-group-title">{t('AI receipt scanning')}</h2>
+      <h2 className="set-group-title">{t('AI helper')}</h2>
       <section className="set-card">
         <div className="set-field">
-          <label>{t('Scan receipts with AI')}</label>
+          <label>{t('Use the AI helper')}</label>
           <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'space-between' }}>
             <OnOff value={form.enabled} onChange={(v) => update({ enabled: v })} />
             {/* Once set up and collapsed, re-open the key/model fields from here. */}
@@ -314,7 +314,7 @@ function AiSettings() {
               </button>
             )}
           </div>
-          <span className="set-hint">{t('Long-press the + button to snap a receipt; a tap still adds manually.')}</span>
+          <span className="set-hint">{t('Hold the + button to scan a receipt or say a transaction; a tap still adds manually.')}</span>
         </div>
 
         {/* The provider/key/model settings only matter once scanning is on, so we

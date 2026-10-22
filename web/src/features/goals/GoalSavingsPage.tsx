@@ -9,6 +9,7 @@ import { TONE_COLOR } from '../budget/tone'
 import { Ring } from '../home/small/Ring'
 import { Modal } from '../../components/Modal'
 import { ChipPicker } from '../transactions/ChipPicker'
+import { todayISO } from '../../lib/analytics/reconcile'
 import {
   UNALLOCATED, savingsActivity, type ActivityRow, type GoalMove,
 } from '../../lib/analytics/goalSavings'
@@ -16,7 +17,7 @@ import { t, tBilingual } from '../../i18n'
 import { NumberField } from '../../components/NumberField'
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 })
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => todayISO()
 
 // The card is a summary, not an archive — the rest lives behind "See all".
 const ACTIVITY_SHOWN = 10

@@ -3,6 +3,7 @@ import { Modal } from '../../components/Modal'
 import { getAi, getCategories, getSettings } from '../../db'
 import { makeProvider, type ReceiptDraft, type ReceiptImage } from '../../lib/ai'
 import { fileToScaledImage } from './scaleImage'
+import { todayISO } from '../../lib/analytics/reconcile'
 import { t } from '../../i18n'
 
 // Turn a provider error code/message into a user-facing line.
@@ -53,7 +54,7 @@ export function AiCapture({
     const ctx = {
       categories: Object.keys(cats.expense),
       defaultCurrency: settings.baseCurrency,
-      today: new Date().toISOString().slice(0, 10),
+      today: todayISO(),
     }
     const r = await makeProvider(cfg).extractReceipt(image, ctx)
     if (r.ok) onExtracted(r.draft)

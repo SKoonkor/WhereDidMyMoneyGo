@@ -31,7 +31,37 @@ export interface ExtractContext {
   today: string // YYYY-MM-DD, for resolving a missing year
 }
 
+// ── Voice entry ──────────────────────────────────────────────────────────────
+// A spoken (or dictated) sentence turned into a transaction draft. Everything is
+// validated against the user's own accounts/categories before it gets here, so a
+// name in the draft is always one that really exists; anything the model made up
+// is dropped and left for the user to pick on the review form.
+export type VoiceKind = 'Expense' | 'Income' | 'Transfer'
+
+export interface VoiceDraft {
+  kind: VoiceKind
+  amount: number | null
+  date: string // YYYY-MM-DD, local — today when the speaker didn't say
+  account?: string // the account paid from / received into; for a Transfer, the source
+  toAccount?: string // Transfer destination
+  category?: string
+  subcategory?: string // only ever an expense sub-category of `category`
+  note?: string
+}
+
+export interface VoiceContext {
+  accounts: string[]
+  expense: Record<string, string[]> // expense category → its sub-categories
+  income: string[] // income category names
+  today: string // YYYY-MM-DD, the user's LOCAL date
+  weekday: string // e.g. "Thursday", so "last Friday" can be resolved
+  defaultCurrency: string
+}
+
+export type VoiceResult = { ok: true; draft: VoiceDraft } | { ok: false; error: string }
+
 export interface AiProvider {
   testConnection(): Promise<TestResult>
   extractReceipt(image: ReceiptImage, ctx: ExtractContext): Promise<ExtractResult>
+  extractVoice(text: string, ctx: VoiceContext): Promise<VoiceResult>
 }

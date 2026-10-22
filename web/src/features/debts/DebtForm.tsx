@@ -8,6 +8,7 @@ import {
 } from '../../data/defaults'
 import { t } from '../../i18n'
 import { NumberField } from '../../components/NumberField'
+import { todayISO } from '../../lib/analytics/reconcile'
 
 // Add or edit one debt. Everything the simulator needs and nothing it doesn't —
 // the balance is the one field that is deliberately absent for a linked debt,
@@ -27,7 +28,7 @@ export function DebtForm({ debt, taken, currency, onSave, onClose }: {
   const [linked, setLinked] = useState(debt ? !!debt.account : true)
   const [account, setAccount] = useState(debt?.account ?? '')
   const [opening, setOpening] = useState(debt?.openingBalance ? String(debt.openingBalance) : '')
-  const [openedOn, setOpenedOn] = useState(debt?.openingDate ?? new Date().toISOString().slice(0, 10))
+  const [openedOn, setOpenedOn] = useState(debt?.openingDate ?? todayISO())
   const [apr, setApr] = useState(debt ? String(debt.apr) : '')
   const [minMode, setMinMode] = useState<MinPayment['mode']>(debt?.minPayment.mode ?? 'percent')
   const [minValue, setMinValue] = useState(

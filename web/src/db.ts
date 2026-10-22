@@ -763,7 +763,7 @@ export async function deleteGoal(name: string): Promise<void> {
   const held = allocations(await db.goalMoves.toArray())[name] ?? 0
   if (held !== 0) {
     await db.goalMoves.add({
-      period: new Date().toISOString().slice(0, 10),
+      period: todayISO(),
       // A negative holding refunds the other way, so the goal still lands on zero.
       from: held > 0 ? name : UNALLOCATED,
       to: held > 0 ? UNALLOCATED : name,

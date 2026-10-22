@@ -2,8 +2,11 @@
 // the documented CORS opt-in header `anthropic-dangerous-direct-browser-access`.
 // The user's key lives only on this device and is sent only to api.anthropic.com.
 import type { AiCfg } from '../../data/defaults'
-import type { AiProvider, ExtractContext, ExtractResult, ReceiptImage, TestResult } from './types'
-import { buildPrompt, errorMessage, normalizeDraft, parseJsonLoose, stripDataUrl } from './normalize'
+import type { AiProvider, ExtractContext, ExtractResult, ReceiptImage, TestResult, VoiceContext, VoiceResult } from './types'
+import {
+  buildPrompt, buildVoicePrompt, errorMessage, MAX_VOICE_CHARS, normalizeDraft, normalizeVoiceDraft,
+  parseJsonLoose, stripDataUrl,
+} from './normalize'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const ANTHROPIC_VERSION = '2023-06-01'
@@ -77,10 +80,39 @@ export async function extractReceipt(
   }
 }
 
+// Turn a spoken/typed sentence into a transaction draft. Text only — nothing but
+// the sentence and the names of the user's accounts/categories leaves the phone.
+export async function extractVoice(cfg: AiCfg, text: string, ctx: VoiceContext): Promise<VoiceResult> {
+  if (!cfg.apiKey.trim()) return { ok: false, error: 'missing-key' }
+  const said = text.trim().slice(0, MAX_VOICE_CHARS)
+  if (!said) return { ok: false, error: 'empty' }
+  try {
+    const res = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: headers(cfg.apiKey.trim()),
+      body: JSON.stringify({
+        model: cfg.model,
+        max_tokens: 400,
+        system: buildVoicePrompt(ctx),
+        messages: [{ role: 'user', content: said }],
+      }),
+    })
+    if (!res.ok) return { ok: false, error: await errorMessage(res) }
+    const data = (await res.json().catch(() => null)) as { content?: Array<{ type?: string; text?: string }> } | null
+    const reply = data?.content?.find((b) => b.type === 'text')?.text ?? ''
+    const raw = parseJsonLoose(reply)
+    if (!raw) return { ok: false, error: 'unreadable' }
+    return { ok: true, draft: normalizeVoiceDraft(raw, ctx) }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error' }
+  }
+}
+
 // The Claude provider bound to a config.
 export function createClaudeProvider(cfg: AiCfg): AiProvider {
   return {
     testConnection: () => testConnection(cfg),
     extractReceipt: (image, ctx) => extractReceipt(cfg, image, ctx),
+    extractVoice: (text, ctx) => extractVoice(cfg, text, ctx),
   }
 }

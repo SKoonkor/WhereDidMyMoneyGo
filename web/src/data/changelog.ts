@@ -40,6 +40,15 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.13.0',
+    date: '22-10-2026',
+    changes: [
+      { kind: 'new', text: 'Voice entry: hold the + and choose “Say a transaction” — say the amount, account, category and date, then check it before it is saved.' },
+      { kind: 'improved', text: 'Holding the + now offers Scan a receipt or Say a transaction once the AI helper is on.' },
+      { kind: 'improved', text: 'Settings and the privacy note now call it the AI helper, and say that what you say is sent to your AI provider as text.' },
+    ],
+  },
+  {
     version: '0.12.0',
     date: '22-10-2026',
     changes: [

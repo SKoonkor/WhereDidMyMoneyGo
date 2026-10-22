@@ -448,7 +448,10 @@ export function addMonths(from: Date, n: number): Date {
   return d
 }
 
-const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+// LOCAL calendar day: it stands in for "today", which must agree with the dates
+// entered in the forms (also local) or interest accrues a day early / late.
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const daysBetween = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 86_400_000
 const sum = (loans: Array<{ balance: number }>) =>
   loans.reduce((s, l) => s + Math.max(0, l.balance), 0)

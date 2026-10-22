@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   addTxn, updateTxn, addTransfer, updateTransfer, deleteTxn, getGoals, getTransferGoal,
-  addAccount, addCategory, addSubcategory, type Txn, type TxnType,
+  addAccount, addCategory, addSubcategory, getCategories, type Txn, type TxnType,
 } from '../../db'
 import { EMERGENCY_FUND } from '../../data/defaults'
 import { useAccounts, useCategories, useBaseCurrency, useSettings } from './useConfig'
@@ -14,6 +14,7 @@ import { dateStatus, isOldDateWarningSnoozed, snoozeOldDateWarning, type DateSta
 import { kindOf, txnChanged, type Kind } from './txnDirty'
 import { parseAmountExpr, exprText } from './amountExpr'
 import { setCarry, revealCarry, registerCarryFill } from './carryNote'
+import { todayISO } from '../../lib/analytics/reconcile'
 import { t, getLang } from '../../i18n'
 
 // User-facing type choices; a Transfer expands to two -In/-Out legs on save.
@@ -21,7 +22,9 @@ import { t, getLang } from '../../i18n'
 // Settings decides which accounts count toward the savings pool.
 const KINDS: Kind[] = ['Expense', 'Income', 'Transfer']
 
-const today = () => new Date().toISOString().slice(0, 10)
+// LOCAL date, not UTC: in Bangkok the UTC date is still yesterday until 07:00, which
+// made "today" look like a future date to the unusual-date check.
+const today = () => todayISO()
 
 // Money as it reads on a receipt. The typed sum is played back by exprText, which
 // lives in amountExpr.ts so it can render × and ÷ from the same token stream the
@@ -30,15 +33,19 @@ const fmt = (n: number) =>
   n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Values to pre-fill a fresh (non-editing) form — e.g. from an AI receipt scan.
-// Everything is optional; a missing field just starts blank/default. `account`
-// is intentionally absent (receipts don't say which account paid), so the user
-// always picks it. Ignored when `editing` is set.
+// Everything is optional; a missing field just starts blank/default. Receipts
+// never name an account, so a scan leaves `account` unset and the user picks it;
+// a spoken entry may say it. Ignored when `editing` is set.
 export interface TxnPrefill {
   kind?: Kind
   amount?: number | null
   date?: string | null
   note?: string
   category?: string
+  subcategory?: string
+  // Expense/Income: the account paid from / received into. Transfer: the source.
+  account?: string
+  toAccount?: string // Transfer destination
 }
 
 // Add or edit a transaction. `editing` is the row tapped (for a transfer, the
@@ -71,13 +78,13 @@ export function TxnForm({
   // Single-row fields (Income/Expense) — start unselected so the picker prompts
   // "Select account / category" rather than pre-choosing one. A scanned category
   // seeds `category` but is cleared below if it isn't a real category.
-  const [account, setAccount] = useState(editing?.account ?? '')
+  const [account, setAccount] = useState(editing?.account ?? prefill?.account ?? '')
   const [category, setCategory] = useState(editing?.category ?? prefill?.category ?? '')
-  const [subcategory, setSubcategory] = useState(editing?.subcategory ?? '')
+  const [subcategory, setSubcategory] = useState(editing?.subcategory ?? prefill?.subcategory ?? '')
   // Transfer fields — for the Out leg, account=from and category=to.
-  const [from, setFrom] = useState(editing?.account ?? '')
+  const [from, setFrom] = useState(editing?.account ?? prefill?.account ?? '')
   const [to, setTo] = useState(
-    editing && kindOf(editing) === 'Transfer' ? editing.category : '',
+    editing && kindOf(editing) === 'Transfer' ? editing.category : editing ? '' : prefill?.toAccount ?? '',
   )
 
   // ── Goal earmarking (transfers that cross the savings-pool boundary) ───────
@@ -119,12 +126,23 @@ export function TxnForm({
 
   // Clear the category if it isn't valid for the current kind's option list
   // (e.g. after switching Expense↔Income) — but never auto-select one.
+  //
+  // useCategories() answers with the BUILT-IN defaults on the first render, before
+  // the user's own tree has loaded. A prefilled custom category (a scan or a
+  // spoken entry) would be wiped against that stand-in and never come back, so
+  // hold off until the real list is in.
+  const loadedCats = useLiveQuery(() => getCategories(), [])
+  // Validated against `loadedCats` itself, not `catNames` (which comes from the
+  // other subscription): the two resolve independently, and the check must never
+  // see the real tree on one side and the defaults on the other.
   useEffect(() => {
-    if (kind !== 'Transfer' && category && !catNames.includes(category)) {
+    if (loadedCats === undefined) return
+    const valid = Object.keys(kind === 'Income' ? loadedCats.income : loadedCats.expense)
+    if (kind !== 'Transfer' && category && !valid.includes(category)) {
       setCategory('')
       setSubcategory('')
     }
-  }, [kind, catNames, category])
+  }, [kind, category, loadedCats])
 
   // ── Amount as a mini calculator ───────────────────────────────────────────
   // The field takes several amounts ("500 - 75 + 25"); the net is what's saved and
