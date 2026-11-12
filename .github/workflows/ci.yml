@@ -12,7 +12,9 @@ jobs:
       fail-fast: false
       matrix:
         # 3.14 is the local dev interpreter; CI covers the supported floor upward.
-        python-version: ["3.9", "3.11", "3.12", "3.13"]
+        # The floor is 3.10 (README › Requirements). 3.9 is end-of-life and has no
+        # build for the Ubuntu 26.04 runners, so setup-python can't install it.
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
