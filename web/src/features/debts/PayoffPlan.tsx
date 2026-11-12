@@ -40,7 +40,7 @@ const nameOf = (s: PayoffStrategy) => (s === 'avalanche' ? t('Avalanche') : t('S
 // the numbers above it can never tell different stories.
 export function PayoffPlan({ view }: { view: DebtsView }) {
   const [censor] = useCensor()
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
   const { standings, cfg, obligation, income, currency } = view
 
   // Draft of the extra payment. Committed on blur, like the pool settings fields —

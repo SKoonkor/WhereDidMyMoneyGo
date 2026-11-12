@@ -40,6 +40,15 @@ export const CHANGE_LABEL: Record<ChangeKind, string> = {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.14.0',
+    date: '12-11-2026',
+    changes: [
+      { kind: 'new', text: 'Pixel theme: a retro pixel-art look with a night-forest scene on Home, pixel icons and chunky buttons. Pick it in Settings → Theme.' },
+      { kind: 'improved', text: 'Settings → Theme is now a picker with a preview of each look.' },
+      { kind: 'improved', text: 'The sun/moon button in the header flips between Light and whichever dark theme you last chose.' },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '22-10-2026',
     changes: [

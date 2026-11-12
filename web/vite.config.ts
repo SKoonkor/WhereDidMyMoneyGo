@@ -60,7 +60,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
-    css: false,
+    // CSS stays stubbed in tests, except theme.css and pixel.css: themes.test.ts
+    // reads them as text (`?raw`) to check the palettes. No other test imports them.
+    css: { include: [/src\/(theme|pixel)\.css/] },
     // Pinned, because CI runs in UTC and the app does not. Anything that asserts
     // a LOCAL calendar date against a UTC one can only fail where the two differ,
     // so on a UTC runner those guards quietly assert nothing. Bangkok is the

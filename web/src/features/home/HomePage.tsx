@@ -17,6 +17,8 @@ import { WidgetFrame } from './WidgetFrame'
 import { WidgetActionSheet } from './WidgetActionSheet'
 import { WidgetPicker } from './WidgetPicker'
 import { t } from '../../i18n'
+import { useTheme } from '../../prefs'
+import pixelHero from '../../assets/pixel/hero.png'
 
 type Picking =
   | { kind: 'large' }
@@ -40,6 +42,7 @@ export function HomePage() {
   const [picking, setPicking] = useState<Picking | null>(null)
   const limits = useLimits()
   const goalSavings = useGoalSavings()
+  const { id: themeId } = useTheme()
 
   const items = useMemo(() => layout?.items ?? [], [layout])
   const uids = useMemo(() => items.map((i) => i.uid), [items])
@@ -91,6 +94,8 @@ export function HomePage() {
 
   return (
     <div className="home">
+      {/* The Pixel theme's scene: decoration only, above everything, not a widget. */}
+      {themeId === 'pixel' && <img className="pixel-hero pixelated" src={pixelHero} alt="" />}
       {/* Spending-limit nudge. Sits ABOVE the list rather than inside it: an
           extra non-draggable sibling among the widgets throws off the drop
           positions while dragging past it (see the reconcile banner below), and

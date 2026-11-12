@@ -24,7 +24,7 @@ const DEFAULTS = { principal: '0', deposit: '500', period: '120', rate: '10', co
 export function CompoundPage() {
   const settings = useSettings()
   const goalsCfg = useLiveQuery(() => getGoals(), [])
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
   const currency = settings.baseCurrency
 
   const [principal, setPrincipal] = useState(DEFAULTS.principal)

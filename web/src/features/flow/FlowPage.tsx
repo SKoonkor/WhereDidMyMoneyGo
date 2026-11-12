@@ -35,7 +35,7 @@ const HORIZONS: Array<{ label: string; days: number }> = [
 export function FlowPage() {
   const [horizon, setHorizon] = useState(30)
   const [sliderIdx, setSliderIdx] = useState(0)
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
   // '' = the whole ledger (the default view).
   const [account, setAccount] = useState('')
 

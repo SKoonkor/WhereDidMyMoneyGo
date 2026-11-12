@@ -33,6 +33,24 @@
   /* Alternating day band — darker than --bg in light. */
   --day-shade: #e7edf2;
 }
+/* Pixel: noillirk's night palette — deep teal, cream ink, a gold accent, mint
+   income and tomato expense. A dark-scheme theme; its retro chrome (square
+   corners, hard shadows, the pixel font) lives in pixel.css, scoped to it. */
+:root[data-theme='pixel'] {
+  --bg: #0c1a1c;
+  --surface: #16292b;
+  --surface-2: #1f3a3d;
+  --ink: #f4ebd7;
+  --muted: #9fb3ad;
+  --border: #2f4a4d;
+  --border-soft: #26403f;
+  --btn-bg: #2f4a4d;
+  --btn-fg: #f4ebd7;
+  --accent: #f2c14e;
+  --income: #5fe3c0;
+  --expense: #ff7a59;
+  --day-shade: #11242a;
+}
 
 * {
   box-sizing: border-box;

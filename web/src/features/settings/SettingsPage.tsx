@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { getAi, getNotifications, getSettings, saveAi, saveNotifications, saveSettings } from '../../db'
 import { useLang, useTheme, useCensor } from '../../prefs'
+import { THEME_IDS, type ThemeId } from '../../themes'
+import pixelSwatch from '../../assets/pixel/swatch.png'
 import { AI_MODELS, AI_MODELS_URL, DEFAULT_SETTINGS, type AiCfg, type AiProvider, type Settings } from '../../data/defaults'
 import { cancelReminders, notifyCapability, requestNotifyPermission, scheduleReminders } from '../../lib/notify'
 import { makeProvider } from '../../lib/ai'
@@ -52,7 +54,7 @@ function PreferencesSettings() {
         <div className="set-field">
           <label>{t('Theme')}</label>
           <ThemeChoice />
-          <span className="set-hint">{t('Light or dark appearance.')}</span>
+          <span className="set-hint">{t('Light, dark, or a retro pixel-art look.')}</span>
         </div>
         <div className="set-field">
           <label>{t('Privacy')}</label>
@@ -160,23 +162,32 @@ function LanguageChoice() {
   )
 }
 
-// Light / Dark segmented choice, driven by prefs.useTheme (mirrors the header pill).
+// Theme picker, driven by prefs.useTheme (the header pill flips Light ↔ the last
+// dark theme). One card per theme in themes.ts, each with a small preview: Light
+// and Dark draw their own palette, Pixel shows a crop of its pixel-art scene.
 function ThemeChoice() {
-  const [theme, toggle] = useTheme()
-  const opts: Array<{ value: 'light' | 'dark'; label: string }> = [
-    { value: 'light', label: t('Light') },
-    { value: 'dark', label: t('Dark') },
-  ]
+  const theme = useTheme()
+  const labels: Record<ThemeId, string> = { light: t('Light'), dark: t('Dark'), pixel: t('Pixel') }
   return (
-    <div className="seg" style={{ maxWidth: 240, marginBottom: 0 }}>
-      {opts.map((o) => (
+    <div className="theme-cards" role="radiogroup" aria-label={t('Theme')}>
+      {THEME_IDS.map((id) => (
         <button
-          key={o.value}
+          key={id}
           type="button"
-          className={o.value === theme ? 'seg-btn active' : 'seg-btn'}
-          onClick={() => { if (o.value !== theme) toggle() }}
+          role="radio"
+          aria-checked={id === theme.id}
+          className={id === theme.id ? 'theme-card on' : 'theme-card'}
+          onClick={() => theme.set(id)}
         >
-          {o.label}
+          {id === 'pixel'
+            ? <img className="theme-swatch pixelated" src={pixelSwatch} alt="" />
+            : (
+                <span className={`theme-swatch is-${id}`} aria-hidden="true">
+                  <span className="theme-swatch-bar" />
+                  <span className="theme-swatch-chip" />
+                </span>
+              )}
+          <span className="theme-card-label">{labels[id]}</span>
         </button>
       ))}
     </div>

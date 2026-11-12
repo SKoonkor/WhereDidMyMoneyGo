@@ -92,7 +92,7 @@ export function RecordMock() {
         <text key={tb.x} x={tb.x} y="172" textAnchor="middle" fontSize="13" fill={muted}>{tb.g}</text>
       ))}
       <circle cx="140" cy="163" r="14" fill={accent} />
-      <path d="M140 156v14M133 163h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
+      <path className="tour-plus" d="M140 156v14M133 163h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   )
 }
@@ -113,7 +113,7 @@ export function TabBarMock() {
         tb.add ? (
           <g key={tb.x}>
             <circle cx={tb.x} cy="150" r="20" fill={accent} />
-            <path d="M140 141v18M131 150h18" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
+            <path className="tour-plus" d="M140 141v18M131 150h18" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
           </g>
         ) : (
           <text key={tb.x} x={tb.x} y="160" textAnchor="middle" fontSize="18" fill={muted}>{tb.label}</text>

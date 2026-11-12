@@ -60,7 +60,7 @@ export function RetirementPage() {
   const settings = useSettings()
   const currency = settings.baseCurrency
   const goalsCfg = useLiveQuery(() => getGoals(), [])
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
 
   const [open, setOpen] = useState(false)
   const [goalBoxOpen, setGoalBoxOpen] = useState(true)

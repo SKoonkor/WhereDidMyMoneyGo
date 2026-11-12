@@ -2,8 +2,8 @@
 // reflected on <html data-*> — the same scheme the Dash app uses, so theme.css
 // and the pre-paint script in index.html apply instantly.
 import { useCallback, useSyncExternalStore } from 'react'
+import { THEMES, coerceThemeId, schemeOf, type Scheme, type ThemeId } from './themes'
 
-type Theme = 'dark' | 'light'
 type Censor = 'on' | 'off'
 
 function read(key: string, fallback: string): string {
@@ -19,18 +19,47 @@ function emit() {
   listeners.forEach((cb) => cb())
 }
 
-export function useTheme(): [Theme, () => void] {
-  const theme = useSyncExternalStore(
-    subscribe,
-    () => (read('pref-theme', 'dark') as Theme),
-  )
-  const toggle = useCallback(() => {
-    const next: Theme = read('pref-theme', 'dark') === 'light' ? 'dark' : 'light'
-    localStorage.setItem('pref-theme', next)
-    document.documentElement.setAttribute('data-theme', next)
-    emit()
+// ── Theme ────────────────────────────────────────────────────────────────────
+// `pref-theme` holds a theme id (see themes.ts). Two attributes go on <html>:
+// data-theme="<id>" keys the token block, data-scheme="light|dark" is for the
+// rules that only care which side of the fence a theme is on (the header pill).
+// `pref-theme-dark` remembers the last dark-family id, so the sun/moon pill
+// takes someone who chose Pixel back to Pixel rather than to plain Dark.
+
+export function currentThemeId(): ThemeId {
+  return coerceThemeId(read('pref-theme', 'dark'))
+}
+
+export function setThemeId(id: ThemeId): void {
+  localStorage.setItem('pref-theme', id)
+  if (schemeOf(id) === 'dark') localStorage.setItem('pref-theme-dark', id)
+  const html = document.documentElement
+  html.setAttribute('data-theme', id)
+  html.setAttribute('data-scheme', schemeOf(id))
+  // The iOS status bar / Android address bar follow this meta, not the CSS.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEMES[id].chrome)
+  emit()
+}
+
+export interface ThemeState {
+  id: ThemeId
+  scheme: Scheme
+  set: (id: ThemeId) => void
+  /** Light ↔ the last dark-family theme (Dark until another is chosen). */
+  toggleScheme: () => void
+}
+
+export function useTheme(): ThemeState {
+  const id = useSyncExternalStore(subscribe, currentThemeId)
+  const toggleScheme = useCallback(() => {
+    // The remembered id must itself be a dark theme, or the pill would go
+    // Light → Light and look stuck.
+    const lastDark = coerceThemeId(read('pref-theme-dark', 'dark'))
+    setThemeId(schemeOf(currentThemeId()) === 'light'
+      ? (schemeOf(lastDark) === 'dark' ? lastDark : 'dark')
+      : 'light')
   }, [])
-  return [theme, toggle]
+  return { id, scheme: schemeOf(id), set: setThemeId, toggleScheme }
 }
 
 export function useCensor(): [boolean, () => void] {

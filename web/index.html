@@ -26,8 +26,16 @@
       // background (mirrors the Dash app's inline head script).
       (function () {
         try {
+          // Theme id → [scheme, status-bar colour]. Mirrors THEMES in src/themes.ts —
+          // this runs before any module can load, so it keeps its own copy
+          // (themes.test.ts checks the two agree).
+          var themes = { light: ['light', '#1abc9c'], dark: ['dark', '#1abc9c'], pixel: ['dark', '#0c1a1c'] };
           var t = localStorage.getItem('pref-theme');
-          document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+          if (!Object.prototype.hasOwnProperty.call(themes, t)) t = 'dark';
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.setAttribute('data-scheme', themes[t][0]);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', themes[t][1]);
           var c = localStorage.getItem('pref-censor');
           document.documentElement.setAttribute('data-censor', c === 'on' ? 'on' : 'off');
           var l = localStorage.getItem('pref-lang');

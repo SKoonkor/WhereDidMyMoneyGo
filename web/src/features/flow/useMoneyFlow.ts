@@ -44,7 +44,7 @@ export function useMoneyFlow(
 ): MoneyFlow {
   const all = useLiveTxns()
   const currency = useBaseCurrency()
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
   const [censor] = useCensor()
 
   const scoped = useMemo(

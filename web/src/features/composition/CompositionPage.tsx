@@ -71,7 +71,7 @@ function CatColumn({ title, color, groups, censor, currency }: {
 export function CompositionPage() {
   const all = useLiveTxns()
   const currency = useBaseCurrency()
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
   const [censor] = useCensor()
   const budget = useLiveQuery(() => getBudget(), [])
   const [view, setView] = useState<View>('pie')

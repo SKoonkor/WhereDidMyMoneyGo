@@ -20,7 +20,7 @@ const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 
 // the box on Home; GoalsPage uses the default self-contained card.
 export function SavingsPoolGauge({ bare = false }: { bare?: boolean } = {}) {
   const pool = useSavingsPool()
-  const [theme] = useTheme()
+  const { id: theme, scheme } = useTheme()
   const [censor] = useCensor()
 
   const fig = useMemo(() => {
@@ -48,13 +48,13 @@ export function SavingsPoolGauge({ bare = false }: { bare?: boolean } = {}) {
       currency,
       censor,
       ink: cssVar('--ink', '#e6e9ee'),
-      bands: gaugeBands(theme === 'dark'),
+      bands: gaugeBands(scheme === 'dark'),
       title: '', // the box header below shows "SAVINGS POOL" now
       subtitle: subtitle + targetLine,
       footer,
     })
-    // theme included so the gauge bands rebuild on toggle
-  }, [pool, censor, theme])
+    // theme/scheme included so the gauge bands rebuild on a theme change
+  }, [pool, censor, theme, scheme])
 
   if (!fig) return null
 

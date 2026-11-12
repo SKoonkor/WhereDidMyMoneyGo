@@ -31,7 +31,7 @@ export function BudgetPage() {
   const cfg = useLiveQuery(() => getBudget(), []) // undefined until loaded (avoids seeding defaults)
   const categories = useCategories()
   const currency = useBaseCurrency()
-  const [theme] = useTheme()
+  const { id: theme } = useTheme()
   const [censor] = useCensor()
   const [month, setMonth] = useState(currentMonthKey())
 

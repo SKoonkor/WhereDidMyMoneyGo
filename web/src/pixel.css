@@ -1,0 +1,323 @@
+/* ── Pixel theme ───────────────────────────────────────────────────────────────
+   The retro skin for data-theme="pixel": square corners, hard 3px edges, buttons
+   with a solid offset shadow that press in when tapped, flat fills, and the
+   Pixelify Sans face on titles, numbers and buttons. Every rule is scoped to
+   :root[data-theme='pixel'], so Light and Dark never see any of it.
+
+   The palette is in theme.css. The pixel art (Home hero, card icons, Settings
+   swatch) is in src/assets/pixel/ and is drawn at 4× with image-rendering:
+   pixelated, so it stays crisp at any size. */
+
+/* Latin only: Thai (and anything else) falls through to the body stack. Weights
+   are separate files, so a page only loads the ones it uses. */
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/pixelify/pixelify-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/pixelify/pixelify-500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/pixelify/pixelify-600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Pixelify Sans';
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/pixelify/pixelify-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root[data-theme='pixel'] {
+  --px-font: 'Pixelify Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Thai', sans-serif;
+  --px-edge: 3px;
+  --px-shadow: #050c0d;
+  --on-gold: #0c1a1c;
+}
+
+/* Pixel art always renders as pixels. */
+.pixelated,
+:root[data-theme='pixel'] .pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ── Type: the pixel face on titles, numbers and controls only ─────────────── */
+:root[data-theme='pixel'] :is(
+  .brand, .h1, .dash-title, .set-group-title, .collapse-head,
+  .btn, .seg-btn, .choice-chip, .pick-chip, .budget-chip,
+  .bottom-nav-item span, .modal-title, .theme-card-label,
+  .recon-reminder-text strong
+) {
+  font-family: var(--px-font);
+}
+/* Amounts deliberately stay in the body face: in Pixelify Sans a 5 reads as an
+   S ("1SS.00" for 155), which is not acceptable on money. They get weight and
+   tabular figures instead, so they still look like a score readout. */
+:root[data-theme='pixel'] .brand { font-size: 19px; letter-spacing: 0.01em; }
+:root[data-theme='pixel'] .brand .dot { color: var(--accent); }
+:root[data-theme='pixel'] .h1 { text-shadow: 3px 3px 0 var(--px-shadow); }
+:root[data-theme='pixel'][data-lang='en'] .dash-title,
+:root[data-theme='pixel'][data-lang='en'] .set-group-title { letter-spacing: 0.12em; }
+/* Limit amounts sit inside a pixel-font chip but are money: body face, as above. */
+:root[data-theme='pixel'] .budget-chip-amt {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Thai', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Chrome: square, hard-edged, flat ──────────────────────────────────────── */
+/* Square everything. A pixel look has no curves anywhere, and listing every
+   rounded class in App.css (40+) would rot as the app grows. !important because
+   component rules set their radius with higher specificity all over App.css. */
+:root[data-theme='pixel'] *,
+:root[data-theme='pixel'] *::before,
+:root[data-theme='pixel'] *::after {
+  border-radius: 0 !important;
+}
+/* …except what is a circle by meaning: the ring gauges (a radial mask cuts the
+   hole, so a square disc becomes a square with a round hole) and the photo. */
+:root[data-theme='pixel'] :is(.mini-ring-disc, .tour-avatar, .tour-avatar-heart) {
+  border-radius: 50% !important;
+}
+:root[data-theme='pixel'] :is(.card, .set-card) {
+  border: var(--px-edge) solid var(--border);
+  box-shadow: none;
+}
+:root[data-theme='pixel'] .app-header {
+  border-bottom: var(--px-edge) solid var(--border);
+}
+:root[data-theme='pixel'] .modal-sheet {
+  border-top: var(--px-edge) solid var(--accent);
+}
+:root[data-theme='pixel'] :is(input, select, textarea) {
+  caret-color: var(--accent);
+  accent-color: var(--accent); /* checkboxes, radios, sliders */
+}
+/* Text-like fields swap the focus outline for a thick gold border. Checkboxes,
+   radios, sliders and file pickers have no CSS border, so they keep the outline. */
+:root[data-theme='pixel'] :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select, textarea) {
+  border-width: var(--px-edge);
+}
+:root[data-theme='pixel'] :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file']), select, textarea):focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Buttons: solid fill, dark edge, an offset shadow that presses in. */
+:root[data-theme='pixel'] .btn,
+:root[data-theme='pixel'] .seg-btn.active,
+:root[data-theme='pixel'] .bottom-nav-add {
+  border: var(--px-edge) solid var(--px-shadow);
+  box-shadow: 3px 3px 0 var(--px-shadow);
+  transition: none;
+}
+:root[data-theme='pixel'] :is(.btn, .seg-btn.active, .bottom-nav-add):active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--px-shadow);
+}
+:root[data-theme='pixel'] .btn.ghost {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+:root[data-theme='pixel'] .seg-btn:not(.active) {
+  border: var(--px-edge) solid var(--border);
+  background: var(--bg);
+}
+
+/* Gold is a light fill, so everything that sits on the accent takes dark ink. */
+:root[data-theme='pixel'] :where(
+  .btn, .btn-accent, .seg-btn.active, .bottom-nav-add, .choice-chip.on,
+  .pick-chip.on, .pick-cell.on, .my-month.is-sel, .kp-ok, .ig-num, .goal-check.on
+) {
+  color: var(--on-gold);
+}
+/* The tour's drawn tab bar: its ＋ sits on the gold accent too. */
+:root[data-theme='pixel'] .tour-plus { stroke: var(--on-gold); }
+/* `:where` above keeps that rule light (0,2,0) so the button variants below win.
+   These few are themselves heavier than (0,2,0) in App.css, so they are listed
+   on their own rather than raising the weight of the whole list. */
+:root[data-theme='pixel'] .budget-chip.tax-chip.on,
+:root[data-theme='pixel'] .pick-cell.on .pick-caret,
+:root[data-theme='pixel'] .budget-chip.tax-chip.on .cat-caret {
+  color: var(--on-gold);
+}
+/* Destructive buttons keep their red. */
+:root[data-theme='pixel'] .btn.danger {
+  background: var(--surface-2);
+  color: var(--expense);
+}
+:root[data-theme='pixel'] .btn.ret-reset {
+  background: transparent;
+  color: var(--expense);
+  border-color: var(--expense);
+}
+/* The tour's blue QR button: white reads on it, dark ink does not. */
+:root[data-theme='pixel'] .tour-link-qr { color: #fff; }
+:root[data-theme='pixel'] :is(.seg-btn.active.is-income, .seg-btn.active.is-expense, .btn.solid-danger) {
+  color: var(--on-gold);
+}
+:root[data-theme='pixel'] .seg-btn.active.is-transfer { color: var(--on-gold); }
+
+/* Bars become rows of blocks. */
+:root[data-theme='pixel'] .budget-bar {
+  position: relative;
+  height: 10px;
+  background: var(--border);
+}
+/* The gaps are drawn OVER the bar (sized to the bar), not cut out of the fill,
+   so a short fill still shows whole blocks instead of hairlines. */
+:root[data-theme='pixel'] .budget-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(5% - 2px), var(--surface) calc(5% - 2px) 5%);
+}
+:root[data-theme='pixel'] .budget-bar-fill { transition: none; }
+:root[data-theme='pixel'] .budget-bar-fill.warn { background: var(--accent); }
+
+/* Header sun/moon pill: a square switch. */
+:root[data-theme='pixel'] .theme-switch {
+  background: var(--bg);
+  border: var(--px-edge) solid var(--border);
+  height: 30px;
+}
+:root[data-theme='pixel'] .theme-switch .tt-knob {
+  top: 1px;
+  left: 23px;
+  background-color: var(--surface-2);
+  box-shadow: none;
+}
+
+/* Bottom nav: a hard top edge and a square gold ＋. */
+:root[data-theme='pixel'] .bottom-nav {
+  border-top: var(--px-edge) solid var(--border);
+  box-shadow: none;
+}
+:root[data-theme='pixel'] .bottom-nav-item.active { color: var(--accent); }
+:root[data-theme='pixel'] .bottom-nav-add {
+  background: var(--accent);
+}
+
+/* Banners (spending limit, reconcile): gold edge, flat fill, a pixel icon. */
+:root[data-theme='pixel'] .recon-reminder {
+  border: var(--px-edge) solid #b38a20;
+  background: #1d2a1e;
+}
+:root[data-theme='pixel'] .recon-reminder-text strong { color: var(--accent); }
+:root[data-theme='pixel'] .recon-reminder::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  background: url('./assets/pixel/icon-receipt.png') center / contain no-repeat;
+  image-rendering: pixelated;
+}
+:root[data-theme='pixel'] .limit-reminder::before {
+  background-image: url('./assets/pixel/icon-flag.png');
+}
+
+/* Home card headers: a 16×16 sprite per widget, drawn at 24px. */
+:root[data-theme='pixel'] .home-item .collapse-head > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+:root[data-theme='pixel'] :is(.w-networth, .w-budget, .w-limits, .w-pool, .w-goals, .w-debts, .w-accounts, .w-flow) .collapse-head > span:first-child::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  background: url('./assets/pixel/icon-coin.png') center / contain no-repeat;
+  image-rendering: pixelated;
+}
+:root[data-theme='pixel'] .w-budget .collapse-head > span:first-child::before { background-image: url('./assets/pixel/icon-piggy.png'); }
+:root[data-theme='pixel'] .w-limits .collapse-head > span:first-child::before { background-image: url('./assets/pixel/icon-flag.png'); }
+:root[data-theme='pixel'] :is(.w-pool, .w-goals) .collapse-head > span:first-child::before { background-image: url('./assets/pixel/icon-chest.png'); }
+:root[data-theme='pixel'] .w-debts .collapse-head > span:first-child::before { background-image: url('./assets/pixel/icon-receipt.png'); }
+
+/* The pixel-art scene at the top of Home, edge to edge inside the page gutter. */
+.pixel-hero {
+  display: block;
+  width: calc(100% + 2 * clamp(6px, 2vw, 14px));
+  max-width: none; /* theme.css caps every img at 100% */
+  margin: -10px calc(-1 * clamp(6px, 2vw, 14px)) 4px;
+  aspect-ratio: 2 / 1;
+  max-height: 220px;
+  object-fit: cover;
+  object-position: 50% 60%;
+  border-bottom: 3px solid var(--border);
+}
+
+/* Settings theme picker. */
+.theme-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 420px;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 6px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+.theme-card.on { border-color: var(--accent); color: var(--ink); }
+.theme-card-label { font-size: 13px; font-weight: 600; }
+.theme-swatch {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 52px;
+  border-radius: 7px;
+  overflow: hidden;
+  object-fit: cover;
+}
+.theme-swatch.is-light { background: #f4f6f8; }
+.theme-swatch.is-dark { background: #14181f; }
+.theme-swatch-bar {
+  position: absolute;
+  left: 6px; right: 6px; top: 6px;
+  height: 14px;
+  border-radius: 4px;
+}
+.theme-swatch.is-light .theme-swatch-bar { background: #ffffff; border: 1px solid #d0d7de; }
+.theme-swatch.is-dark .theme-swatch-bar { background: #273140; border: 1px solid #3a4250; }
+.theme-swatch-chip {
+  position: absolute;
+  left: 6px; bottom: 7px;
+  width: 28px; height: 11px;
+  border-radius: 999px;
+}
+.theme-swatch.is-light .theme-swatch-chip { background: #16a085; }
+.theme-swatch.is-dark .theme-swatch-chip { background: #1abc9c; }
+:root[data-theme='pixel'] .theme-card {
+  border-width: var(--px-edge);
+  background: var(--bg);
+}
+:root[data-theme='pixel'] .theme-card.on {
+  background: var(--surface-2);
+  box-shadow: 3px 3px 0 var(--px-shadow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='pixel'] :is(.btn, .seg-btn.active, .bottom-nav-add):active { transform: none; }
+}

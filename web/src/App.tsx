@@ -46,6 +46,7 @@ import {
 import { OnboardingHost } from './features/onboarding/OnboardingHost'
 import { TxnForm } from './features/transactions/TxnForm'
 import './App.css'
+import './pixel.css'
 
 // A gentle heads-up for the review form when a scan looks unreliable — a missing
 // total, or a low self-reported confidence. Returns undefined when it read cleanly.
@@ -114,7 +115,7 @@ function goToChart() {
 }
 
 function Header() {
-  const [theme, toggleTheme] = useTheme()
+  const theme = useTheme()
   const [censor, toggleCensor] = useCensor()
   const trading = useTradingMode()
   const appName = useAppName()
@@ -133,9 +134,9 @@ function Header() {
             purely in CSS off html[data-theme] / html[data-censor]. */}
         <button
           className="theme-switch"
-          onClick={toggleTheme}
+          onClick={theme.toggleScheme}
           aria-label="Toggle light/dark mode"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={theme.scheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           <span className="tt-knob" />
         </button>

@@ -39,7 +39,8 @@ export function WidgetFrame({
     >
       <CollapsibleCard
         title={title}
-        className={def.className}
+        // `w-<id>` lets a theme dress a box by what it is (the Pixel theme's icons).
+        className={`${def.className ?? ''} w-${item.widget}`}
         // In edit mode the ⠿ strip already names the box, so drop the card's own
         // header rather than showing the title twice.
         header={def.header && !editing}
